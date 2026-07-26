@@ -8,6 +8,10 @@ import {
   MAX_VIDEO_SIZE_BYTES,
 } from "@/lib/storage/video-storage";
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export function VideoUpload({
   hallId,
   templateItemId,
@@ -52,9 +56,19 @@ export function VideoUpload({
           handleUploadUrl: `/api/templates/${hallId}/items/${templateItemId}/video/blob`,
           clientPayload: JSON.stringify({ fileSize: file.size }),
         });
-        // onUploadCompleted 웹훅은 이 응답과 별도로 도착한다 — 즉시 반영되지 않을 수
-        // 있음(v1 알려진 한계, Dev Notes 참고).
+        if (inputRef.current) inputRef.current.value = "";
+        // onUploadCompleted 웹훅은 이 응답과 별도(비동기)로 도착해 DB 행을 만든다 —
+        // 이 시점에 한 번만 새로고침하면 아직 반영 전 상태를 보여줄 수 있다(코덱스
+        // 리뷰 P1). 웹훅이 도착할 시간을 벌기 위해 짧은 간격으로 몇 차례 더
+        // 새로고침한다 — 완벽한 보장은 아니지만(로컬은 애초에 웹훅이 오지 않음,
+        // Dev Notes 참고) 프로덕션에서는 보통 수 초 안에 반영된다.
         setNotice("업로드 완료, 목록에 반영 중...");
+        router.refresh();
+        for (const delayMs of [1000, 2000, 2000]) {
+          await sleep(delayMs);
+          router.refresh();
+        }
+        setNotice(null);
       } else {
         const formData = new FormData();
         formData.set("file", file);
@@ -66,9 +80,9 @@ export function VideoUpload({
           const body = (await res.json()) as { error?: { message?: string } };
           throw new Error(body.error?.message ?? "업로드에 실패했습니다");
         }
+        if (inputRef.current) inputRef.current.value = "";
+        router.refresh();
       }
-      if (inputRef.current) inputRef.current.value = "";
-      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "업로드에 실패했습니다");
     } finally {

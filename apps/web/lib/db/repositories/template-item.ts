@@ -11,23 +11,29 @@ export async function create(
   hallId: string,
   input: { stepName: string; description?: string | null },
 ): Promise<TemplateItem> {
-  const [{ nextOrder }] = await db
-    .select({
-      nextOrder: sql<number>`coalesce(max(${checklistTemplateItems.sortOrder}), -1) + 1`,
-    })
-    .from(checklistTemplateItems)
-    .where(eq(checklistTemplateItems.hallId, hallId));
+  return db.transaction(async (tx) => {
+    // 같은 홀에 대한 동시 생성 요청이 max(sort_order)를 동시에 읽어 같은 순서값을
+    // 받는 것을 막기 위해 홀 단위로 직렬화한다(코덱스 리뷰 P2 반영, 트랜잭션 종료 시 자동 해제).
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${hallId}))`);
 
-  const [item] = await db
-    .insert(checklistTemplateItems)
-    .values({
-      hallId,
-      stepName: input.stepName,
-      description: input.description ?? null,
-      sortOrder: nextOrder,
-    })
-    .returning();
-  return item;
+    const [{ nextOrder }] = await tx
+      .select({
+        nextOrder: sql<number>`coalesce(max(${checklistTemplateItems.sortOrder}), -1) + 1`,
+      })
+      .from(checklistTemplateItems)
+      .where(eq(checklistTemplateItems.hallId, hallId));
+
+    const [item] = await tx
+      .insert(checklistTemplateItems)
+      .values({
+        hallId,
+        stepName: input.stepName,
+        description: input.description ?? null,
+        sortOrder: nextOrder,
+      })
+      .returning();
+    return item;
+  });
 }
 
 export async function findAllByHall(hallId: string): Promise<TemplateItem[]> {

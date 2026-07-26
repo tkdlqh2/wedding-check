@@ -54,22 +54,13 @@ export async function deleteTemplateItem(hallId: string, id: string): Promise<vo
 }
 
 // AC 3: 위/아래 버튼으로 인접 항목과 순서를 바꾼다. 맨 위에서 up, 맨 아래에서 down은
-// 조용히 무시한다(범위 밖 이동 없음).
+// 조용히 무시한다(범위 밖 이동 없음). 조회·스왑·저장은 리포지토리의 `moveAdjacent`가
+// 하나의 잠긴 트랜잭션 안에서 원자적으로 수행한다(동시 이동 요청 간 유실 방지).
 export async function moveTemplateItem(
   hallId: string,
   id: string,
   direction: "up" | "down",
 ): Promise<void> {
   await assertHallExists(hallId);
-  const items = await templateItemRepo.findAllByHall(hallId);
-  const index = items.findIndex((item) => item.id === id);
-  if (index === -1) return;
-
-  const targetIndex = direction === "up" ? index - 1 : index + 1;
-  if (targetIndex < 0 || targetIndex >= items.length) return;
-
-  const orderedIds = items.map((item) => item.id);
-  [orderedIds[index], orderedIds[targetIndex]] = [orderedIds[targetIndex], orderedIds[index]];
-
-  await templateItemRepo.reorderAll(hallId, orderedIds);
+  await templateItemRepo.moveAdjacent(hallId, id, direction);
 }

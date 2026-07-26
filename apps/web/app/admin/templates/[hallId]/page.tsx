@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import * as hallRepo from "@/lib/db/repositories/hall";
 import { listTemplateItems } from "@/lib/services/template";
+import { isValidUuid } from "@/lib/uuid";
 import { TemplateItemForm } from "./template-item-form";
 import { TemplateItemRow } from "./template-item-row";
 import "./templates.css";
@@ -11,6 +12,13 @@ export default async function TemplatePage({
   params: Promise<{ hallId: string }>;
 }) {
   const { hallId } = await params;
+  // hallId는 uuid 컬럼과 직접 비교되므로, 형식이 아예 아니면 쿼리를 보내기 전에 걸러야
+  // "invalid input syntax for type uuid" DB 에러가 500으로 새는 것을 막을 수 있다
+  // (코덱스 리뷰 6차 P2 반영).
+  if (!isValidUuid(hallId)) {
+    notFound();
+  }
+
   const hall = await hallRepo.findById(hallId);
   if (!hall || !hall.isActive) {
     notFound();

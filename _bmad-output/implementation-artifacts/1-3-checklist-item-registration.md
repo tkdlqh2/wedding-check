@@ -4,7 +4,7 @@ baseline_commit: 3d3a2f5279becaa46343566b4cbe3a796cb857a8
 
 # Story 1.3: 체크리스트 항목 등록
 
-Status: in-progress
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -60,9 +60,9 @@ so that 홀 전용 조작 표준을 만들 수 있다.
   - [x] `app/admin/halls/hall-row.tsx`(UPDATE, Story 1.2가 만든 기존 파일)에 "템플릿 관리" 링크(Secondary 버튼 또는 텍스트 링크, `/admin/templates/${hall.id}`로 이동) 추가 — 기존 "수정"/"삭제" 액션 옆에 배치
   - [x] `app/admin/layout.tsx`의 상단 내비 "템플릿" 항목(현재 `admin-nav__link--placeholder`, 클릭 불가 `<span>`)은 이 스토리에서 건드리지 않는다 — 홀별로 스코프된 라우트라 홀을 먼저 골라야 하고, 홀 선택 UI 없는 최상위 `/admin/templates` 인덱스는 이 스토리 AC에 없다(Story 1.2와 동일하게 내비 전면 연결은 이후 스토리로 미룸)
 
-- [ ] Task 7: 접근 제어 확인 (AC: 5)
-  - [ ] `app/admin/templates/`는 이미 `app/admin/layout.tsx`(Story 1.1)의 `role !== 'admin'` 차단 로직 아래에 위치하므로 별도 구현 불필요 — operator 세션으로 `/admin/templates/[hallId]` 접근 시 `/login`으로 리다이렉트됨을 수동 검증(Node fetch 스크립트)으로 확인
-  - [ ] `apps/web/proxy.ts`의 `/admin/:path*` 매처도 이미 커버함을 확인(Story 1.2와 동일)
+- [x] Task 7: 접근 제어 확인 (AC: 5)
+  - [x] `app/admin/templates/`는 이미 `app/admin/layout.tsx`(Story 1.1)의 `role !== 'admin'` 차단 로직 아래에 위치하므로 별도 구현 불필요 — operator 세션으로 `/admin/templates/[hallId]` 접근 시 `/login`으로 리다이렉트됨을 수동 검증(Node fetch 스크립트)으로 확인(307)
+  - [x] `apps/web/proxy.ts`의 `/admin/:path*` 매처도 이미 커버함을 확인 — 비로그인 상태도 307로 `/login` 차단됨을 확인
 
 ## Dev Notes
 
@@ -141,6 +141,33 @@ claude-sonnet-5
 
 ### Debug Log References
 
+- 스키마: `checklist_template_items`에 `hall_id`(uuid, FK→halls.id), `step_name`, `description`(nullable), `sort_order`(integer), `applicable_contract_conditions`(jsonb, default `{}`, AD-9)를 추가. `npx drizzle-kit generate`로 DB 연결 없이 마이그레이션 생성(`0004_naive_james_howlett.sql`), 로컬 Docker Postgres(`wedding-check-db`)에 직접 적용 — 이번 스토리부터는 스왑/원복 절차가 아예 필요 없어졌음을 확인(이전 fix 병합 덕분).
+- Server Action 검증은 Story 1.2와 동일하게 렌더된 HTML의 `$ACTION_REF_*`/`$ACTION_*:0`/`$ACTION_*:1`/`$ACTION_KEY` hidden 필드를 파싱해 Node `fetch`/`FormData`로 재전송하는 방식을 재사용. 단, `updateTemplateItemAction`은 클라이언트 `editing` 상태가 true일 때만 렌더되는 폼이라 순수 GET으로는 hidden 필드를 얻을 수 없었음 — AD-2 홀 격리 회귀 테스트는 대신 항상 렌더되는 `deleteTemplateItemAction`(및 `moveTemplateItemAction`)으로 수행: HALL_1F 소속 항목 id를 HALL_2F의 hallId와 조합해 삭제 요청 → 200 응답이지만 DB에는 아무 변화 없음을 확인(`WHERE hall_id = $hallId AND id = $id`가 매치되지 않아 조용히 무시됨).
+- 두 홀("1층 홀", "2층 홀")을 로컬 DB에 실제로 생성해 교차 검증. 한글 홀명/단계명/설명 모두 DB에 정상 저장됨을 `psql`로 직접 확인(이 환경의 curl 인자 인코딩 이슈와 무관하게 Node fetch 경로는 항상 정상).
+
 ### Completion Notes List
 
+- Task 1~7 전 항목 구현 및 검증 완료.
+- AC 1: HALL_1F("1층 홀")에 "촬영 시작"/"조명 점검" 두 항목을 Server Action으로 생성 → 응답에 포함, HALL_1F 페이지에서만 노출되고 HALL_2F("2층 홀") 페이지에는 노출되지 않음을 확인(AD-2 홀 격리). `template-item-card` 클래스(Feature Card, UX-DR6)로 렌더됨을 HTML에서 확인.
+- AC 2: 빈 단계명으로 제출 → DB row 수 불변, 응답에 "단계명은 필수입니다" 에러 메시지 포함 확인.
+- AC 3: "조명 점검" 항목을 위로 이동 → `sort_order`가 즉시 DB에 반영되어 순서가 바뀜을 `psql`로 확인(0↔1 스왑).
+- AC 4: 항목이 없는 HALL_2F 템플릿 화면에서 "아직 등록된 체크리스트 항목이 없어요..." 격려 톤 빈 상태 문구 확인.
+- AC 5: operator 세션 및 비로그인 상태 모두 `/admin/templates/[hallId]` 접근 시 307로 `/login` 리다이렉트 확인(Story 1.1 기존 가드 재사용, 추가 구현 없음).
+- AD-2 회귀(스코프 밖 추가 검증): HALL_1F 소속 항목 id를 HALL_2F의 hallId로 조합해 삭제 시도 → 항목이 삭제되지 않고 그대로 남아있음을 확인. 이 스토리부터 AD-2의 hallId 필터링이 실전 적용되는 첫 사례라 별도로 검증.
+- `npm run lint`, `npx tsc --noEmit`, `npm run build` 모두 통과(회귀 없음, `/admin/templates/[hallId]` 라우트가 빌드 결과에 정상 포함).
+- 자동화 테스트 프레임워크 미지정(Story 1.1/1.2와 동일 정책) — Dev Notes에 정의된 수동 검증 절차(Node fetch 스크립트 + DB 직접 조회)로 모든 AC를 확인함.
+
 ### File List
+
+- NEW `apps/web/lib/db/repositories/template-item.ts`
+- NEW `apps/web/lib/services/template.ts`
+- NEW `apps/web/app/admin/templates/[hallId]/page.tsx`
+- NEW `apps/web/app/admin/templates/[hallId]/template-item-form.tsx`
+- NEW `apps/web/app/admin/templates/[hallId]/template-item-row.tsx`
+- NEW `apps/web/app/admin/templates/[hallId]/actions.ts`
+- NEW `apps/web/app/admin/templates/[hallId]/templates.css`
+- NEW `apps/web/drizzle/0004_naive_james_howlett.sql`
+- NEW `apps/web/drizzle/meta/0004_snapshot.json`
+- MODIFIED `apps/web/lib/db/schema.ts` (`checklistTemplateItems` 테이블 추가)
+- MODIFIED `apps/web/drizzle/meta/_journal.json`
+- MODIFIED `apps/web/app/admin/halls/hall-row.tsx` ("템플릿 관리" 링크 추가)

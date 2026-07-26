@@ -79,8 +79,8 @@ git_pipeline:
     stage: codex-review
     branch: story/1-2-hall-registration
     pr_url: "https://github.com/tkdlqh2/wedding-check/pull/2"
-    notes: "1차 리뷰 P1(Server Action에 관리자 권한 검증 누락 — 레이아웃 가드 우회 가능) 수정 완료, 재리뷰 대기"
-    last_updated: "07-26-2026 18:15"
+    notes: "2차 리뷰 클린 (린트 통과, 결함 없음) — 자동 머지 진행"
+    last_updated: "07-26-2026 18:22"
 
   1-1-project-setup-and-login:
     stage: merged

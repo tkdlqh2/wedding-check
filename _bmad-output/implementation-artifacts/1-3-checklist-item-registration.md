@@ -1,6 +1,10 @@
+---
+baseline_commit: 3d3a2f5279becaa46343566b4cbe3a796cb857a8
+---
+
 # Story 1.3: 체크리스트 항목 등록
 
-Status: ready-for-dev
+Status: in-progress
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 

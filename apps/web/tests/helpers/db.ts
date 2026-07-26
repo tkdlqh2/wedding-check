@@ -2,9 +2,22 @@ import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { halls, checklistTemplateItems } from "@/lib/db/schema";
 
+// .env.test가 로드되지 않았는데 셸에 개발용 DATABASE_URL이 남아있으면 이 함수가
+// 개발 DB를 통째로 지울 수 있다(코덱스 리뷰 P1) — DB 이름을 확인해 wedding_check_test가
+// 아니면 무조건 막는다.
+function assertUsingTestDatabase() {
+  const url = process.env.DATABASE_URL ?? "";
+  if (!/\/wedding_check_test(\?|$)/.test(url)) {
+    throw new Error(
+      `resetDb()는 wedding_check_test DB에서만 실행할 수 있습니다. 현재 DATABASE_URL: "${url || "(설정 안 됨)"}" — .env.test가 로드됐는지 확인하세요.`,
+    );
+  }
+}
+
 // 통합 테스트는 항상 wedding_check_test DB(.env.test)를 대상으로 한다 — 개발 DB를
 // 건드리지 않는다. lib/db/index.ts의 dev-driver 분기를 그대로 재사용한다.
 export async function resetDb() {
+  assertUsingTestDatabase();
   await db.execute(
     sql`TRUNCATE TABLE demo_videos, checklist_template_items, halls, session, account, verification, "user" RESTART IDENTITY CASCADE`,
   );

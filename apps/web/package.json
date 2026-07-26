@@ -10,7 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "seed": "tsx --env-file=.env.local scripts/seed-accounts.ts",
-    "db:test:migrate": "tsx scripts/apply-migrations.ts"
+    "db:test:migrate": "tsx --env-file=.env.test scripts/apply-migrations.ts"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.6.25",

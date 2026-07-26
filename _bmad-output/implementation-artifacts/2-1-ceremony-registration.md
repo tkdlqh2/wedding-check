@@ -1,6 +1,10 @@
+---
+baseline_commit: 681e09f3e6a268b30472dbc4e0067c0e2e13e127
+---
+
 # Story 2.1: 예식 등록
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -19,43 +23,43 @@ so that 그 예식에 맞는 체크리스트 인스턴스가 자동으로 준비
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: DB 스키마 — `ceremonies`, `checklist_instances`, `checklist_instance_items` 추가 (AC: 1, 3)
-  - [ ] `lib/db/schema.ts`에 3개 테이블 추가 (Dev Notes "스키마 설계" 참고 — 정확한 컬럼/FK/onDelete 명시돼 있음, 임의 변경 금지)
-  - [ ] `npx drizzle-kit generate`로 마이그레이션 SQL 생성
-  - [ ] `docker exec wedding-check-db psql -U wedding_check -d wedding_check < drizzle/000N_*.sql`로 개발 DB에 적용 (Epic 1 회고 기록: `drizzle-kit migrate`는 이 환경에서 무한 대기/무출력 실패 — 직접 적용이 확립된 우회로)
-  - [ ] `npm run db:test:migrate`로 `wedding_check_test` DB에도 동일 마이그레이션 적용 (새 빈 DB 대상 스크립트라 기존 8개 마이그레이션이 이미 적용된 DB에는 재실행 금지 — 신규 파일만 별도로 `docker exec ... psql`로 적용)
+- [x] Task 1: DB 스키마 — `ceremonies`, `checklist_instances`, `checklist_instance_items` 추가 (AC: 1, 3)
+  - [x] `lib/db/schema.ts`에 3개 테이블 추가 (Dev Notes "스키마 설계" 참고 — 정확한 컬럼/FK/onDelete 명시돼 있음, 임의 변경 금지)
+  - [x] `npx drizzle-kit generate`로 마이그레이션 SQL 생성
+  - [x] `docker exec wedding-check-db psql -U wedding_check -d wedding_check < drizzle/000N_*.sql`로 개발 DB에 적용 (Epic 1 회고 기록: `drizzle-kit migrate`는 이 환경에서 무한 대기/무출력 실패 — 직접 적용이 확립된 우회로)
+  - [x] `npm run db:test:migrate`로 `wedding_check_test` DB에도 동일 마이그레이션 적용 (새 빈 DB 대상 스크립트라 기존 8개 마이그레이션이 이미 적용된 DB에는 재실행 금지 — 신규 파일만 별도로 `docker exec ... psql`로 적용)
 
-- [ ] Task 2: 리포지토리 — `lib/db/repositories/ceremony.ts` (AC: 1, 2, 3)
-  - [ ] `create(hallId, input: { ceremonyAt: Date; contractConditions: Record<string, boolean> })`: ceremony + instance + instance_items를 **단일 원자적 SQL 문**으로 생성 (Dev Notes "원자적 생성 SQL" 참고 — `db.transaction()` 절대 사용 금지, 이유는 Dev Notes 참고)
-  - [ ] `findByHallForDateRange(hallId, startOfDay, endOfDay)`: 특정 홀의 특정 날짜 범위 예식 목록(오늘 예식 조회용)
-  - [ ] `findById(hallId, id)`: 단건 조회
+- [x] Task 2: 리포지토리 — `lib/db/repositories/ceremony.ts` (AC: 1, 2, 3)
+  - [x] `create(hallId, input: { ceremonyAt: Date; contractConditions: Record<string, boolean> })`: ceremony + instance + instance_items를 **단일 원자적 SQL 문**으로 생성 (Dev Notes "원자적 생성 SQL" 참고 — `db.transaction()` 절대 사용 금지, 이유는 Dev Notes 참고)
+  - [x] `findByHallForDateRange(hallId, startOfDay, endOfDay)`: 특정 홀의 특정 날짜 범위 예식 목록(오늘 예식 조회용)
+  - [x] `findById(hallId, id)`: 단건 조회
 
-- [ ] Task 3: 서비스 — `lib/services/ceremony.ts` (AC: 1, 2, 4)
-  - [ ] `CeremonyValidationError` 클래스
-  - [ ] `createCeremony(input: { hallId: string; ceremonyAt: Date; contractConditions: Record<string, boolean> })`: hallId 미입력/존재하지 않는 홀 거부(AC 2) 후 리포지토리 호출
-  - [ ] `listTodaysCeremonies()`: `hallRepo.findAllActive()`로 전체 활성 홀을 순회하며 각 홀의 오늘 예식을 조회해 홀 이름을 붙여 병합 반환 (AD-2 위반 아님 — 각 호출은 여전히 `hallId` 스코프 리포지토리 함수를 거친다, Dev Notes 참고)
+- [x] Task 3: 서비스 — `lib/services/ceremony.ts` (AC: 1, 2, 4)
+  - [x] `CeremonyValidationError` 클래스
+  - [x] `createCeremony(input: { hallId: string; ceremonyAt: Date; contractConditions: Record<string, boolean> })`: hallId 미입력/존재하지 않는 홀 거부(AC 2) 후 리포지토리 호출
+  - [x] `listTodaysCeremonies()`: `hallRepo.findAllActive()`로 전체 활성 홀을 순회하며 각 홀의 오늘 예식을 조회해 홀 이름을 붙여 병합 반환 (AD-2 위반 아님 — 각 호출은 여전히 `hallId` 스코프 리포지토리 함수를 거친다, Dev Notes 참고)
 
-- [ ] Task 4: Server Action — `app/admin/ceremonies/actions.ts` (AC: 1, 2)
-  - [ ] `createCeremonyAction`: 첫 줄에 `requireAdminSession()` 호출(AD-3, 예외 없음) → `CeremonyValidationError`는 폼 에러로 변환 → 성공 시 `revalidatePath("/admin/ceremonies")`
+- [x] Task 4: Server Action — `app/admin/ceremonies/actions.ts` (AC: 1, 2)
+  - [x] `createCeremonyAction`: 첫 줄에 `requireAdminSession()` 호출(AD-3, 예외 없음) → `CeremonyValidationError`는 폼 에러로 변환 → 성공 시 `revalidatePath("/admin/ceremonies")`
 
-- [ ] Task 5: UI — `app/admin/ceremonies/` (AC: 1, 2, 4)
-  - [ ] `page.tsx`: `listActiveHalls()` + `listTodaysCeremonies()` 로드, 상단에 등록 폼, 하단에 오늘 예식 목록(빈 상태 포함)
-  - [ ] `ceremony-form.tsx`: 홀 `<select>`(활성 홀 목록), 예식 일시 `datetime-local` 입력, 계약 형태 체크박스 2개("주례 있음", "이벤트 추가 있음"), `useActionState` 패턴(halls/hall-form.tsx 참고)
-  - [ ] `ceremony-row.tsx`: 좌측 보더 카드(UX-DR7), 홀명 + 예식 일시(20px/700) + 인스턴스 항목 수
-  - [ ] `ceremonies.css`: 기존 `halls.css`/`templates.css` 토큰·클래스 네이밍 컨벤션 따름
+- [x] Task 5: UI — `app/admin/ceremonies/` (AC: 1, 2, 4)
+  - [x] `page.tsx`: `listActiveHalls()` + `listTodaysCeremonies()` 로드, 상단에 등록 폼, 하단에 오늘 예식 목록(빈 상태 포함)
+  - [x] `ceremony-form.tsx`: 홀 `<select>`(활성 홀 목록), 예식 일시 `datetime-local` 입력, 계약 형태 체크박스 2개("주례 있음", "이벤트 추가 있음"), `useActionState` 패턴(halls/hall-form.tsx 참고)
+  - [x] `ceremony-row.tsx`: 좌측 보더 카드(UX-DR7), 홀명 + 예식 일시(20px/700) + 인스턴스 항목 수
+  - [x] `ceremonies.css`: 기존 `halls.css`/`templates.css` 토큰·클래스 네이밍 컨벤션 따름
 
-- [ ] Task 6: 관리자 내비게이션 활성화 (AC: 1)
-  - [ ] `app/admin/layout.tsx`의 "예식" 링크(현재 `admin-nav__link--placeholder`)를 `/admin/ceremonies`로 연결
-  - [ ] 우측 상단 "새 예식 등록" 버튼(현재 `disabled`)을 `/admin/ceremonies`로 연결된 실제 링크로 전환
-  - [ ] "템플릿" 링크는 이 스토리 범위 밖 — 손대지 않는다(가리키는 단일 랜딩 페이지가 아직 없음)
+- [x] Task 6: 관리자 내비게이션 활성화 (AC: 1)
+  - [x] `app/admin/layout.tsx`의 "예식" 링크(현재 `admin-nav__link--placeholder`)를 `/admin/ceremonies`로 연결
+  - [x] 우측 상단 "새 예식 등록" 버튼(현재 `disabled`)을 `/admin/ceremonies`로 연결된 실제 링크로 전환
+  - [x] "템플릿" 링크는 이 스토리 범위 밖 — 손대지 않는다(가리키는 단일 랜딩 페이지가 아직 없음)
 
-- [ ] Task 7: 테스트 (AC: 1, 2, 3)
-  - [ ] `tests/repositories/ceremony.test.ts`: 원자적 생성(ceremony+instance+instance_items 동시 생성 확인), 템플릿 항목이 없는 홀도 빈 인스턴스로 성공, 홀 스코프 격리(`findByHallForDateRange`가 다른 홀 예식을 섞지 않음)
-  - [ ] `tests/services/ceremony.test.ts`: hallId 미입력/존재하지 않는 홀 거부(AC 2), 같은 홀+같은 날짜 중복 등록이 독립된 인스턴스를 가짐(AC 3)
-  - [ ] `npm run test`, `npx tsc --noEmit`, `npm run lint`, `npm run build` 전부 클린 확인
+- [x] Task 7: 테스트 (AC: 1, 2, 3)
+  - [x] `tests/repositories/ceremony.test.ts`: 원자적 생성(ceremony+instance+instance_items 동시 생성 확인), 템플릿 항목이 없는 홀도 빈 인스턴스로 성공, 홀 스코프 격리(`findByHallForDateRange`가 다른 홀 예식을 섞지 않음)
+  - [x] `tests/services/ceremony.test.ts`: hallId 미입력/존재하지 않는 홀 거부(AC 2), 같은 홀+같은 날짜 중복 등록이 독립된 인스턴스를 가짐(AC 3)
+  - [x] `npm run test`, `npx tsc --noEmit`, `npm run lint`, `npm run build` 전부 클린 확인
 
-- [ ] Task 8: 수동 검증
-  - [ ] 로컬 서버로 AC 1~4 전부 실제 확인(node fetch 스크립트 또는 브라우저) — 특히 AC 4의 "오늘 예식 없음" 빈 상태는 `wedding_check` 개발 DB에 오늘 날짜 예식이 실제로 없는 상태에서 확인
+- [x] Task 8: 수동 검증
+  - [x] 로컬 서버로 AC 1~4 전부 실제 확인(node fetch 스크립트 또는 브라우저) — 특히 AC 4의 "오늘 예식 없음" 빈 상태는 `wedding_check` 개발 DB에 오늘 날짜 예식이 실제로 없는 상태에서 확인
 
 ## Dev Notes
 
@@ -271,8 +275,36 @@ apps/web/
 
 ### Agent Model Used
 
+Amelia (claude-sonnet-5)
+
 ### Debug Log References
+
+- **실제 버그 발견(구현 중, 코덱스 리뷰 이전): `ceremonyRepo.create`의 raw SQL에 JS `Date` 객체를 직접 바인딩하면 9시간이 밀려 저장됨.** `db.execute(sql\`...${date}...\`)`로 `timestamp`(without time zone) 컬럼에 JS Date를 그대로 넘기면 node-postgres가 클라이언트/세션 타임존(로컬 환경 KST, UTC+9)을 거쳐 값을 변환해버린다 — `05:00Z`를 넣었는데 `14:00`으로 저장되는 걸 로컬 DB에 직접 스크립트를 실행해 재현·확인(`db.execute(sql\`select a::text ...\`)`로 저장된 원문 비교). drizzle의 `timestamp` 컬럼 자체는 `.insert().values()`를 쓸 때 `mapToDriverValue: value.toISOString()` / `mapFromDriverValue: 문자열+"+0000"` 규약으로 "컬럼 숫자는 항상 UTC"를 지키는데, raw SQL 경로는 이 규약을 타지 않아 깨졌던 것. 수정: `input.ceremonyAt.toISOString().replace("Z", "")` 후 `::timestamp` 캐스팅으로 세션 타임존 변환이 끼어들 여지를 없앰 — 수정 전/후 스크립트로 직접 검증(수정 후 `05:00Z` 입력 → `05:00` 저장 확인). 이 버그는 vitest 통합 테스트(`ceremonyAt.toISOString()` 왕복 비교)로 최초 발견됐고, `tests/services/ceremony.test.ts`/`tests/repositories/ceremony.test.ts`에 회귀 테스트로 남아있다.
+- `npm run dev` 포트 3000에 이전 세션에서 남은 것으로 보이는 좀비 프로세스(요청 시 500)가 떠 있어 `taskkill`로 종료 후 재기동 — Story 1.4 Debug Log에 기록된 것과 같은 클래스의 환경 이슈(Turbopack/스테일 프로세스), 애플리케이션 버그 아님.
 
 ### Completion Notes List
 
+- AC 1~4 전부 로컬 서버에 실제 로그인(관리자 계정) 후 HTTP 요청으로 검증: (1) 홀 2개가 있는 상태에서 예식 등록 → DB에서 ceremony/instance/instance_items가 실제로 함께 생성됨을 `psql`로 직접 확인, (2) hallId 없이 제출 시 `field-error` 메시지로 거부, (3) 같은 홀+같은 날짜로 두 번 등록 → `psql`로 서로 다른 `ceremony.id`/`instance.id` 2쌍이 생겼음을 확인, (4) 예식이 0건인 처음 상태에서 "오늘 등록된 예식이 없습니다" 빈 상태 문구 확인 후 등록 진행.
+- AD-9 부분집합 매칭(계약 형태 필터링)은 스토리 범위 밖으로 명시적으로 남겨둠 — `ceremonyRepo.create`의 CTE는 홀의 템플릿 항목을 조건 없이 전부 복사한다(Dev Notes에 Story 2.2 확장 지점으로 표시).
+- 관리자 내비게이션의 "템플릿" 링크는 이 스토리 범위 밖이라 손대지 않음(Task 6에 명시된 대로).
+- `db.transaction()`을 전혀 사용하지 않고 3테이블(ceremony+instance+instance_items) 체이닝 INSERT를 CTE 단일 SQL 문으로 구현 — Story 1.3/1.4의 교훈을 그대로 적용.
+
 ### File List
+
+- `apps/web/lib/db/schema.ts` (MODIFY) — `ceremonies`, `checklistInstances`, `checklistInstanceItems` 테이블 추가
+- `apps/web/drizzle/0008_happy_purifiers.sql` (NEW) — 위 3개 테이블 생성 마이그레이션
+- `apps/web/lib/db/repositories/ceremony.ts` (NEW)
+- `apps/web/lib/services/ceremony.ts` (NEW)
+- `apps/web/app/admin/ceremonies/actions.ts` (NEW)
+- `apps/web/app/admin/ceremonies/page.tsx` (NEW)
+- `apps/web/app/admin/ceremonies/ceremony-form.tsx` (NEW)
+- `apps/web/app/admin/ceremonies/ceremony-row.tsx` (NEW)
+- `apps/web/app/admin/ceremonies/ceremonies.css` (NEW)
+- `apps/web/app/admin/layout.tsx` (MODIFY) — "예식" 내비 링크 + "새 예식 등록" 버튼 활성화
+- `apps/web/tests/helpers/db.ts` (MODIFY) — `resetDb()` TRUNCATE 목록에 `ceremonies`/`checklist_instances`/`checklist_instance_items` 추가
+- `apps/web/tests/repositories/ceremony.test.ts` (NEW)
+- `apps/web/tests/services/ceremony.test.ts` (NEW)
+
+## Change Log
+
+- 2026-07-26: Story 구현 완료. AC 1~4 전부 자동화 테스트(vitest, 13건) + 실제 로컬 서버 수동 검증으로 확인. 구현 중 `ceremonyRepo.create`의 raw SQL 타임존 버그(9시간 밀림)를 vitest 테스트로 직접 발견·수정(Debug Log 참고).

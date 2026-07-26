@@ -73,8 +73,16 @@ development_status:
   4-2-insight-admin-only: backlog
   epic-4-retrospective: optional
 
-# Per-story git pipeline substage (see GIT PIPELINE STAGE legend above)
+# Per-story git pipeline substage (see GIT PIPELINE STAGE legend above).
+# 번호가 매겨진 스토리가 아닌 개별 수정(fix/*)도 동일한 파이프라인으로 추적한다.
 git_pipeline:
+  fix-phone-number-login:
+    stage: pr-open
+    branch: fix/phone-number-login
+    pr_url: "https://github.com/tkdlqh2/wedding-check/pull/3"
+    notes: "Story 1.1 완료 후 요구사항 변경(이메일 미수집, 전화번호 로그인) 소급 반영. 1-1-project-setup-and-login.md Completion Notes에 교차 참조 기록."
+    last_updated: "07-26-2026 18:45"
+
   1-2-hall-registration:
     stage: merged
     branch: story/1-2-hall-registration

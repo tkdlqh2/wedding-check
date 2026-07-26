@@ -133,6 +133,7 @@ claude-sonnet-5
 - 자동화 테스트 프레임워크 미지정(스토리 Dev Notes 명시) — 이번 스토리는 Dev Notes에 정의된 수동 검증 절차로 AC를 확인함.
 - 추가 요청 반영: 관리자 시드 계정에 `phoneNumber` 필드 및 시드 비밀번호/전화번호의 환경변수화 완료, 실제 DB 반영 검증까지 마침.
 - 미해결 항목: `.env.local`의 실제 `DATABASE_URL`(Neon)이 아직 플레이스홀더 상태 — 실제 배포/지속 개발을 위해서는 실제 Neon 프로젝트 연결 문자열이 필요함(다음 세션 또는 인프라 설정 시 채워야 함).
+- **소급 변경(2026-07-26, 이 스토리 완료 이후)**: 로그인 식별자를 이메일에서 전화번호로 전환(계정마다 이메일을 일일이 받지 않기로 함). `fix/phone-number-login` 브랜치(PR #3, `_bmad-output/implementation-artifacts/sprint-status.yaml`의 `git_pipeline.fix-phone-number-login`에 추적)에서 처리 — `lib/auth.ts`에 better-auth `phone-number` 플러그인 도입, 로그인 화면/시드 스크립트를 전화번호 기준으로 재작성. 이 문서의 위 Dev Notes/Tasks에 적힌 "이메일" 언급은 이 변경 이전 기준이므로 최신 동작은 PR #3을 참고할 것.
 
 ### File List
 

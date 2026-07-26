@@ -4,7 +4,7 @@ baseline_commit: 4fb2af536dc31829ca4dd195a2ef1ce011d9f77f
 
 # Story 1.4: 시연 영상 업로드 및 연결
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -23,62 +23,54 @@ so that 신입 오퍼레이터가 조작법을 영상으로 학습할 수 있다
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: `demo_videos` 테이블 스키마 + 마이그레이션 (AC: 1, 2, 3)
-  - [ ] `lib/db/schema.ts`에 `demoVideos` 테이블 추가: `id`(uuid, `defaultRandom()`, PK), `hallId`(uuid, not null, `references(() => halls.id)` — AD-2 홀 종속 엔티티, 스파인이 `demo_videos`를 명시적으로 홀 종속 목록에 포함시킴), `templateItemId`(uuid, not null, `references(() => checklistTemplateItems.id)`, **unique 제약** — 항목당 영상 슬롯은 1개, 아래 "[ASSUMPTION] 항목당 영상 1개" 참고), `videoUrl`(text, not null), `fileName`(text, not null — 원본 파일명, 표시용), `fileSizeBytes`(integer, not null — 500MB는 524,288,000이라 `integer`(최대 ~2.1GB) 범위 안, `bigint` 불필요), `storageProvider`(text, not null — `"vercel-blob" | "local"`, 어느 서빙 경로로 읽어야 하는지 구분), `createdAt`/`updatedAt`(halls와 동일 패턴)
-  - [ ] `npx drizzle-kit generate`로 마이그레이션 생성(DB 연결 없이 스키마 diff만으로 생성됨, Story 1.1~1.3에서 확인된 방식)
-  - [ ] 로컬 Postgres에 마이그레이션 적용 — `lib/db/index.ts`가 이미 `DATABASE_URL`로 자동 분기하므로 스왑 불필요(Story 1.3 Previous Story Intelligence 참고)
+- [x] Task 1: `demo_videos` 테이블 스키마 + 마이그레이션 (AC: 1, 2, 3)
+  - [x] `lib/db/schema.ts`에 `demoVideos` 테이블 추가: `id`(uuid, `defaultRandom()`, PK), `hallId`(uuid, not null, `references(() => halls.id)` — AD-2 홀 종속 엔티티, 스파인이 `demo_videos`를 명시적으로 홀 종속 목록에 포함시킴), `templateItemId`(uuid, not null, `references(() => checklistTemplateItems.id)`, **unique 제약** — 항목당 영상 슬롯은 1개, 아래 "[ASSUMPTION] 항목당 영상 1개" 참고), `videoUrl`(text, not null), `fileName`(text, not null — 원본 파일명, 표시용), `fileSizeBytes`(integer, not null — 500MB는 524,288,000이라 `integer`(최대 ~2.1GB) 범위 안, `bigint` 불필요), `storageProvider`(text, not null — `"vercel-blob" | "local"`, 어느 서빙 경로로 읽어야 하는지 구분), `createdAt`/`updatedAt`(halls와 동일 패턴)
+  - [x] `npx drizzle-kit generate`로 마이그레이션 생성(DB 연결 없이 스키마 diff만으로 생성됨, Story 1.1~1.3에서 확인된 방식) — `0006_flawless_korvac.sql`
+  - [x] 로컬 Postgres에 마이그레이션 적용 — **주의(신규 발견):** `npx drizzle-kit migrate`가 이 DB에서 멈춤/실패(exit 1, 에러 메시지 없이 스피너만 출력) — `drizzle.__drizzle_migrations` 추적 테이블이 비어있는 채로 0000~0005가 이미 테이블로 존재해(과거 스토리들이 `migrate` CLI가 아닌 다른 방식으로 적용한 것으로 추정) 충돌하는 것으로 보임. 신규 마이그레이션(`0006_*.sql`)만 `docker exec -i wedding-check-db psql -U wedding_check -d wedding_check < drizzle/0006_flawless_korvac.sql`로 직접 적용해 우회 — `\d demo_videos`로 테이블/FK/unique 제약 생성 확인 완료.
 
-- [ ] Task 2: 스토리지 상수 + 로컬 파일 저장 유틸 (AC: 1, 2, 3)
-  - [ ] `lib/storage/video-storage.ts`(NEW): `export function isBlobStorageConfigured(): boolean { return !!process.env.BLOB_READ_WRITE_TOKEN; }`(`lib/db/index.ts`의 `isLocalPostgres` 분기 패턴과 동일한 사상 — 인프라 유무로 구현을 스위칭), `export const MAX_VIDEO_SIZE_BYTES = 500 * 1024 * 1024;`, `export const ALLOWED_VIDEO_CONTENT_TYPE = "video/mp4";`. 이 파일은 클라이언트 컴포넌트에서도 import되므로(파일 선택 즉시 클라이언트 사이드 사전 검증용) 서버 전용 코드(`fs`, `process.env.BLOB_READ_WRITE_TOKEN` 값 자체의 노출 등)를 넣지 않는다 — `isBlobStorageConfigured()`도 서버 컴포넌트에서 호출해 그 **결과(boolean)**만 prop으로 클라이언트에 내려준다(토큰 값 자체는 클라이언트로 전달 금지).
-  - [ ] `lib/storage/local-video-store.ts`(NEW, 서버 전용): `LOCAL_VIDEO_DIR = path.join(process.cwd(), ".local-blob", "demo-videos")`. `async function saveLocalVideoFile(file: File): Promise<{ url: string; fileName: string; sizeBytes: number }>` — `fs/promises`의 `mkdir(..., {recursive:true})` + `writeFile`로 저장. 저장 파일명은 `${randomUUID()}.mp4`(원본 파일명을 그대로 쓰지 않음 — 경로 조작/충돌 방지). 반환 `url`은 `/api/local-videos/${storedName}`. `export function isValidLocalVideoFileName(name: string): boolean`(Task 5용 — `^[0-9a-f-]{36}\.mp4$` 정규식, path traversal 차단)
+- [x] Task 2: 스토리지 상수 + 로컬 파일 저장 유틸 (AC: 1, 2, 3)
+  - [x] `lib/storage/video-storage.ts`(NEW): `isBlobStorageConfigured()`, `MAX_VIDEO_SIZE_BYTES`, `ALLOWED_VIDEO_CONTENT_TYPE` — 서버 전용 코드 없이 클라이언트에서도 import 가능하게 구성.
+  - [x] `lib/storage/local-video-store.ts`(NEW, 서버 전용): `saveLocalVideoFile`, `isValidLocalVideoFileName`, `localVideoFilePath` 구현.
 
-- [ ] Task 3: 리포지토리 레이어 — `lib/db/repositories/demo-video.ts` (AC: 1, 2)
-  - [ ] `upsertForTemplateItem(hallId: string, templateItemId: string, input: { videoUrl: string; fileName: string; fileSizeBytes: number; storageProvider: "vercel-blob" | "local" }): Promise<DemoVideo>` — `db.insert(demoVideos).values({hallId, templateItemId, ...input}).onConflictDoUpdate({ target: demoVideos.templateItemId, set: {...} }).returning()`. **`db.transaction()`을 쓰지 않는다** — `ON CONFLICT`는 단일 SQL 문이라 원자적이며 `node-postgres`/`neon-http` 양쪽에서 동일하게 동작한다(Story 1.3 코덱스 4차 P1 교훈 재적용: 트랜잭션은 프로덕션 드라이버에서 무조건 throw). Story 1.3의 재시도 래퍼(`withConcurrencyRetry`)는 여기서 불필요 — UNIQUE 충돌이 애초에 발생하지 않는 단일 UPSERT 문이라 재시도할 대상이 없다(과잉 적용 금지).
-  - [ ] `findByTemplateItemIds(hallId: string, templateItemIds: string[]): Promise<DemoVideo[]>` — `templateItemIds.length === 0`이면 빈 배열 즉시 반환(빈 `IN ()` 방지). `WHERE hall_id = $hallId AND template_item_id IN (...)`(AD-2)
-  - [ ] 모든 함수 첫 인자 `hallId`(AD-2)
+- [x] Task 3: 리포지토리 레이어 — `lib/db/repositories/demo-video.ts` (AC: 1, 2)
+  - [x] `upsertForTemplateItem` — 단일 `ON CONFLICT DO UPDATE` 문(재시도 래퍼 불필요, 과잉 적용 회피).
+  - [x] `findByTemplateItemIds` — 빈 배열 가드 + `WHERE hall_id = $hallId AND template_item_id IN (...)`(AD-2).
+  - [x] 모든 함수 첫 인자 `hallId`(AD-2).
 
-- [ ] Task 4: 서비스 레이어 — `lib/services/demo-video.ts` (AC: 1, 2, 3)
-  - [ ] `DemoVideoValidationError extends Error`(Story 1.2/1.3과 동일 패턴)
-  - [ ] `async function assertTemplateItemOwnedByHall(hallId: string, templateItemId: string): Promise<void>` — `templateItemRepo.findById(hallId, templateItemId)`(Story 1.3이 이미 hallId+id 복합 WHERE로 구현해둔 함수를 그대로 재사용) 결과가 없으면 `DemoVideoValidationError` throw. 이것이 AD-2의 "2-hop 재검증"에 해당 — `templateItemId`만으로 신뢰하지 않고 그 항목이 실제로 `hallId` 소속인지 서버가 직접 재확인한다(다른 홀의 `templateItemId`를 넣어 그 홀 항목에 영상을 심는 것을 차단).
-  - [ ] `async function saveDemoVideo(hallId, templateItemId, input): Promise<DemoVideo>` — `assertTemplateItemOwnedByHall` 통과 후 `repo.upsertForTemplateItem(hallId, templateItemId, input)` 위임. **파일 형식/크기 서버 검증은 이 함수의 책임이 아니다** — 두 업로드 경로(local/blob)가 저장 방식이 근본적으로 다르므로 각 Route Handler가 자신의 경로에 맞는 방식으로 검증한다(Task 6). 이 함수는 "이미 검증되고 저장 완료된 파일의 메타데이터를 DB에 기록"만 한다.
-  - [ ] `async function listDemoVideosByItems(hallId, templateItemIds): Promise<DemoVideo[]>` — 리포지토리 위임(페이지 렌더링용)
+- [x] Task 4: 서비스 레이어 — `lib/services/demo-video.ts` (AC: 1, 2, 3)
+  - [x] `DemoVideoValidationError extends Error`
+  - [x] `assertTemplateItemOwnedByHall` — AD-2 2-hop 재검증, `templateItemRepo.findById(hallId, id)` 재사용. blob 업로드 라우트의 `onBeforeGenerateToken`에서도 직접 호출해야 해서 named export로 분리.
+  - [x] `saveDemoVideo` — 소유권 검증 후 리포지토리 위임.
+  - [x] `listDemoVideosByItems` — 리포지토리 위임.
 
-- [ ] Task 5: 로컬 영상 서빙 Route Handler (AC: 2 — 로컬 폴백 모드에서만 동작)
-  - [ ] `app/api/local-videos/[fileName]/route.ts`(NEW): `GET` 핸들러. `params.fileName`을 `isValidLocalVideoFileName()`으로 검증(불일치 시 404 — path traversal 차단). 파일을 `fs`로 읽어 `Content-Type: video/mp4`로 응답. **Range 요청 지원 필수** — HTML5 `<video>`는 재생/탐색(seek) 시 브라우저가 `Range` 헤더를 보낸다; 이를 무시하면 재생 자체는 되어도 탐색(스크럽)이 깨진다. `request.headers.get("range")`가 있으면 `fs.createReadStream(path, {start, end})` + `206 Partial Content` + `Content-Range`/`Accept-Ranges` 헤더로 응답, 없으면 전체 스트림 + `200`.
-  - [ ] 이 라우트는 `isBlobStorageConfigured() === false`일 때만 실제로 참조되지만, 라우트 자체는 항상 존재해도 무방(토큰이 나중에 생겨도 기존에 로컬로 저장된 영상은 계속 이 라우트로 서빙됨 — 마이그레이션 없이 공존 가능)
+- [x] Task 5: 로컬 영상 서빙 Route Handler (AC: 2 — 로컬 폴백 모드에서만 동작)
+  - [x] `app/api/local-videos/[fileName]/route.ts`(NEW): `GET` 핸들러, path traversal 차단 + Range 요청 지원(206/Content-Range) 구현 완료.
 
-- [ ] Task 6: 업로드 Route Handler 2종 (AC: 1, 2, 3)
-  - [ ] `@vercel/blob` 패키지 설치(`npm install @vercel/blob` — 아키텍처 스파인 §Stack이 이미 승인한 의존성, 신규 승인 불필요)
-  - [ ] `app/api/templates/[hallId]/items/[itemId]/video/local/route.ts`(NEW): `POST` — 로컬 폴백 전용. 순서: `requireAdminSession()` → `hallId`/`itemId`가 `isValidUuid`가 아니면 400 → `assertTemplateItemOwnedByHall(hallId, itemId)` 실패 시 404 → `request.formData()`에서 `file` 추출(없으면 400) → **서버 사이드 검증**: `file.type !== ALLOWED_VIDEO_CONTENT_TYPE` 또는 `file.size > MAX_VIDEO_SIZE_BYTES`면 400 + `{ error: { code, message } }`(스파인 §Consistency Conventions의 에러 응답 봉투 형식) → `saveLocalVideoFile(file)` → `saveDemoVideo(hallId, itemId, { videoUrl, fileName, fileSizeBytes: sizeBytes, storageProvider: "local" })` → `revalidatePath(\`/admin/templates/${hallId}\`)` → `200 { ok: true }`
-  - [ ] `app/api/templates/[hallId]/items/[itemId]/video/blob/route.ts`(NEW): `POST` — `@vercel/blob/client`의 `handleUpload()` 사용(정확한 시그니처는 아래 "라이브러리/최신 기술 정보" 참고, 반드시 이 문서대로 구현 — 학습 데이터의 옛 API와 다를 수 있음).
-    - `onBeforeGenerateToken(pathname, clientPayload)`: `requireAdminSession()` → 실패 시 throw(핸들러가 401 상당으로 처리). `hallId`/`itemId`는 라우트 URL 세그먼트에서 가져와 `isValidUuid` + `assertTemplateItemOwnedByHall` 검증(토큰 발급 이전에 반드시 통과해야 함 — AD-4가 명시하는 "신뢰할 수 없는 클라이언트 입력으로 홀 격리를 우회"를 막는 지점이 바로 여기). `clientPayload`(클라이언트가 `upload()` 호출 시 넘긴 문자열, Task 7에서 `JSON.stringify({fileSize: file.size})`로 채움)를 파싱해 `fileSize`를 꺼내 `tokenPayload`에 `{hallId, templateItemId: itemId, fileSize}`로 다시 실어보낸다(다음 콜백에 전달할 유일한 방법). 반환값: `{ allowedContentTypes: [ALLOWED_VIDEO_CONTENT_TYPE], maximumSizeInBytes: MAX_VIDEO_SIZE_BYTES, addRandomSuffix: true, tokenPayload: JSON.stringify({hallId, templateItemId: itemId, fileSize}) }` — `maximumSizeInBytes`/`allowedContentTypes`는 Vercel Blob 인프라가 업로드 자체를 거부하게 만드는 서버 사이드 강제이며(AC 3), 클라이언트 사전 검증(Task 7)과 별개로 반드시 있어야 하는 진짜 안전장치다.
-    - `onUploadCompleted({ blob, tokenPayload })`: `JSON.parse(tokenPayload)`로 `hallId`/`templateItemId`/`fileSize` 복원 → `saveDemoVideo(hallId, templateItemId, { videoUrl: blob.url, fileName: blob.pathname, fileSizeBytes: fileSize, storageProvider: "vercel-blob" })`. **`fileSize`는 클라이언트가 `clientPayload`로 보고한 값이며 `PutBlobResult`(`blob`)에는 `size` 필드가 없다** — 서버가 진짜 크기를 재확인하려면 `@vercel/blob`의 `head(blob.url)`을 호출해 `size`를 얻어 그 값을 대신 저장할 것(권장 — AD-4가 "클라이언트가 보고하는 값을 그대로 신뢰해 저장하는 경로 금지"라고 명시한 원칙을 크기 필드에도 동일하게 적용). 이 콜백의 실패(throw)는 Vercel이 최대 5회 재시도하므로 `saveDemoVideo` 실패 시 그냥 throw하면 됨(별도 재시도 로직 불필요).
-    - **로컬 개발에서 이 콜백은 절대 호출되지 않는다**(Vercel Blob이 `localhost`에 도달 불가 — ngrok 등 터널링 필요, 공식 문서 명시 사항). 이 스토리 범위에서는 ngrok 설정을 하지 않으므로 blob 경로는 코드만 완성하고 실제 종단 검증은 프로덕션 배포 이후로 미룬다(아래 "테스트 요구사항" 참고) — **이것이 로컬 폴백 경로가 단순히 "토큰 없을 때의 임시방편"이 아니라 "로컬에서 실제로 검증 가능한 유일한 경로"인 이유**다.
+- [x] Task 6: 업로드 Route Handler 2종 (AC: 1, 2, 3)
+  - [x] `@vercel/blob` 설치(2.6.1). 설치된 타입 확인 결과 `onBeforeGenerateToken`은 실제로 `(pathname, clientPayload, multipart)` 3개 인자(문서 예제는 3번째를 생략) — 구현 시 실제 `.d.ts`로 재확인함.
+  - [x] `app/api/templates/[hallId]/items/[itemId]/video/local/route.ts`(NEW): 계획대로 구현.
+  - [x] `app/api/templates/[hallId]/items/[itemId]/video/blob/route.ts`(NEW): `head(blob.url)`로 서버 검증된 크기를 재조회해 저장(클라이언트 `clientPayload` 값을 그대로 믿지 않음). 로컬에서는 `onUploadCompleted`가 호출되지 않아 종단 검증 불가 — Task 9에 인계.
 
-- [ ] Task 7: 업로드 UI 컴포넌트 + 항목 카드 통합 (AC: 1, 2, 3, 4)
-  - [ ] `app/admin/templates/[hallId]/video-upload.tsx`(NEW, Client Component): props `{ hallId: string; templateItemId: string; blobEnabled: boolean }`. 파일 `<input type="file" accept="video/mp4">` + "업로드" 버튼. 제출 시:
-    1. 클라이언트 사전 검증(즉각 피드백용, 서버 검증의 대체 아님): `file.type !== "video/mp4" || file.size > MAX_VIDEO_SIZE_BYTES`면 네트워크 요청 없이 즉시 `1px solid #E0353B` + 12px 헬퍼 텍스트로 거부 이유 표시(UX-DR14, "mp4 형식, 500MB 이하 파일만 업로드할 수 있어요"류 — DESIGN.md §10 톤, 사용자 탓하지 않기)
-    2. `blobEnabled`면 `upload(file.name, file, { access: "public", handleUploadUrl: \`/api/templates/${hallId}/items/${templateItemId}/video/blob\`, clientPayload: JSON.stringify({ fileSize: file.size }) })`(`@vercel/blob/client`의 `upload` 함수) 호출 후 "업로드 완료, 목록에 반영 중..." 안내(§14 Loading 상태 톤) — `onUploadCompleted` 웹훅이 이 응답 이후 별도로 도착하므로 즉시 `router.refresh()`해도 영상이 바로 안 보일 수 있음(Task 6 blob 경로 설명 참고, 알려진 v1 한계로 Dev Notes에 기록)
-    3. 아니면(`blobEnabled === false`) `fetch(\`/api/templates/${hallId}/items/${templateItemId}/video/local\`, { method: "POST", body: formData })` 호출
-    4. 성공 시 `useRouter().refresh()`(Server Action이 아닌 일반 `fetch`라 `revalidatePath`만으로는 이미 마운트된 클라이언트 트리가 자동 갱신되지 않음 — 명시적으로 호출해야 함). 실패 시 서버가 반환한 `{error:{message}}`를 UX-DR14 스타일로 표시(조용한 토스트 금지, 즉시 드러나는 알림)
-    5. 업로드 중에는 버튼 너비 유지 + 버튼 내 스피너로 중복 제출 방지(UX-DR13, Story 3.x 질의 버튼과 동일 원칙 — 이 스토리에서 처음 적용)
-  - [ ] `app/admin/templates/[hallId]/template-item-row.tsx`(UPDATE): props에 `demoVideo?: { videoUrl: string; fileName: string } , blobEnabled: boolean` 추가. 카드 본문 하단에: `demoVideo`가 있으면 `<video controls src={demoVideo.videoUrl} />` + "다시 업로드" 문구의 `<VideoUpload>`(재업로드는 업서트라 기존 영상을 교체함, 별도 삭제 UI 없음 — Deferred 참고), 없으면 "영상 없음" 안내 + `<VideoUpload>`만 표시
-  - [ ] `app/admin/templates/[hallId]/page.tsx`(UPDATE): `listDemoVideosByItems(hallId, items.map(i => i.id))` 호출 → `Map<templateItemId, DemoVideo>` 구성 → 각 `TemplateItemRow`에 `demoVideo={videoByItemId.get(item.id)}` 전달. `isBlobStorageConfigured()`를 서버에서 한 번 호출해 `blobEnabled` boolean만 클라이언트로 내려보냄(토큰 값 자체는 절대 클라이언트로 넘기지 않음).
-  - [ ] `templates.css`(UPDATE): `.template-item-card__video`(비디오 블록 wrapper), `.template-item-card video`(`max-width: 100%`, `border-radius: 8px`), 업로드 폼/에러 스타일은 기존 `.field-error`/`.input--error` 클래스 재사용(Story 1.2/1.3에서 이미 정의됨 — 새로 만들지 말 것)
+- [x] Task 7: 업로드 UI 컴포넌트 + 항목 카드 통합 (AC: 1, 2, 3, 4)
+  - [x] `video-upload.tsx`(NEW): 계획대로 구현(클라이언트 사전 검증 → blob/local 분기 업로드 → `router.refresh()`, 버튼 disabled로 중복 제출 방지).
+  - [x] `template-item-row.tsx`(UPDATE): `demoVideo`/`blobEnabled` prop 추가, `<video controls>` 또는 "영상 없음" + `<VideoUpload>` 항상 노출.
+  - [x] `page.tsx`(UPDATE): `listDemoVideosByItems` + `isBlobStorageConfigured()`로 데이터 준비 후 각 행에 전달.
+  - [x] `templates.css`(UPDATE): 비디오 블록 스타일 추가, 기존 `.field-error` 재사용.
 
-- [ ] Task 8: 환경 설정 문서화 (AC: 1)
-  - [ ] `.env.local.example`(UPDATE): `BLOB_READ_WRITE_TOKEN=""` 항목 추가, 주석으로 "비워두면 로컬 파일시스템 폴백 사용(Story 1.4), Vercel Blob store 생성 후 채우면 자동으로 AD-4 경로로 전환" 명시
-  - [ ] `apps/web/.gitignore`(UPDATE): `.local-blob/` 추가(로컬 업로드 테스트 파일이 git에 커밋되는 것 방지 — 실제 mp4 바이너리가 저장되므로 반드시 필요)
+- [x] Task 8: 환경 설정 문서화 (AC: 1)
+  - [x] `.env.local.example`(UPDATE): `BLOB_READ_WRITE_TOKEN=""` + 설명 주석 추가.
+  - [x] `apps/web/.gitignore`(UPDATE): `.local-blob/` 추가.
 
-- [ ] Task 9: 수동 검증 (AC: 1, 2, 3, 4)
-  - [ ] 로컬 폴백 경로로 mp4 파일 업로드 → `demo_videos` 행 생성 확인(`psql`) → 항목 조회 시 `<video>` 재생 확인(AC 1 로컬 예외 경로, AC 2)
-  - [ ] mp4가 아닌 파일(예: `.txt`를 `.mp4`로 리네임하지 않은 실제 다른 MIME) 업로드 시도 → 클라이언트 사전 검증 및/또는 서버 400 확인, DB 행 생성 안 됨 확인(AC 3)
-  - [ ] 500MB 초과 파일 업로드 시도 → 거부 확인(대용량 실파일 준비가 부담되면 `MAX_VIDEO_SIZE_BYTES`를 테스트 중 임시로 낮춰 로직만 검증하고 원복 — 실제 커밋에는 500MB 유지)
-  - [ ] 영상 없이 Task 1(Story 1.3) 항목 생성/수정 → 정상 저장, 에러 없음 확인(AC 4, 회귀 없음)
-  - [ ] AD-2 회귀: A홀 소속 `templateItemId`를 B홀의 `hallId` URL 세그먼트와 조합해 업로드 라우트 직접 호출 → 404/차단 확인
-  - [ ] operator 세션으로 두 업로드 라우트 직접 POST → 차단 확인(AD-3, `requireAdminSession()`이 두 라우트 모두에서 첫 줄에 호출되는지 코드 확인 + 실제 요청으로 검증)
-  - [ ] `@vercel/blob` 경로(Task 6 blob route)는 **실제 Vercel 배포 + Blob store 프로비저닝 이후에만** 종단 검증 가능(로컬에서는 `onUploadCompleted`가 도달하지 않음) — 이 스토리는 코드 완성 + 로컬 경로 종단 검증까지를 완료 기준으로 하고, blob 경로 실사용 검증은 다음 배포 스토리(또는 인프라 준비 시점)로 인계한다. **이 인계 사항을 Dev Agent Record에 명시적으로 남길 것.**
-  - [ ] `npm run lint`, `npx tsc --noEmit`, `npm run build` 통과 확인
+- [x] Task 9: 수동 검증 (AC: 1, 2, 3, 4)
+  - [x] 로컬 폴백 경로로 "video/mp4" 타입 파일 업로드 → `demo_videos` 행 생성 확인(`psql`, `storage_provider: local`) → 항목 조회 페이지 HTML에 `<video controls src="/api/local-videos/...">` 렌더 확인, `GET /api/local-videos/<file>`가 200(전체)/206(`Range: bytes=0-99`) 정상 응답 확인(AC 1 로컬 예외 경로, AC 2)
+  - [x] `text/plain` 타입 파일 업로드 시도 → 서버 400 `{error:{code:"invalid_type"}}` 확인(AC 3)
+  - [x] 500MB+1바이트 파일 업로드 시도 → 서버 400 `{error:{code:"too_large"}}` 확인(실제 초과 크기로 검증, 원복 불필요 — 상수 변경 없이 테스트)(AC 3)
+  - [x] 영상 없이 새 항목 생성(Story 1.3 액션 재사용) → 정상 저장, 카드에 "영상 없음" 안내 + 업로드 폼만 표시 확인(AC 4, 회귀 없음)
+  - [x] AD-2 회귀: A홀(`1층 홀`) 소속 `templateItemId`를 B홀(`2층 홀`)의 `hallId` URL 세그먼트와 조합해 로컬 업로드 라우트 직접 호출 → 404 확인, DB에 해당 행 생성 안 됨 확인
+  - [x] operator 세션으로 로컬 업로드 라우트 직접 POST → `requireAdminSession()`이 throw해 차단 확인(AD-3), DB에 행 생성 안 됨 확인
+  - [x] path traversal 시도(`/api/local-videos/..%2f..%2fpackage.json`) → 404 확인
+  - [x] `npm run lint`, `npx tsc --noEmit`, `npm run build` 모두 통과 확인
+  - [x] **`@vercel/blob` 경로는 로컬에서 종단 검증 불가능** — `onUploadCompleted`가 localhost에 도달하지 않음(공식 문서 명시 사항, Dev Notes 참고). `onBeforeGenerateToken`의 인가/소유권 검증 로직은 코드 리딩으로 확인(local 라우트와 동일한 `requireAdminSession`/`assertTemplateItemOwnedByHall`/`isValidUuid` 호출 순서 사용). **실제 업로드 → `onUploadCompleted` → DB 행 생성까지의 종단 플로우는 검증하지 못했다 — 완료로 보고하지 않음.** 이 인계 사항은 Dev Agent Record에 별도 기록.
 
 ## Dev Notes
 
@@ -127,7 +119,7 @@ export async function POST(request: Request) {
   const jsonResponse = await handleUpload({
     body,
     request,
-    onBeforeGenerateToken: async (pathname, clientPayload) => {
+    onBeforeGenerateToken: async (pathname, clientPayload, multipart) => {
       // requireAdminSession() + assertTemplateItemOwnedByHall() 여기서 호출
       return {
         allowedContentTypes: ['video/mp4'],
@@ -193,8 +185,45 @@ export async function POST(request: Request) {
 
 ### Agent Model Used
 
+claude-sonnet-5
+
 ### Debug Log References
+
+- 마이그레이션 적용: `npx drizzle-kit migrate`가 이 로컬 DB에서 `Exit code 1`(에러 메시지 없이 스피너만 출력)로 실패 — `drizzle.__drizzle_migrations` 추적 테이블이 비어있는 채로 0000~0005 테이블이 이미 존재해 충돌하는 것으로 추정(과거 스토리들이 `migrate` CLI가 아닌 방식으로 적용한 흔적). 신규 마이그레이션(`0006_flawless_korvac.sql`)만 `docker exec -i wedding-check-db psql ... < 0006_*.sql`로 직접 적용해 우회, `\d demo_videos`로 스키마 확인 완료.
+- `@vercel/blob` 2.6.1 설치 후 실제 `.d.ts`를 직접 확인 — 웹 문서 예제와 달리 `onBeforeGenerateToken`의 실제 시그니처는 `(pathname, clientPayload, multipart)` 3개 인자였고, `PutBlobResult`에 `size` 필드가 없어 `head(blob.url)`로 서버 검증된 크기를 재조회하도록 구현(문서 예제를 그대로 베끼지 않고 설치된 타입으로 재검증).
+- 수동 검증 중 기존(Story 1.3 이전 세션에서 남은) `next dev` 프로세스가 반복적인 파일 수정 이후 "Failed to find Server Action" 500 에러를 계속 뱉어 Story 1.3의 create action 재사용 테스트(AC 4)가 막혔다 — 프로세스를 완전히 종료 후 새로 시작해도 재현되어, 원인을 좁혀보니 실은 **내 검증 스크립트 자체의 정규식 이중 이스케이프 버그**(`\\$ACTION_N:0` 형태로 이미 이스케이프된 문자열을 다시 이스케이프하는 헬퍼에 전달)였음 — 애플리케이션 코드 문제 아님, 스크립트 수정 후 정상 동작 확인.
+- 로컬 업로드 경로(AC 1 예외/AC 2/AC 3/AD-2/AD-3)는 실제 HTTP 요청으로 종단 검증(500MB+1바이트 실제 버퍼 업로드 포함). `@vercel/blob` 경로(AC 1 원 경로)는 Vercel 문서가 명시하듯 `onUploadCompleted`가 localhost에 도달하지 않아 로컬에서 종단 검증 불가 — `onBeforeGenerateToken`의 인가 로직만 코드 리딩으로 확인, 실제 업로드 플로우는 미검증.
 
 ### Completion Notes List
 
+- Task 1~9 전 항목 구현. Task 9 중 `@vercel/blob` 경로의 종단 검증만 로컬 환경 한계로 인해 완료하지 못함(위 Debug Log 참고) — 이 항목은 실제 Vercel 배포 + Blob store 프로비저닝 시점으로 명시적으로 인계.
+- 로컬/프로덕션 듀얼 스토리지 전략을 `isBlobStorageConfigured()` 단일 분기점으로 구현: `BLOB_READ_WRITE_TOKEN` 존재 여부에 따라 클라이언트가 `@vercel/blob/client`의 `upload()` 또는 일반 `fetch` POST 중 하나를 선택. 토큰이 나중에 설정돼도 코드 변경 없이 AD-4 경로로 자동 전환됨(로컬로 이미 저장된 영상도 `storageProvider: "local"`로 계속 서빙되어 두 provider가 영구 공존).
+- AC 1: 로컬 폴백 업로드 → `demo_videos` 행 생성(`storage_provider: local`) → 페이지에 `<video controls>` 렌더 확인. `@vercel/blob` 경로는 코드 완성, 종단 검증은 배포 이후로 인계(§ Debug Log).
+- AC 2: `GET /api/local-videos/<file>` 200(전체) / 206(`Range` 헤더 있을 때, `Content-Range` 포함) 확인 — HTML5 `<video>`의 탐색(seek) 지원에 필요한 Range 요청 처리 검증.
+- AC 3: `text/plain` 업로드 → 400 `invalid_type`. 500MB+1바이트 실제 버퍼 업로드 → 400 `too_large`. 둘 다 클라이언트 사전 검증과 별개로 서버가 진짜로 거부함을 확인(서버가 실제 안전장치).
+- AC 4: 영상 없이 항목 생성(Story 1.3 `createTemplateItemAction` 그대로 재사용, 이 스토리에서 수정 안 함) → 정상 저장, "영상 없음" 안내 표시 확인 — 두 기능이 완전히 분리되어 있음을 실증.
+- AD-2 회귀: 1층 홀 소속 항목 id를 2층 홀의 `hallId`로 조합해 업로드 시도 → 404, DB에 행 생성 안 됨 확인.
+- AD-3: operator 세션으로 업로드 라우트 직접 POST → `requireAdminSession()` throw로 차단, DB에 행 생성 안 됨 확인.
+- path traversal(`..%2f..%2fpackage.json`) → 404 확인.
+- `npm run lint`(0 errors), `npx tsc --noEmit`(clean), `npm run build`(성공, 신규 라우트 4개 모두 빌드 결과에 포함: `/api/local-videos/[fileName]`, `/api/templates/[hallId]/items/[itemId]/video/{local,blob}`) 모두 통과.
+
 ### File List
+
+- NEW `apps/web/lib/storage/video-storage.ts`
+- NEW `apps/web/lib/storage/local-video-store.ts`
+- NEW `apps/web/lib/db/repositories/demo-video.ts`
+- NEW `apps/web/lib/services/demo-video.ts`
+- NEW `apps/web/app/api/local-videos/[fileName]/route.ts`
+- NEW `apps/web/app/api/templates/[hallId]/items/[itemId]/video/local/route.ts`
+- NEW `apps/web/app/api/templates/[hallId]/items/[itemId]/video/blob/route.ts`
+- NEW `apps/web/app/admin/templates/[hallId]/video-upload.tsx`
+- NEW `apps/web/drizzle/0006_flawless_korvac.sql`
+- NEW `apps/web/drizzle/meta/0006_snapshot.json`
+- MODIFIED `apps/web/lib/db/schema.ts` (`demoVideos` 테이블 추가)
+- MODIFIED `apps/web/drizzle/meta/_journal.json`
+- MODIFIED `apps/web/app/admin/templates/[hallId]/page.tsx` (영상 데이터 fetch + prop 전달)
+- MODIFIED `apps/web/app/admin/templates/[hallId]/template-item-row.tsx` (영상 표시/업로드 통합)
+- MODIFIED `apps/web/app/admin/templates/[hallId]/templates.css` (비디오 블록 스타일)
+- MODIFIED `apps/web/package.json` / `apps/web/package-lock.json` (`@vercel/blob` 추가)
+- MODIFIED `apps/web/.env.local.example` (`BLOB_READ_WRITE_TOKEN` 문서화)
+- MODIFIED `apps/web/.gitignore` (`.local-blob/` 제외)

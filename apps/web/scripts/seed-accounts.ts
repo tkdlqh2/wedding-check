@@ -54,6 +54,9 @@ async function seedAccount(
   // phoneNumber로 조회하면 번호 로테이션 시 기존 계정을 못 찾아 중복이 생긴다(코덱스
   // 리뷰 2차 P1). unique 제약이 있는 고정 이메일만이 "이 스크립트가 관리하는 시드
   // 계정"을 안전하게 식별한다 — 실제 로그인에는 쓰이지 않는다(email 로그인은 차단됨).
+  // Story 1.1부터 써온 admin@wedding-check.local / operator@wedding-check.local을 그대로
+  // 재사용한다(새 값으로 바꾸지 않음) — 이미 그 식별자로 시드된 기존 환경이 있다면 새
+  // 계정이 중복 생성되지 않고 그대로 이어서 갱신되어야 한다(코덱스 리뷰 4차 P1).
   const existing = await db.query.user.findFirst({ where: eq(user.email, seedEmail) });
   if (existing) {
     // 이미 시드된 계정이라도 phoneNumber/비밀번호를 최신 환경변수 값으로 갱신한다
@@ -81,14 +84,14 @@ async function seedAccount(
 
 async function main() {
   await seedAccount(
-    "seed-admin@wedding-check.internal",
+    "admin@wedding-check.local",
     ADMIN_PHONE_NUMBER,
     ADMIN_PASSWORD,
     "관리자",
     "admin",
   );
   await seedAccount(
-    "seed-operator@wedding-check.internal",
+    "operator@wedding-check.local",
     OPERATOR_PHONE_NUMBER,
     OPERATOR_PASSWORD,
     "오퍼레이터",

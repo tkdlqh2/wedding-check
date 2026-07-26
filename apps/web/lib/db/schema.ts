@@ -63,6 +63,38 @@ export const checklistTemplateItems = pgTable(
   ],
 );
 
+// FR-3: 체크리스트 항목에 연결된 시연 영상. AD-2가 명시하는 홀 종속 엔티티라 hall_id를
+// checklist_template_items를 거치지 않고 직접 저장한다(스파인 §57의 "스키마 확정,
+// JOIN 대체 금지" 원칙을 checklist_instances와 동일하게 적용). 항목당 최대 1개(unique,
+// Story 1.4 Dev Notes [ASSUMPTION] — ERD는 1:N이지만 재업로드는 교체로 처리).
+export const demoVideos = pgTable(
+  "demo_videos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    hallId: uuid("hall_id")
+      .notNull()
+      .references(() => halls.id),
+    templateItemId: uuid("template_item_id")
+      .notNull()
+      .references(() => checklistTemplateItems.id),
+    videoUrl: text("video_url").notNull(),
+    fileName: text("file_name").notNull(),
+    // 500MB 상한(PRD FR-3 [ASSUMPTION])은 integer 범위(최대 ~2.1GB) 안이라 bigint 불필요.
+    fileSizeBytes: integer("file_size_bytes").notNull(),
+    // 업로드 경로 구분 — Story 1.4 로컬/프로덕션 듀얼 스토리지 전략([ASSUMPTION]):
+    // BLOB_READ_WRITE_TOKEN 부재 시 "local"(파일시스템 폴백), 있으면 "vercel-blob"(AD-4).
+    storageProvider: text("storage_provider").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    unique("demo_videos_template_item_id_unique").on(table.templateItemId),
+  ],
+);
+
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),

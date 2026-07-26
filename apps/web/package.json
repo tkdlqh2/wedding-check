@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed": "tsx --env-file=.env.local scripts/seed-accounts.ts"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "seed": "tsx --env-file=.env.local scripts/seed-accounts.ts",
+    "db:test:migrate": "tsx --env-file=.env.test scripts/apply-migrations.ts"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.6.25",
@@ -23,14 +26,19 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^20",
     "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.0.4",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.2.11",
+    "jsdom": "^29.1.1",
     "tsx": "^4.23.1",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   }
 }

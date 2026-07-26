@@ -56,7 +56,7 @@ development_status:
   epic-1-retrospective: done
 
   epic-2: in-progress
-  2-1-ceremony-registration: ready-for-dev
+  2-1-ceremony-registration: review
   2-2-contract-based-instance-assembly: backlog
   2-3-operator-instance-view: backlog
   epic-2-retrospective: optional

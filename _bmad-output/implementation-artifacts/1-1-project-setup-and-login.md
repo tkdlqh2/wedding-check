@@ -4,7 +4,7 @@ baseline_commit: NO_VCS
 
 # Story 1.1: 프로젝트 기반 설정 및 로그인
 
-Status: review
+Status: done
 
 ## Story
 

@@ -50,7 +50,7 @@ story_location: "_bmad-output/implementation-artifacts"
 development_status:
   epic-1: in-progress
   1-1-project-setup-and-login: done
-  1-2-hall-registration: backlog
+  1-2-hall-registration: ready-for-dev
   1-3-checklist-item-registration: backlog
   1-4-demo-video-upload: backlog
   epic-1-retrospective: optional

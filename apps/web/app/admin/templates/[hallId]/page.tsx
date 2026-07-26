@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import * as hallRepo from "@/lib/db/repositories/hall";
 import { listTemplateItems } from "@/lib/services/template";
+import { listDemoVideosByItems } from "@/lib/services/demo-video";
+import { isBlobStorageConfigured } from "@/lib/storage/video-storage";
 import { isValidUuid } from "@/lib/uuid";
 import { TemplateItemForm } from "./template-item-form";
 import { TemplateItemRow } from "./template-item-row";
@@ -25,6 +27,13 @@ export default async function TemplatePage({
   }
 
   const items = await listTemplateItems(hallId);
+  const demoVideos = await listDemoVideosByItems(
+    hallId,
+    items.map((item) => item.id),
+  );
+  const videoByItemId = new Map(demoVideos.map((video) => [video.templateItemId, video]));
+  // 토큰 값 자체는 클라이언트로 넘기지 않고 boolean 결과만 prop으로 전달한다.
+  const blobEnabled = isBlobStorageConfigured();
 
   return (
     <section className="templates-page">
@@ -50,6 +59,8 @@ export default async function TemplatePage({
               item={item}
               isFirst={index === 0}
               isLast={index === items.length - 1}
+              demoVideo={videoByItemId.get(item.id)}
+              blobEnabled={blobEnabled}
             />
           ))}
         </ul>

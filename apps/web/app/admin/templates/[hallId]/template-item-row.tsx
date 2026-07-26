@@ -3,17 +3,22 @@
 import { useState } from "react";
 import { deleteTemplateItemAction, moveTemplateItemAction } from "./actions";
 import { TemplateItemForm } from "./template-item-form";
+import { VideoUpload } from "./video-upload";
 
 export function TemplateItemRow({
   hallId,
   item,
   isFirst,
   isLast,
+  demoVideo,
+  blobEnabled,
 }: {
   hallId: string;
   item: { id: string; stepName: string; description: string | null };
   isFirst: boolean;
   isLast: boolean;
+  demoVideo?: { videoUrl: string; fileName: string };
+  blobEnabled: boolean;
 }) {
   const [editing, setEditing] = useState(false);
 
@@ -35,6 +40,19 @@ export function TemplateItemRow({
         {item.description && (
           <p className="template-item-card__description">{item.description}</p>
         )}
+        <div className="template-item-card__video">
+          {demoVideo ? (
+            <video controls src={demoVideo.videoUrl} />
+          ) : (
+            <p className="template-item-card__video-empty">영상 없음</p>
+          )}
+          <VideoUpload
+            hallId={hallId}
+            templateItemId={item.id}
+            blobEnabled={blobEnabled}
+            currentVideoUrl={demoVideo?.videoUrl}
+          />
+        </div>
       </div>
       <div className="template-item-card__actions">
         <form action={moveTemplateItemAction}>

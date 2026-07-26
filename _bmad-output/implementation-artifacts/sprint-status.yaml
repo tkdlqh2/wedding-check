@@ -51,7 +51,7 @@ development_status:
   epic-1: in-progress
   1-1-project-setup-and-login: done
   1-2-hall-registration: done
-  1-3-checklist-item-registration: ready-for-dev
+  1-3-checklist-item-registration: in-progress
   1-4-demo-video-upload: backlog
   epic-1-retrospective: optional
 
@@ -76,6 +76,14 @@ development_status:
 # Per-story git pipeline substage (see GIT PIPELINE STAGE legend above).
 # 번호가 매겨진 스토리가 아닌 개별 수정(fix/*)도 동일한 파이프라인으로 추적한다.
 git_pipeline:
+  1-3-checklist-item-registration:
+    stage: branch-created
+    branch: story/1-3-checklist-item-registration
+    pr_url: null
+    merge_commit: null
+    notes: "구현 시작."
+    last_updated: "07-26-2026 21:35"
+
   fix-local-dev-db-and-phone-normalization:
     stage: merged
     branch: fix/local-dev-db-and-phone-normalization

@@ -97,6 +97,69 @@ export const demoVideos = pgTable(
   ],
 );
 
+// FR-4: 예식(hall·일시·계약 형태). 홀 종속 엔티티(AD-2) — hallId 직접 저장.
+export const ceremonies = pgTable("ceremonies", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  hallId: uuid("hall_id")
+    .notNull()
+    .references(() => halls.id),
+  ceremonyAt: timestamp("ceremony_at").notNull(),
+  // AD-9: 부분집합 매칭이 checklist_template_items.applicable_contract_conditions와
+  // 대칭되는 셰이프를 요구하므로 동일하게 JSONB로 저장한다(정규화 규칙 테이블 대신,
+  // AD-9 rationale 그대로). [ASSUMPTION] 키는 PRD §4.1 예시 그대로 두 개만 정의:
+  // { requiresOfficiant?: boolean; hasAdditionalEvent?: boolean } — 부분집합 매칭
+  // 알고리즘 자체는 Story 2.2(FR-5) 범위. 이 스토리는 값을 받아 저장만 한다.
+  contractConditions: jsonb("contract_conditions").notNull().default({}),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
+});
+
+// FR-4: 예식 1건의 실행용 체크리스트 인스턴스. ERD상 CEREMONY 1:1 CHECKLIST_INSTANCE.
+// AD-2(2026-07-24 adversarial review로 확정된 최종 룰) — ceremony→hall JOIN으로
+// 대체하지 말고 hall_id를 이 테이블 자신의 컬럼으로 저장한다.
+export const checklistInstances = pgTable(
+  "checklist_instances",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    hallId: uuid("hall_id")
+      .notNull()
+      .references(() => halls.id),
+    ceremonyId: uuid("ceremony_id")
+      .notNull()
+      .references(() => ceremonies.id),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    unique("checklist_instances_ceremony_id_unique").on(table.ceremonyId),
+  ],
+);
+
+// FR-4/5: 인스턴스에 조합된 항목들. PRD §3 용어집 — 인스턴스는 템플릿의 "실행용 사본".
+// stepName/description/sortOrder를 생성 시점에 스냅샷으로 복사 저장한다 — templateItemId를
+// 라이브 참조로 남겨 매번 JOIN하면 이후 관리자가 템플릿 항목을 수정/삭제할 때 이미 만들어진
+// 예식의 체크리스트가 조용히 바뀌거나(Story 1.4의 FK 삭제 차단 버그와 같은 클래스로) 삭제가
+// 막힌다. templateItemId는 onDelete: "set null"인 소프트 참조로만 남긴다.
+export const checklistInstanceItems = pgTable("checklist_instance_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  hallId: uuid("hall_id")
+    .notNull()
+    .references(() => halls.id),
+  instanceId: uuid("instance_id")
+    .notNull()
+    .references(() => checklistInstances.id, { onDelete: "cascade" }),
+  templateItemId: uuid("template_item_id").references(
+    () => checklistTemplateItems.id,
+    { onDelete: "set null" },
+  ),
+  stepName: text("step_name").notNull(),
+  description: text("description"),
+  sortOrder: integer("sort_order").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),

@@ -80,8 +80,8 @@ git_pipeline:
     stage: codex-review
     branch: fix/phone-number-login
     pr_url: "https://github.com/tkdlqh2/wedding-check/pull/3"
-    notes: "3차 리뷰 P1(role은 unique 아니라 임의 사용자 계정을 덮어쓸 위험) 수정 완료 — 고정 시드 슬롯 이메일(unique)로 조회하도록 변경. 재리뷰 대기."
-    last_updated: "07-26-2026 19:35"
+    notes: "4차 리뷰 P1(시드 식별자가 PR 내내 바뀌어 기존 환경과 불일치) 수정 완료 — Story 1.1의 기존 시드 이메일(admin@wedding-check.local 등)로 되돌림, 마이그레이션 시나리오 재검증 완료. 재리뷰 대기."
+    last_updated: "07-26-2026 19:48"
 
   1-2-hall-registration:
     stage: merged

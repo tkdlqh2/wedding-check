@@ -4,7 +4,7 @@ baseline_commit: 5562ce6630cfd92c100c1e948520b84ad618bce2
 
 # Story 1.2: 홀 등록
 
-Status: review
+Status: done
 
 ## Story
 

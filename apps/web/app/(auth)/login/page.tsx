@@ -7,7 +7,7 @@ import "../login.css";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -17,15 +17,15 @@ export default function LoginPage() {
     setError(null);
     setIsSubmitting(true);
 
-    const { data, error: signInError } = await authClient.signIn.email({
-      email,
+    const { data, error: signInError } = await authClient.signIn.phoneNumber({
+      phoneNumber,
       password,
     });
 
     setIsSubmitting(false);
 
     if (signInError) {
-      setError("이메일 또는 비밀번호가 올바르지 않습니다.");
+      setError("전화번호 또는 비밀번호가 올바르지 않습니다.");
       return;
     }
 
@@ -37,12 +37,12 @@ export default function LoginPage() {
     <main className="login-page">
       <form className="login-form" onSubmit={handleSubmit}>
         <h1>웨딩체크 로그인</h1>
-        <label htmlFor="email">이메일</label>
+        <label htmlFor="phoneNumber">전화번호</label>
         <input
-          id="email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          id="phoneNumber"
+          type="tel"
+          value={phoneNumber}
+          onChange={(e) => setPhoneNumber(e.target.value)}
           required
         />
         <label htmlFor="password">비밀번호</label>

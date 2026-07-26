@@ -1,4 +1,5 @@
-import { betterAuth } from "better-auth";
+import { betterAuth, APIError } from "better-auth";
+import { createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { phoneNumber } from "better-auth/plugins";
 import { db } from "./db";
@@ -16,7 +17,20 @@ export const auth = betterAuth({
     provider: "pg",
   }),
   emailAndPassword: {
+    // signUpEmail(계정 프로비저닝, scripts/seed-accounts.ts 전용)에는 여전히 필요하지만,
+    // 사용자 대상 이메일 로그인 경로(/sign-in/email)는 아래 훅으로 차단한다 — 그대로 열어두면
+    // 합성 placeholder 이메일 + 비밀번호로 전화번호 정책을 우회해 로그인할 수 있다
+    // (코덱스 리뷰 P1 반영).
     enabled: true,
+  },
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path === "/sign-in/email") {
+        throw new APIError("BAD_REQUEST", {
+          message: "이메일 로그인은 지원하지 않습니다. 전화번호로 로그인하세요.",
+        });
+      }
+    }),
   },
   plugins: [phoneNumber()],
   user: {

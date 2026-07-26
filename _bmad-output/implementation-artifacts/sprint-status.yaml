@@ -127,7 +127,7 @@ git_pipeline:
 # Action items committed during retrospectives (section created by the retrospective workflow)
 action_items:
   - epic: 1
-    action: "Vercel Blob store 생성 + BLOB_READ_WRITE_TOKEN 설정, 시연 영상 업로드 실제 업로드 경로(onUploadCompleted) 종단 검증"
+    action: "Vercel Blob store 생성 + BLOB_READ_WRITE_TOKEN 설정, 시연 영상 업로드 실제 업로드 경로(onUploadCompleted) 종단 검증 - 2026-07-26 결정: Epic 2 작업을 먼저 진행, 우선순위 낮음으로 미룸"
     owner: "형진"
     status: open
   - epic: 1
@@ -135,7 +135,7 @@ action_items:
     owner: "Amelia"
     status: open
   - epic: 1
-    action: "자동화 테스트 도입 여부 재검토 - Epic 2의 상태 조합 복잡도 증가 전에 결정"
+    action: "자동화 테스트 프레임워크 도입 - 2026-07-26 결정: Epic 2부터 도입, Story 2.1 착수 전 프레임워크 선정 필요"
     owner: "형진 + Amelia"
     status: open
   - epic: 1

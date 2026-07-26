@@ -17,11 +17,22 @@ import { user } from "../lib/db/schema";
 import { eq } from "drizzle-orm";
 import type { Role } from "../lib/auth";
 
-// AD-10: 시크릿 하드코딩 금지 — 관리자 초기 비밀번호/연락처는 .env.local의 환경변수로
-// 주입한다. 값을 지정하지 않으면 로컬 개발용 기본값으로 대체된다.
-const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || "changeme123!";
+// AD-10: 시크릿 하드코딩 금지 — 관리자/오퍼레이터 초기 비밀번호는 .env.local의 환경변수로만
+// 주입한다. 미지정 시 알려진 기본 비밀번호로 조용히 대체하면 그 자체로 보안 사고이므로,
+// 값이 없으면 즉시 에러로 중단한다(코덱스 리뷰 P1 반영).
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(
+      `${name} 환경변수가 필요합니다 — 알려진 기본 비밀번호로 계정이 생성되는 것을 막기 위해 필수입니다. .env.local에 값을 설정하세요.`,
+    );
+  }
+  return value;
+}
+
+const ADMIN_PASSWORD = requireEnv("SEED_ADMIN_PASSWORD");
+const OPERATOR_PASSWORD = requireEnv("SEED_OPERATOR_PASSWORD");
 const ADMIN_PHONE_NUMBER = process.env.SEED_ADMIN_PHONE_NUMBER || "";
-const OPERATOR_PASSWORD = process.env.SEED_OPERATOR_PASSWORD || "changeme123!";
 
 async function seedAccount(
   email: string,
@@ -32,7 +43,13 @@ async function seedAccount(
 ) {
   const existing = await db.query.user.findFirst({ where: eq(user.email, email) });
   if (existing) {
-    console.log(`이미 존재함, 건너뜀: ${email}`);
+    // 이미 시드된 계정이라도 role/phoneNumber는 최신 환경변수 값으로 갱신한다(코덱스 리뷰 P2 반영)
+    // — 그렇지 않으면 SEED_ADMIN_PHONE_NUMBER를 나중에 설정해도 기존 계정에 절대 반영되지 않는다.
+    await db
+      .update(user)
+      .set({ role, ...(phoneNumber ? { phoneNumber } : {}) })
+      .where(eq(user.email, email));
+    console.log(`이미 존재함, role/phoneNumber 갱신: ${email}`);
     return;
   }
 

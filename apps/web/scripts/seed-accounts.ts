@@ -49,17 +49,22 @@ function syntheticEmail(phoneNumber: string): string {
 }
 
 async function seedAccount(phoneNumber: string, password: string, name: string, role: Role) {
-  const existing = await db.query.user.findFirst({ where: eq(user.phoneNumber, phoneNumber) });
+  // role을 안정 식별자로 조회한다(전화번호가 아님) — 이 스크립트가 v1의 유일한 계정
+  // 프로비저닝 경로라 admin/operator 각각 정확히 한 명씩만 존재하므로 role만으로도
+  // 유일하게 식별된다. 전화번호로 조회하면 SEED_*_PHONE_NUMBER를 바꿔 재시드할 때(번호
+  // 로테이션) 기존 계정을 찾지 못해 중복 계정이 생기고 옛 계정의 비밀번호가 그대로
+  // 살아있게 된다(코덱스 리뷰 P1 반영).
+  const existing = await db.query.user.findFirst({ where: eq(user.role, role) });
   if (existing) {
-    // 이미 시드된 계정이라도 role/비밀번호를 최신 환경변수 값으로 갱신한다(코덱스 리뷰
-    // P1/P2 반영) — 그렇지 않으면 값을 나중에 바꿔도 기존 계정에는 절대 반영되지 않고,
-    // 특히 이전에 알려진 기본 비밀번호로 생성된 계정이 그대로 남는다.
-    await db.update(user).set({ role }).where(eq(user.phoneNumber, phoneNumber));
+    // 이미 시드된 계정이라도 phoneNumber/비밀번호를 최신 환경변수 값으로 갱신한다(코덱스
+    // 리뷰 P1/P2 반영) — 그렇지 않으면 값을 나중에 바꿔도 기존 계정에는 절대 반영되지
+    // 않고, 특히 이전에 알려진 기본 비밀번호로 생성된 계정이 그대로 남는다.
+    await db.update(user).set({ phoneNumber }).where(eq(user.id, existing.id));
     await db
       .update(account)
       .set({ password: await hashPassword(password) })
       .where(and(eq(account.userId, existing.id), eq(account.providerId, "credential")));
-    console.log(`이미 존재함, role/비밀번호 갱신: ${phoneNumber}`);
+    console.log(`이미 존재함, phoneNumber/비밀번호 갱신: ${phoneNumber} (role=${role})`);
     return;
   }
 

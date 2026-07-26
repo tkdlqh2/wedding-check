@@ -4,7 +4,7 @@ baseline_commit: 3d3a2f5279becaa46343566b4cbe3a796cb857a8
 
 # Story 1.3: 체크리스트 항목 등록
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -148,6 +148,15 @@ claude-sonnet-5
 ### Completion Notes List
 
 - Task 1~7 전 항목 구현 및 검증 완료.
+- **코덱스 리뷰 7라운드**(PR #5) — 전부 동시성/견고성 관련 실제 결함이었다:
+  1. `create`의 sortOrder 계산(P2): 별도 SELECT 후 INSERT라 동시 생성 시 중복 순서값 가능 → advisory lock 기반 트랜잭션으로 1차 수정.
+  2. 비활성 홀에 대한 update/delete/move 미검증(P2): create만 `assertHallExists`를 거침 → 세 함수 모두에 적용.
+  3. `moveAdjacent`의 조회+저장 분리(P2): 동시 이동 요청 간 유실 가능 → 하나의 잠긴 트랜잭션으로 통합.
+  4. **`db.transaction()`이 프로덕션 드라이버(neon-http)에서 무조건 throw함(P1)** — 1·3의 advisory-lock 트랜잭션 방식이 로컬(node-postgres)에서는 통과하지만 실제 Neon 환경에서는 생성/순서변경이 전부 깨졌을 치명적 결함. 트랜잭션 없이 단일 SQL 문(INSERT 서브쿼리, CTE 기반 UPDATE)으로 재작성해 두 드라이버 모두 호환되게 함.
+  5. 단일 문장만으로는 진짜 직렬화가 안 됨(P1): 8개 동시 생성 요청 재현 시 2개가 중복 sortOrder로 실패 → `(hall_id, sort_order)` UNIQUE 제약(DEFERRABLE INITIALLY DEFERRED) + 위반 시 재시도로 최종 해결. 재시도 로직이 처음엔 안 걸린 이유(drizzle이 원본 에러를 `.cause`로 감쌈)도 직접 재현해서 찾음.
+  6. `/admin/templates/[hallId]`에 잘못된 형식의 id가 오면 uuid 컬럼 비교에서 500(P2) → 페이지·Server Action 양쪽에 uuid 형식 검증 추가.
+  7. `moveAdjacent`도 겹치는 동시 이동 시 UNIQUE 위반 가능(P2) → create와 같은 재시도 래퍼를 공용화해 적용.
+  각 라운드마다 실제 동시성 시나리오(8개 동시 생성, 겹치는 두 항목 동시 반대 방향 이동 5회 반복 등)를 로컬 DB로 재현해 수정을 검증했다 — 특히 4번은 로컬 전용 드라이버 차이 때문에 로컬 테스트만으로는 절대 못 잡는 결함이라, 코덱스 리뷰가 실질적 가치를 낸 사례.
 - AC 1: HALL_1F("1층 홀")에 "촬영 시작"/"조명 점검" 두 항목을 Server Action으로 생성 → 응답에 포함, HALL_1F 페이지에서만 노출되고 HALL_2F("2층 홀") 페이지에는 노출되지 않음을 확인(AD-2 홀 격리). `template-item-card` 클래스(Feature Card, UX-DR6)로 렌더됨을 HTML에서 확인.
 - AC 2: 빈 단계명으로 제출 → DB row 수 불변, 응답에 "단계명은 필수입니다" 에러 메시지 포함 확인.
 - AC 3: "조명 점검" 항목을 위로 이동 → `sort_order`가 즉시 DB에 반영되어 순서가 바뀜을 `psql`로 확인(0↔1 스왑).

@@ -10,24 +10,50 @@ export type TemplateItem = typeof checklistTemplateItems.$inferSelect;
 // 주의: 프로덕션 DB는 drizzle-orm/neon-http를 쓰는데 이 드라이버는 db.transaction()을
 // 지원하지 않고 항상 throw한다(코덱스 리뷰 P1로 발견 — 로컬 node-postgres에서는 통과하지만
 // 실제 Neon 환경에서는 생성/순서변경이 전부 깨졌을 것). 그래서 동시성 안전장치는 여러 SQL문을
-// 감싼 JS 트랜잭션이 아니라, Postgres가 자체적으로 원자적으로 실행하는 "문장 하나"로만 구현한다.
+// 감싼 JS 트랜잭션이 아니라, Postgres가 자체적으로 원자적으로 실행하는 "문장 하나" + DB 제약
+// 조건(schema.ts의 (hall_id, sort_order) UNIQUE)으로 구현한다.
+
+// drizzle-orm은 드라이버가 던진 원본 Postgres 에러를 자체 에러의 `cause`로 감싼다
+// (23505 같은 code는 최상위 에러가 아니라 err.cause에 있다 — 처음엔 이걸 놓쳐서 재시도가
+// 전혀 안 걸리고 8개 동시 생성 중 2개가 그대로 500으로 실패하는 걸 직접 재현해서 확인함).
+function isUniqueViolation(err: unknown): boolean {
+  for (let e = err; e; e = (e as { cause?: unknown }).cause) {
+    if (typeof e !== "object" || e === null) continue;
+    if ((e as { code?: unknown }).code === "23505") return true;
+    const message = (e as { message?: unknown }).message;
+    if (typeof message === "string" && /duplicate key|unique constraint/i.test(message)) return true;
+  }
+  return false;
+}
+
+const CREATE_MAX_ATTEMPTS = 5;
 
 export async function create(
   hallId: string,
   input: { stepName: string; description?: string | null },
 ): Promise<TemplateItem> {
-  const [item] = await db
-    .insert(checklistTemplateItems)
-    .values({
-      hallId,
-      stepName: input.stepName,
-      description: input.description ?? null,
-      // INSERT 문 하나 안에서 sortOrder를 계산한다 — 별도 SELECT 후 INSERT하는 두 번의
-      // 왕복이 아니므로 그 사이에 다른 요청이 끼어들 틈이 없다.
-      sortOrder: sql<number>`coalesce((select max(${checklistTemplateItems.sortOrder}) from ${checklistTemplateItems} where ${checklistTemplateItems.hallId} = ${hallId}), -1) + 1`,
-    })
-    .returning();
-  return item;
+  // INSERT 문 하나 안에서 sortOrder를 계산해 별도 SELECT 후 INSERT하는 두 번의 왕복(그
+  // 사이에 다른 요청이 끼어들 틈)을 없앤다. 그래도 두 INSERT가 동시에 같은 max(sort_order)를
+  // 읽을 가능성 자체는 이 문장 하나만으로는 막을 수 없으므로(코덱스 리뷰 5차 P1), 최종
+  // 방어선은 (hall_id, sort_order) UNIQUE 제약이다 — 위반 시 재계산해서 재시도한다.
+  for (let attempt = 1; attempt <= CREATE_MAX_ATTEMPTS; attempt++) {
+    try {
+      const [item] = await db
+        .insert(checklistTemplateItems)
+        .values({
+          hallId,
+          stepName: input.stepName,
+          description: input.description ?? null,
+          sortOrder: sql<number>`coalesce((select max(${checklistTemplateItems.sortOrder}) from ${checklistTemplateItems} where ${checklistTemplateItems.hallId} = ${hallId}), -1) + 1`,
+        })
+        .returning();
+      return item;
+    } catch (err) {
+      if (isUniqueViolation(err) && attempt < CREATE_MAX_ATTEMPTS) continue;
+      throw err;
+    }
+  }
+  throw new Error("unreachable");
 }
 
 export async function findAllByHall(hallId: string): Promise<TemplateItem[]> {

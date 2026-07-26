@@ -44,21 +44,21 @@ so that 홀 전용 조작 표준을 만들 수 있다.
   - [x] `listTemplateItems(hallId)`, `updateTemplateItem(hallId, id, input)`, `deleteTemplateItem(hallId, id)` — 리포지토리 위임
   - [x] `moveTemplateItem(hallId, id, direction: "up" | "down")`: `listTemplateItems(hallId)`로 현재 순서를 가져와 대상 항목과 인접 항목의 위치를 배열에서 바꾼 뒤 `reorderAll(hallId, newOrderedIds)` 호출. 맨 위에서 "up" 또는 맨 아래에서 "down" 요청은 조용히 무시(범위 밖 이동 없음)
 
-- [ ] Task 4: 템플릿 관리 화면 — 항목 목록 + 등록/수정 폼 (AC: 1, 2, 4)
-  - [ ] `app/admin/templates/[hallId]/page.tsx`(Server Component): `hallId` params로 `hall.findById` 조회 → 없거나 비활성이면 `notFound()`. `listTemplateItems(hallId)`로 항목 조회 후 렌더링. 상단에 "← 홀 목록" 링크 + `{hall.name} 체크리스트 항목` 헤딩. 항목이 하나도 없으면 UX-DR12 빈 상태(`#888888` 안내 문구 + 상시 노출된 등록 폼, 격려 톤 — "아직 등록된 체크리스트 항목이 없어요. 첫 항목을 등록해보세요." 류, DESIGN.md §10 금칙어 회피)
-  - [ ] `app/admin/templates/[hallId]/template-item-form.tsx`(Client Component): 단계명 입력 + 설명 textarea(일반 `.input` 스타일 — FR-6/8용 "있었던 일을 그대로" 톤의 자유서술 textarea와는 다른, 구조화된 운영 콘텐츠이므로 일반 placeholder "이 단계에서 해야 할 일을 설명하세요") + Primary 버튼(UX-DR2). `useActionState`로 Server Action 반환값을 폼 상태로 반영(Story 1.2의 `HallForm` 패턴 재사용)
-  - [ ] `app/admin/templates/[hallId]/template-item-row.tsx`(Client Component): **Feature Card 스타일(UX-DR6)** 적용 — 흰 배경, `border: 1px solid #E6E6E6`, `border-radius: 12px`(Story 1.2 hall-row의 8px/12px 컴팩트 리스트 스타일과 다름, `padding: 24px`. 단계명(16px/600) + 설명(14px/400, `#555555`) 표시. 위/아래 이동 버튼(맨 위/아래에서는 disabled) + "수정"(Secondary, 인라인 토글로 `TemplateItemForm` 재사용) + "삭제"(`confirm()` 후 하드 삭제)
-  - [ ] 서버 검증 실패(단계명 없음) 시 `1px solid #E0353B` 보더 + `#E0353B` 12px 헬퍼 텍스트 "단계명은 필수입니다"(UX-DR14, Story 1.2의 `.input--error`/`.field-error` 클래스 재사용)
+- [x] Task 4: 템플릿 관리 화면 — 항목 목록 + 등록/수정 폼 (AC: 1, 2, 4)
+  - [x] `app/admin/templates/[hallId]/page.tsx`(Server Component): `hallId` params로 `hall.findById` 조회 → 없거나 비활성이면 `notFound()`. `listTemplateItems(hallId)`로 항목 조회 후 렌더링. 상단에 "← 홀 목록" 링크 + `{hall.name} 체크리스트 항목` 헤딩. 항목이 하나도 없으면 UX-DR12 빈 상태(`#888888` 안내 문구 + 상시 노출된 등록 폼, 격려 톤 — "아직 등록된 체크리스트 항목이 없어요. 첫 항목을 등록해보세요." 류, DESIGN.md §10 금칙어 회피)
+  - [x] `app/admin/templates/[hallId]/template-item-form.tsx`(Client Component): 단계명 입력 + 설명 textarea(일반 `.input` 스타일 — FR-6/8용 "있었던 일을 그대로" 톤의 자유서술 textarea와는 다른, 구조화된 운영 콘텐츠이므로 일반 placeholder "이 단계에서 해야 할 일을 설명하세요") + Primary 버튼(UX-DR2). `useActionState`로 Server Action 반환값을 폼 상태로 반영(Story 1.2의 `HallForm` 패턴 재사용)
+  - [x] `app/admin/templates/[hallId]/template-item-row.tsx`(Client Component): **Feature Card 스타일(UX-DR6)** 적용 — 흰 배경, `border: 1px solid #E6E6E6`, `border-radius: 12px`(Story 1.2 hall-row의 8px/12px 컴팩트 리스트 스타일과 다름, `padding: 24px`. 단계명(16px/600) + 설명(14px/400, `#555555`) 표시. 위/아래 이동 버튼(맨 위/아래에서는 disabled) + "수정"(Secondary, 인라인 토글로 `TemplateItemForm` 재사용) + "삭제"(`confirm()` 후 하드 삭제)
+  - [x] 서버 검증 실패(단계명 없음) 시 `1px solid #E0353B` 보더 + `#E0353B` 12px 헬퍼 텍스트 "단계명은 필수입니다"(UX-DR14, Story 1.2의 `.input--error`/`.field-error` 클래스 재사용)
 
-- [ ] Task 5: Server Actions (AC: 1, 2, 3)
-  - [ ] `app/admin/templates/[hallId]/actions.ts`: `createTemplateItemAction`, `updateTemplateItemAction`, `deleteTemplateItemAction`, `moveTemplateItemAction` — Consistency Conventions(관리자 CRUD는 Server Actions)를 따름
-  - [ ] 각 액션은 첫 줄에 `requireAdminSession()`을 호출한다(`lib/auth-guard.ts` 재사용, layout 가드는 Server Action 자체를 보호하지 않음 — Story 1.2 코덱스 P1, [[project-wedding-check-auth-patterns]])
-  - [ ] 각 액션은 `lib/services/template.ts`만 호출(리포지토리/DB 직접 접근 금지, AD-2)
-  - [ ] 성공 시 `revalidatePath("/admin/templates/[hallId]")`로 목록 갱신
+- [x] Task 5: Server Actions (AC: 1, 2, 3)
+  - [x] `app/admin/templates/[hallId]/actions.ts`: `createTemplateItemAction`, `updateTemplateItemAction`, `deleteTemplateItemAction`, `moveTemplateItemAction` — Consistency Conventions(관리자 CRUD는 Server Actions)를 따름
+  - [x] 각 액션은 첫 줄에 `requireAdminSession()`을 호출한다(`lib/auth-guard.ts` 재사용, layout 가드는 Server Action 자체를 보호하지 않음 — Story 1.2 코덱스 P1, [[project-wedding-check-auth-patterns]])
+  - [x] 각 액션은 `lib/services/template.ts`만 호출(리포지토리/DB 직접 접근 금지, AD-2)
+  - [x] 성공 시 `revalidatePath("/admin/templates/[hallId]")`로 목록 갱신
 
-- [ ] Task 6: 홀 목록에서 템플릿 관리로 진입 경로 연결 (AC: 1 — 기능이 실제로 도달 가능해야 함)
-  - [ ] `app/admin/halls/hall-row.tsx`(UPDATE, Story 1.2가 만든 기존 파일)에 "템플릿 관리" 링크(Secondary 버튼 또는 텍스트 링크, `/admin/templates/${hall.id}`로 이동) 추가 — 기존 "수정"/"삭제" 액션 옆에 배치
-  - [ ] `app/admin/layout.tsx`의 상단 내비 "템플릿" 항목(현재 `admin-nav__link--placeholder`, 클릭 불가 `<span>`)은 이 스토리에서 건드리지 않는다 — 홀별로 스코프된 라우트라 홀을 먼저 골라야 하고, 홀 선택 UI 없는 최상위 `/admin/templates` 인덱스는 이 스토리 AC에 없다(Story 1.2와 동일하게 내비 전면 연결은 이후 스토리로 미룸)
+- [x] Task 6: 홀 목록에서 템플릿 관리로 진입 경로 연결 (AC: 1 — 기능이 실제로 도달 가능해야 함)
+  - [x] `app/admin/halls/hall-row.tsx`(UPDATE, Story 1.2가 만든 기존 파일)에 "템플릿 관리" 링크(Secondary 버튼 또는 텍스트 링크, `/admin/templates/${hall.id}`로 이동) 추가 — 기존 "수정"/"삭제" 액션 옆에 배치
+  - [x] `app/admin/layout.tsx`의 상단 내비 "템플릿" 항목(현재 `admin-nav__link--placeholder`, 클릭 불가 `<span>`)은 이 스토리에서 건드리지 않는다 — 홀별로 스코프된 라우트라 홀을 먼저 골라야 하고, 홀 선택 UI 없는 최상위 `/admin/templates` 인덱스는 이 스토리 AC에 없다(Story 1.2와 동일하게 내비 전면 연결은 이후 스토리로 미룸)
 
 - [ ] Task 7: 접근 제어 확인 (AC: 5)
   - [ ] `app/admin/templates/`는 이미 `app/admin/layout.tsx`(Story 1.1)의 `role !== 'admin'` 차단 로직 아래에 위치하므로 별도 구현 불필요 — operator 세션으로 `/admin/templates/[hallId]` 접근 시 `/login`으로 리다이렉트됨을 수동 검증(Node fetch 스크립트)으로 확인

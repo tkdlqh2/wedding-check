@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: wedding_check
+          POSTGRES_PASSWORD: wedding_check
+          POSTGRES_DB: wedding_check_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U wedding_check"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: "postgresql://wedding_check:wedding_check@localhost:5432/wedding_check_test"
+      BETTER_AUTH_SECRET: "ci-only-dummy-secret-not-for-production-use"
+      BETTER_AUTH_URL: "http://localhost:3000"
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply migrations to test DB
+        run: npx tsx scripts/apply-migrations.ts "$DATABASE_URL"
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build

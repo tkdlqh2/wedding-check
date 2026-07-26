@@ -46,7 +46,12 @@ export function TemplateItemRow({
           ) : (
             <p className="template-item-card__video-empty">영상 없음</p>
           )}
-          <VideoUpload hallId={hallId} templateItemId={item.id} blobEnabled={blobEnabled} />
+          <VideoUpload
+            hallId={hallId}
+            templateItemId={item.id}
+            blobEnabled={blobEnabled}
+            currentVideoUrl={demoVideo?.videoUrl}
+          />
         </div>
       </div>
       <div className="template-item-card__actions">

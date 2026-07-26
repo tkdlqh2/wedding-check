@@ -12,14 +12,48 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+const STATUS_POLL_INTERVAL_MS = 1000;
+const STATUS_POLL_MAX_ATTEMPTS = 15; // 약 15초까지 대기
+
+// blob 경로에서 onUploadCompleted 웹훅이 DB에 실제로 반영됐는지 확인한다(코덱스
+// 리뷰 3차 P2 — 고정 시간만큼 새로고침하고 끝내면 웹훅이 늦게 도착할 때 조용히
+// 낡은 상태로 남는다). 반영을 확인한 시점에만 새로고침하고, 시간 내 확인되지
+// 않으면 성공을 가장하지 않고 솔직하게 안내한다(DESIGN.md §4 "관련 사례 없음"과
+// 같은 원칙 — 확인 안 된 것을 확인된 것처럼 보여주지 않는다).
+async function waitForVideoUpdate(
+  hallId: string,
+  templateItemId: string,
+  previousVideoUrl: string | undefined,
+): Promise<boolean> {
+  for (let attempt = 0; attempt < STATUS_POLL_MAX_ATTEMPTS; attempt++) {
+    await sleep(STATUS_POLL_INTERVAL_MS);
+    try {
+      const res = await fetch(
+        `/api/templates/${hallId}/items/${templateItemId}/video/status`,
+      );
+      if (res.ok) {
+        const body = (await res.json()) as { videoUrl: string | null };
+        if (body.videoUrl && body.videoUrl !== previousVideoUrl) {
+          return true;
+        }
+      }
+    } catch {
+      // 폴링 자체의 네트워크 실패는 무시하고 다음 시도로 넘어간다.
+    }
+  }
+  return false;
+}
+
 export function VideoUpload({
   hallId,
   templateItemId,
   blobEnabled,
+  currentVideoUrl,
 }: {
   hallId: string;
   templateItemId: string;
   blobEnabled: boolean;
+  currentVideoUrl?: string;
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -58,17 +92,16 @@ export function VideoUpload({
         });
         if (inputRef.current) inputRef.current.value = "";
         // onUploadCompleted 웹훅은 이 응답과 별도(비동기)로 도착해 DB 행을 만든다 —
-        // 이 시점에 한 번만 새로고침하면 아직 반영 전 상태를 보여줄 수 있다(코덱스
-        // 리뷰 P1). 웹훅이 도착할 시간을 벌기 위해 짧은 간격으로 몇 차례 더
-        // 새로고침한다 — 완벽한 보장은 아니지만(로컬은 애초에 웹훅이 오지 않음,
-        // Dev Notes 참고) 프로덕션에서는 보통 수 초 안에 반영된다.
+        // 실제로 반영될 때까지 상태 확인 API를 폴링한다(로컬은 웹훅 자체가 오지
+        // 않아 항상 타임아웃함, Dev Notes 참고 — 이 경우 안내 문구로 솔직하게 알림).
         setNotice("업로드 완료, 목록에 반영 중...");
-        router.refresh();
-        for (const delayMs of [1000, 2000, 2000]) {
-          await sleep(delayMs);
+        const confirmed = await waitForVideoUpdate(hallId, templateItemId, currentVideoUrl);
+        if (confirmed) {
           router.refresh();
+          setNotice(null);
+        } else {
+          setNotice("업로드는 완료됐지만 아직 목록에 반영되지 않았어요 — 잠시 후 새로고침해주세요");
         }
-        setNotice(null);
       } else {
         const formData = new FormData();
         formData.set("file", file);

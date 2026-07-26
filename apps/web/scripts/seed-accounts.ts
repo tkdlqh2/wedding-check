@@ -13,8 +13,9 @@
  */
 import { auth } from "../lib/auth";
 import { db } from "../lib/db";
-import { user } from "../lib/db/schema";
-import { eq } from "drizzle-orm";
+import { user, account } from "../lib/db/schema";
+import { hashPassword } from "better-auth/crypto";
+import { and, eq } from "drizzle-orm";
 import type { Role } from "../lib/auth";
 
 // AD-10: 시크릿 하드코딩 금지 — 관리자/오퍼레이터 초기 비밀번호는 .env.local의 환경변수로만
@@ -43,13 +44,19 @@ async function seedAccount(
 ) {
   const existing = await db.query.user.findFirst({ where: eq(user.email, email) });
   if (existing) {
-    // 이미 시드된 계정이라도 role/phoneNumber는 최신 환경변수 값으로 갱신한다(코덱스 리뷰 P2 반영)
-    // — 그렇지 않으면 SEED_ADMIN_PHONE_NUMBER를 나중에 설정해도 기존 계정에 절대 반영되지 않는다.
+    // 이미 시드된 계정이라도 role/phoneNumber/비밀번호를 최신 환경변수 값으로 갱신한다
+    // (코덱스 리뷰 P1/P2 반영) — 그렇지 않으면 값을 나중에 바꿔도 기존 계정에는 절대
+    // 반영되지 않고, 특히 이전에 알려진 기본 비밀번호로 생성된 계정이 그대로 남는다.
+    // phoneNumber는 빈 문자열이면 명시적으로 null로 초기화한다(값을 지워도 이전 값이 남지 않게).
     await db
       .update(user)
-      .set({ role, ...(phoneNumber ? { phoneNumber } : {}) })
+      .set({ role, phoneNumber: phoneNumber || null })
       .where(eq(user.email, email));
-    console.log(`이미 존재함, role/phoneNumber 갱신: ${email}`);
+    await db
+      .update(account)
+      .set({ password: await hashPassword(password) })
+      .where(and(eq(account.userId, existing.id), eq(account.providerId, "credential")));
+    console.log(`이미 존재함, role/phoneNumber/비밀번호 갱신: ${email}`);
     return;
   }
 

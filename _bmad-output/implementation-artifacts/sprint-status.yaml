@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: "07-26-2026 16:19"
-last_updated: "07-26-2026 21:30"
+last_updated: "07-26-2026 22:20"
 project: wedding-check
 project_key: WEDCHK
 tracking_system: file-system
@@ -51,7 +51,7 @@ development_status:
   epic-1: in-progress
   1-1-project-setup-and-login: done
   1-2-hall-registration: done
-  1-3-checklist-item-registration: in-progress
+  1-3-checklist-item-registration: done
   1-4-demo-video-upload: backlog
   epic-1-retrospective: optional
 
@@ -77,12 +77,12 @@ development_status:
 # 번호가 매겨진 스토리가 아닌 개별 수정(fix/*)도 동일한 파이프라인으로 추적한다.
 git_pipeline:
   1-3-checklist-item-registration:
-    stage: branch-created
+    stage: merged
     branch: story/1-3-checklist-item-registration
-    pr_url: null
-    merge_commit: null
-    notes: "구현 시작."
-    last_updated: "07-26-2026 21:35"
+    pr_url: "https://github.com/tkdlqh2/wedding-check/pull/5"
+    merge_commit: "61b9e1b"
+    notes: "일반 merge, 브랜치 삭제 완료. 총 7회 코덱스 리뷰 라운드, 전부 동시성/견고성 실제 결함 — 핵심은 db.transaction()이 프로덕션 드라이버(neon-http)에서 무조건 throw한다는 것(P1, 로컬 node-postgres로는 절대 못 잡는 종류의 버그). 트랜잭션 없이 단일 SQL 문 + (hall_id, sort_order) UNIQUE 제약(DEFERRABLE) + 위반 시 재시도로 해결. checklist_templates 별도 테이블 없이 checklist_template_items.hall_id가 halls를 직접 참조하는 [ASSUMPTION]도 확정(ERD와 Consistency Conventions 표 불일치 해소)."
+    last_updated: "07-26-2026 22:20"
 
   fix-local-dev-db-and-phone-normalization:
     stage: merged

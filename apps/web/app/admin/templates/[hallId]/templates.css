@@ -1,0 +1,91 @@
+/* DESIGN.md §4 Cards(Feature/Content Card, UX-DR6), §14 Empty state */
+.templates-page {
+  max-width: 720px;
+}
+
+.templates-page__back {
+  display: inline-block;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  margin-bottom: var(--space-sm);
+}
+
+.templates-page__form-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-xl);
+}
+
+.templates-page__empty {
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.template-item-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  align-items: flex-start;
+}
+
+.template-item-form textarea {
+  resize: vertical;
+  font-family: inherit;
+}
+
+.template-item-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* Feature/Content Card (UX-DR6): 흰 배경, border #E6E6E6, radius 8~12px, padding 24px */
+.template-item-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+}
+
+.template-item-card--editing {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.template-item-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.template-item-card__step-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.template-item-card__description {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.template-item-card__actions {
+  display: flex;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.template-item-card__actions .btn-secondary {
+  padding: var(--space-sm) var(--space-md);
+}

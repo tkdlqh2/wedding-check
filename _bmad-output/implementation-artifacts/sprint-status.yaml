@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: "07-26-2026 16:19"
-last_updated: "07-26-2026 23:59"
+last_updated: "07-27-2026 00:15"
 project: wedding-check
 project_key: WEDCHK
 tracking_system: file-system
@@ -53,7 +53,7 @@ development_status:
   1-2-hall-registration: done
   1-3-checklist-item-registration: done
   1-4-demo-video-upload: done
-  epic-1-retrospective: optional
+  epic-1-retrospective: done
 
   epic-2: backlog
   2-1-ceremony-registration: backlog
@@ -125,4 +125,20 @@ git_pipeline:
     last_updated: "07-26-2026 17:08"
 
 # Action items committed during retrospectives (section created by the retrospective workflow)
-action_items: []
+action_items:
+  - epic: 1
+    action: "Vercel Blob store 생성 + BLOB_READ_WRITE_TOKEN 설정, 시연 영상 업로드 실제 업로드 경로(onUploadCompleted) 종단 검증"
+    owner: "형진"
+    status: open
+  - epic: 1
+    action: "Epic 2 착수 전 AD-9(계약 형태 부분집합 매칭) 규칙을 Story 2.2 create-story 단계에서 구체화"
+    owner: "Amelia"
+    status: open
+  - epic: 1
+    action: "자동화 테스트 도입 여부 재검토 - Epic 2의 상태 조합 복잡도 증가 전에 결정"
+    owner: "형진 + Amelia"
+    status: open
+  - epic: 1
+    action: "새 종류의 엔드포인트(Server Action -> Route Handler 등) 추가 시 requireAdminSession 등 보안 가드 재확인을 체크리스트화"
+    owner: "Amelia"
+    status: open

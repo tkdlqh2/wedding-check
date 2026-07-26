@@ -38,11 +38,11 @@ so that 홀 전용 조작 표준을 만들 수 있다.
   - [x] `reorderAll(hallId: string, orderedIds: string[]): Promise<void>` — `db.transaction`으로 각 id의 `sortOrder`를 배열 인덱스로 갱신, 각 UPDATE의 WHERE 절에 `hall_id = $hallId`를 포함해 다른 홀 항목이 섞여 들어와도 무시되게 한다(AD-2 안전장치)
   - [x] `lib/services/*`가 SQL/ORM을 직접 쓰지 않고 이 리포지토리만 호출하도록 강제(AD-2)
 
-- [ ] Task 3: 서비스 레이어 — `lib/services/template.ts` (AC: 1, 2, 3)
-  - [ ] `TemplateItemValidationError extends Error` — Story 1.2의 `HallValidationError`와 동일 패턴
-  - [ ] `createTemplateItem(hallId: string, input: { stepName: string; description?: string | null })`: `stepName`이 빈 문자열/공백이면 거부(`TemplateItemValidationError` throw). `hallId`가 존재하지 않거나 비활성 홀이면 거부(직접 URL 접근/Server Action 재전송으로 존재하지 않는 홀에 항목이 생기는 것을 서버에서 막음 — `lib/db/repositories/hall.ts::findById` 재사용)
-  - [ ] `listTemplateItems(hallId)`, `updateTemplateItem(hallId, id, input)`, `deleteTemplateItem(hallId, id)` — 리포지토리 위임
-  - [ ] `moveTemplateItem(hallId, id, direction: "up" | "down")`: `listTemplateItems(hallId)`로 현재 순서를 가져와 대상 항목과 인접 항목의 위치를 배열에서 바꾼 뒤 `reorderAll(hallId, newOrderedIds)` 호출. 맨 위에서 "up" 또는 맨 아래에서 "down" 요청은 조용히 무시(범위 밖 이동 없음)
+- [x] Task 3: 서비스 레이어 — `lib/services/template.ts` (AC: 1, 2, 3)
+  - [x] `TemplateItemValidationError extends Error` — Story 1.2의 `HallValidationError`와 동일 패턴
+  - [x] `createTemplateItem(hallId: string, input: { stepName: string; description?: string | null })`: `stepName`이 빈 문자열/공백이면 거부(`TemplateItemValidationError` throw). `hallId`가 존재하지 않거나 비활성 홀이면 거부(직접 URL 접근/Server Action 재전송으로 존재하지 않는 홀에 항목이 생기는 것을 서버에서 막음 — `lib/db/repositories/hall.ts::findById` 재사용)
+  - [x] `listTemplateItems(hallId)`, `updateTemplateItem(hallId, id, input)`, `deleteTemplateItem(hallId, id)` — 리포지토리 위임
+  - [x] `moveTemplateItem(hallId, id, direction: "up" | "down")`: `listTemplateItems(hallId)`로 현재 순서를 가져와 대상 항목과 인접 항목의 위치를 배열에서 바꾼 뒤 `reorderAll(hallId, newOrderedIds)` 호출. 맨 위에서 "up" 또는 맨 아래에서 "down" 요청은 조용히 무시(범위 밖 이동 없음)
 
 - [ ] Task 4: 템플릿 관리 화면 — 항목 목록 + 등록/수정 폼 (AC: 1, 2, 4)
   - [ ] `app/admin/templates/[hallId]/page.tsx`(Server Component): `hallId` params로 `hall.findById` 조회 → 없거나 비활성이면 `notFound()`. `listTemplateItems(hallId)`로 항목 조회 후 렌더링. 상단에 "← 홀 목록" 링크 + `{hall.name} 체크리스트 항목` 헤딩. 항목이 하나도 없으면 UX-DR12 빈 상태(`#888888` 안내 문구 + 상시 노출된 등록 폼, 격려 톤 — "아직 등록된 체크리스트 항목이 없어요. 첫 항목을 등록해보세요." 류, DESIGN.md §10 금칙어 회피)

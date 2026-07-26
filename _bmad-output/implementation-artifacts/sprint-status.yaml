@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: "07-26-2026 16:19"
-last_updated: "07-26-2026 22:10"
+last_updated: "07-26-2026 22:17"
 project: wedding-check
 project_key: WEDCHK
 tracking_system: file-system
@@ -56,7 +56,7 @@ development_status:
   epic-1-retrospective: done
 
   epic-2: in-progress
-  2-1-ceremony-registration: review
+  2-1-ceremony-registration: done
   2-2-contract-based-instance-assembly: backlog
   2-3-operator-instance-view: backlog
   epic-2-retrospective: optional
@@ -76,6 +76,14 @@ development_status:
 # Per-story git pipeline substage (see GIT PIPELINE STAGE legend above).
 # 번호가 매겨진 스토리가 아닌 개별 수정(fix/*)도 동일한 파이프라인으로 추적한다.
 git_pipeline:
+  2-1-ceremony-registration:
+    stage: merged
+    branch: story/2-1-ceremony-registration
+    pr_url: "https://github.com/tkdlqh2/wedding-check/pull/8"
+    merge_commit: "c24ca20"
+    notes: "일반 merge(fast-forward), 브랜치 삭제 완료. 코덱스 리뷰 1라운드(클린). FR-4 예식 등록 + 체크리스트 인스턴스 자동 생성. ceremonies/checklist_instances/checklist_instance_items 스키마 확정(AD-2 hall_id 직접 저장, adversarial review로 확정된 최종 룰) — instance_items는 PRD \"실행용 사본\" 원칙에 따라 stepName/description/sortOrder를 생성 시점 스냅샷으로 저장하고 templateItemId는 onDelete set null 소프트 참조로만 남김(Story 1.4 FK 삭제 차단 버그 재발 방지). db.transaction() 금지 원칙에 따라 ceremony+instance+instance_items를 단일 CTE INSERT로 원자적 생성. AD-9 부분집합 매칭(계약 형태 필터링)은 Story 2.2 범위로 명시적으로 분리. 구현 중 vitest 통합 테스트로 실제 버그 발견: ceremonyRepo.create의 raw SQL에 JS Date 객체를 직접 바인딩하면 node-postgres가 세션 타임존(KST)을 거쳐 값을 변환해 9시간이 밀려 저장됨 — toISOString() 기반 UTC 리터럴 문자열 + ::timestamp 캐스팅으로 수정, 로컬 서버 실제 HTTP 요청 + DB 직접 조회로 AC 1~4 전부 검증."
+    last_updated: "07-26-2026 22:17"
+
   chore-vitest-test-infra:
     stage: merged
     branch: chore/vitest-test-infra

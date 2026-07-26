@@ -1,0 +1,37 @@
+/* DESIGN.md §4 Navigation — 실행 화면(태블릿): 하단 내비, 큰 아이콘(체크리스트/질의/피드백), ≥44px 타깃 */
+.operator-shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+}
+
+.operator-content {
+  flex: 1;
+  padding: var(--space-lg);
+}
+
+.operator-nav {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  justify-content: space-around;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border-light);
+  padding: var(--space-md) 0;
+}
+
+.operator-nav__item {
+  min-height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--color-text-secondary);
+}
+
+.operator-nav__item--placeholder {
+  color: var(--color-text-disabled);
+}

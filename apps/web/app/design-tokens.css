@@ -1,0 +1,82 @@
+/* DESIGN.md §2 Color Palette, §3 Typography, §5 Spacing, §6 Depth & Elevation */
+:root {
+  /* 브랜드 / 액션 */
+  --color-brand: #e8552d;
+  --color-brand-hover: #d14a26;
+  --color-brand-tint: #fdede7;
+
+  /* Surface & Background */
+  --color-surface: #ffffff;
+  --color-surface-soft: #f7f7f7;
+  --color-surface-hover: #efefef;
+
+  /* Neutral / Text */
+  --color-text-primary: #1f1f1f;
+  --color-text-secondary: #555555;
+  --color-text-muted: #888888;
+  --color-text-disabled: #bcbcbc;
+
+  /* Borders */
+  --color-border-light: #e6e6e6;
+  --color-border-mid: #d4d4d4;
+
+  /* Semantic (operational) */
+  --color-success: #1fa463;
+  --color-warning: #f5a623;
+  --color-error: #e0353b;
+  --color-info: #2b82e0;
+
+  /* Typography */
+  --font-family-kr: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", -apple-system, sans-serif;
+
+  /* Spacing scale (8px base) */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-base: 16px;
+  --space-lg: 24px;
+  --space-xl: 48px;
+  --space-xxl: 80px;
+
+  /* Radius scale */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-header: 0 1px 4px rgba(0, 0, 0, 0.06);
+  --shadow-modal: 0 8px 32px rgba(0, 0, 0, 0.18);
+}
+
+body {
+  font-family: var(--font-family-kr);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+}
+
+.btn-primary {
+  background: var(--color-brand);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--space-md) var(--space-lg);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-brand-hover);
+}
+
+.btn-primary:disabled {
+  background: var(--color-text-disabled);
+  color: #ffffff;
+  cursor: not-allowed;
+}
+
+.field-error {
+  color: var(--color-error);
+  font-size: 12px;
+}

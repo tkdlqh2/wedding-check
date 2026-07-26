@@ -24,19 +24,19 @@ so that 홀 전용 조작 표준을 만들 수 있다.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: `checklist_template_items` 테이블 스키마 + 마이그레이션 (AC: 1, 2, 3)
-  - [ ] `lib/db/schema.ts`에 `checklistTemplateItems` 테이블 추가: `id`(uuid, `defaultRandom()`, PK), `hallId`(uuid, not null, `references(() => halls.id)`), `stepName`(text, not null — 단계명), `description`(text, nullable — 설명, FR-2상 선택 필드), `sortOrder`(integer, not null), `applicableContractConditions`(jsonb, not null, default `{}` — AD-9 스키마 확정, 이 스토리에서 편집 UI는 만들지 않음), `createdAt`/`updatedAt`(timestamp, halls와 동일 패턴)
-  - [ ] `npx drizzle-kit generate`로 마이그레이션 생성(DB 연결 없이 스키마 diff만으로 생성됨, Story 1.1/1.2에서 확인된 방식)
-  - [ ] 로컬 Postgres에 마이그레이션 적용해 검증 — **중요:** 이제 임시 스왑이 필요 없다. `lib/db/index.ts`는 이미 `DATABASE_URL`이 localhost를 가리키면 자동으로 `node-postgres`를 쓰도록 분기되어 있고(2026-07-26 fix 병합됨), `.env.local`의 `DATABASE_URL`도 이미 로컬 Docker Postgres(`wedding-check-db`, 포트 5434)를 가리키고 있다. 그냥 `npm run dev`/마이그레이션 스크립트를 그대로 실행하면 된다 — Story 1.2 방식(임시 스왑 후 원복)을 반복하지 말 것(아래 "Previous Story Intelligence" 참고).
+- [x] Task 1: `checklist_template_items` 테이블 스키마 + 마이그레이션 (AC: 1, 2, 3)
+  - [x] `lib/db/schema.ts`에 `checklistTemplateItems` 테이블 추가: `id`(uuid, `defaultRandom()`, PK), `hallId`(uuid, not null, `references(() => halls.id)`), `stepName`(text, not null — 단계명), `description`(text, nullable — 설명, FR-2상 선택 필드), `sortOrder`(integer, not null), `applicableContractConditions`(jsonb, not null, default `{}` — AD-9 스키마 확정, 이 스토리에서 편집 UI는 만들지 않음), `createdAt`/`updatedAt`(timestamp, halls와 동일 패턴)
+  - [x] `npx drizzle-kit generate`로 마이그레이션 생성(DB 연결 없이 스키마 diff만으로 생성됨, Story 1.1/1.2에서 확인된 방식) — `0004_naive_james_howlett.sql`
+  - [x] 로컬 Postgres에 마이그레이션 적용해 검증 — **중요:** 이제 임시 스왑이 필요 없다. `lib/db/index.ts`는 이미 `DATABASE_URL`이 localhost를 가리키면 자동으로 `node-postgres`를 쓰도록 분기되어 있고(2026-07-26 fix 병합됨), `.env.local`의 `DATABASE_URL`도 이미 로컬 Docker Postgres(`wedding-check-db`, 포트 5434)를 가리키고 있다. 그냥 `npm run dev`/마이그레이션 스크립트를 그대로 실행하면 된다 — Story 1.2 방식(임시 스왑 후 원복)을 반복하지 말 것(아래 "Previous Story Intelligence" 참고).
 
-- [ ] Task 2: 리포지토리 레이어 — `lib/db/repositories/template-item.ts` (AC: 1, 2, 3)
-  - [ ] `create(hallId: string, input: { stepName: string; description?: string | null }): Promise<TemplateItem>` — `sortOrder`는 해당 홀의 현재 최대값+1로 자동 계산(append). `WHERE hall_id = $hallId`가 모든 쿼리에 포함되어야 한다(AD-2).
-  - [ ] `findAllByHall(hallId: string): Promise<TemplateItem[]>` — `WHERE hall_id = $hallId ORDER BY sort_order ASC`
-  - [ ] `findById(hallId: string, id: string): Promise<TemplateItem | undefined>` — id뿐 아니라 hallId도 WHERE 조건에 포함(다른 홀 소속 id로 조회/수정 시도를 원천 차단, AD-2)
-  - [ ] `update(hallId: string, id: string, input: { stepName: string; description?: string | null }): Promise<TemplateItem>`
-  - [ ] `remove(hallId: string, id: string): Promise<void>` — 하드 삭제(아래 "삭제 정책" Dev Notes 참고, halls의 소프트 삭제와 다름)
-  - [ ] `reorderAll(hallId: string, orderedIds: string[]): Promise<void>` — `db.transaction`으로 각 id의 `sortOrder`를 배열 인덱스로 갱신, 각 UPDATE의 WHERE 절에 `hall_id = $hallId`를 포함해 다른 홀 항목이 섞여 들어와도 무시되게 한다(AD-2 안전장치)
-  - [ ] `lib/services/*`가 SQL/ORM을 직접 쓰지 않고 이 리포지토리만 호출하도록 강제(AD-2)
+- [x] Task 2: 리포지토리 레이어 — `lib/db/repositories/template-item.ts` (AC: 1, 2, 3)
+  - [x] `create(hallId: string, input: { stepName: string; description?: string | null }): Promise<TemplateItem>` — `sortOrder`는 해당 홀의 현재 최대값+1로 자동 계산(append). `WHERE hall_id = $hallId`가 모든 쿼리에 포함되어야 한다(AD-2).
+  - [x] `findAllByHall(hallId: string): Promise<TemplateItem[]>` — `WHERE hall_id = $hallId ORDER BY sort_order ASC`
+  - [x] `findById(hallId: string, id: string): Promise<TemplateItem | undefined>` — id뿐 아니라 hallId도 WHERE 조건에 포함(다른 홀 소속 id로 조회/수정 시도를 원천 차단, AD-2)
+  - [x] `update(hallId: string, id: string, input: { stepName: string; description?: string | null }): Promise<TemplateItem>`
+  - [x] `remove(hallId: string, id: string): Promise<void>` — 하드 삭제(아래 "삭제 정책" Dev Notes 참고, halls의 소프트 삭제와 다름)
+  - [x] `reorderAll(hallId: string, orderedIds: string[]): Promise<void>` — `db.transaction`으로 각 id의 `sortOrder`를 배열 인덱스로 갱신, 각 UPDATE의 WHERE 절에 `hall_id = $hallId`를 포함해 다른 홀 항목이 섞여 들어와도 무시되게 한다(AD-2 안전장치)
+  - [x] `lib/services/*`가 SQL/ORM을 직접 쓰지 않고 이 리포지토리만 호출하도록 강제(AD-2)
 
 - [ ] Task 3: 서비스 레이어 — `lib/services/template.ts` (AC: 1, 2, 3)
   - [ ] `TemplateItemValidationError extends Error` — Story 1.2의 `HallValidationError`와 동일 패턴

@@ -1,7 +1,17 @@
 import { relations } from "drizzle-orm";
-import { pgTable, text, timestamp, boolean, index, uuid } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  timestamp,
+  boolean,
+  index,
+  uuid,
+  integer,
+  jsonb,
+  unique,
+} from "drizzle-orm/pg-core";
 
-// FR-1: 홀(예식 진행 공간). 홀 종속 엔티티(checklist_templates 등, Story 1.3+)와 달리
+// FR-1: 홀(예식 진행 공간). 홀 종속 엔티티(checklist_template_items 등)와 달리
 // halls 자체는 홀 격리 대상이 아니라 그 기준이 되는 루트 엔티티다(AD-2).
 export const halls = pgTable("halls", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -14,6 +24,44 @@ export const halls = pgTable("halls", {
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 });
+
+// FR-2: 홀에 속한 체크리스트 항목(단계명·설명). 별도의 checklist_templates 테이블은
+// 만들지 않는다 — PRD §3 용어집상 "체크리스트 템플릿"은 한 홀의 이 항목들의 집합을
+// 가리키는 개념어일 뿐 물리적 엔티티가 아니며, 스파인의 ERD도 HALL이 CHECKLIST_TEMPLATE_ITEM을
+// 직접 갖는 것으로 그린다(Story 1.3 Dev Notes [ASSUMPTION] 참고). AD-2의 홀 종속 엔티티라
+// hallId 필터링이 모든 리포지토리 쿼리에 강제된다.
+export const checklistTemplateItems = pgTable(
+  "checklist_template_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    hallId: uuid("hall_id")
+      .notNull()
+      .references(() => halls.id),
+    stepName: text("step_name").notNull(),
+    description: text("description"),
+    sortOrder: integer("sort_order").notNull(),
+    // AD-9: 계약 형태 조건부 포함 여부의 데이터 표현. 이 스토리는 컬럼만 확정하고 기본값
+    // {}(모든 계약 형태에 포함)만 쓴다 — 편집 UI는 Epic 2까지 미룬다.
+    applicableContractConditions: jsonb("applicable_contract_conditions")
+      .notNull()
+      .default({}),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    // 동시 생성 시 같은 sortOrder가 중복 저장되는 것을 DB가 직접 막는다(코덱스 리뷰 5차
+    // P1 반영). 마이그레이션에서 DEFERRABLE INITIALLY DEFERRED로 수기 조정 — moveAdjacent의
+    // 스왑 UPDATE가 두 행의 값을 맞바꾸는 중간 상태에서 즉시 위반으로 걸리지 않게 하기 위함
+    // (drizzle의 unique() 빌더는 deferrable을 지원하지 않아 생성된 SQL을 직접 수정함).
+    unique("checklist_template_items_hall_id_sort_order_unique").on(
+      table.hallId,
+      table.sortOrder,
+    ),
+  ],
+);
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),

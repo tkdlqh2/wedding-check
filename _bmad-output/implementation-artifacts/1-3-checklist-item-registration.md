@@ -1,6 +1,10 @@
+---
+baseline_commit: 3d3a2f5279becaa46343566b4cbe3a796cb857a8
+---
+
 # Story 1.3: 체크리스트 항목 등록
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -20,45 +24,45 @@ so that 홀 전용 조작 표준을 만들 수 있다.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: `checklist_template_items` 테이블 스키마 + 마이그레이션 (AC: 1, 2, 3)
-  - [ ] `lib/db/schema.ts`에 `checklistTemplateItems` 테이블 추가: `id`(uuid, `defaultRandom()`, PK), `hallId`(uuid, not null, `references(() => halls.id)`), `stepName`(text, not null — 단계명), `description`(text, nullable — 설명, FR-2상 선택 필드), `sortOrder`(integer, not null), `applicableContractConditions`(jsonb, not null, default `{}` — AD-9 스키마 확정, 이 스토리에서 편집 UI는 만들지 않음), `createdAt`/`updatedAt`(timestamp, halls와 동일 패턴)
-  - [ ] `npx drizzle-kit generate`로 마이그레이션 생성(DB 연결 없이 스키마 diff만으로 생성됨, Story 1.1/1.2에서 확인된 방식)
-  - [ ] 로컬 Postgres에 마이그레이션 적용해 검증 — **중요:** 이제 임시 스왑이 필요 없다. `lib/db/index.ts`는 이미 `DATABASE_URL`이 localhost를 가리키면 자동으로 `node-postgres`를 쓰도록 분기되어 있고(2026-07-26 fix 병합됨), `.env.local`의 `DATABASE_URL`도 이미 로컬 Docker Postgres(`wedding-check-db`, 포트 5434)를 가리키고 있다. 그냥 `npm run dev`/마이그레이션 스크립트를 그대로 실행하면 된다 — Story 1.2 방식(임시 스왑 후 원복)을 반복하지 말 것(아래 "Previous Story Intelligence" 참고).
+- [x] Task 1: `checklist_template_items` 테이블 스키마 + 마이그레이션 (AC: 1, 2, 3)
+  - [x] `lib/db/schema.ts`에 `checklistTemplateItems` 테이블 추가: `id`(uuid, `defaultRandom()`, PK), `hallId`(uuid, not null, `references(() => halls.id)`), `stepName`(text, not null — 단계명), `description`(text, nullable — 설명, FR-2상 선택 필드), `sortOrder`(integer, not null), `applicableContractConditions`(jsonb, not null, default `{}` — AD-9 스키마 확정, 이 스토리에서 편집 UI는 만들지 않음), `createdAt`/`updatedAt`(timestamp, halls와 동일 패턴)
+  - [x] `npx drizzle-kit generate`로 마이그레이션 생성(DB 연결 없이 스키마 diff만으로 생성됨, Story 1.1/1.2에서 확인된 방식) — `0004_naive_james_howlett.sql`
+  - [x] 로컬 Postgres에 마이그레이션 적용해 검증 — **중요:** 이제 임시 스왑이 필요 없다. `lib/db/index.ts`는 이미 `DATABASE_URL`이 localhost를 가리키면 자동으로 `node-postgres`를 쓰도록 분기되어 있고(2026-07-26 fix 병합됨), `.env.local`의 `DATABASE_URL`도 이미 로컬 Docker Postgres(`wedding-check-db`, 포트 5434)를 가리키고 있다. 그냥 `npm run dev`/마이그레이션 스크립트를 그대로 실행하면 된다 — Story 1.2 방식(임시 스왑 후 원복)을 반복하지 말 것(아래 "Previous Story Intelligence" 참고).
 
-- [ ] Task 2: 리포지토리 레이어 — `lib/db/repositories/template-item.ts` (AC: 1, 2, 3)
-  - [ ] `create(hallId: string, input: { stepName: string; description?: string | null }): Promise<TemplateItem>` — `sortOrder`는 해당 홀의 현재 최대값+1로 자동 계산(append). `WHERE hall_id = $hallId`가 모든 쿼리에 포함되어야 한다(AD-2).
-  - [ ] `findAllByHall(hallId: string): Promise<TemplateItem[]>` — `WHERE hall_id = $hallId ORDER BY sort_order ASC`
-  - [ ] `findById(hallId: string, id: string): Promise<TemplateItem | undefined>` — id뿐 아니라 hallId도 WHERE 조건에 포함(다른 홀 소속 id로 조회/수정 시도를 원천 차단, AD-2)
-  - [ ] `update(hallId: string, id: string, input: { stepName: string; description?: string | null }): Promise<TemplateItem>`
-  - [ ] `remove(hallId: string, id: string): Promise<void>` — 하드 삭제(아래 "삭제 정책" Dev Notes 참고, halls의 소프트 삭제와 다름)
-  - [ ] `reorderAll(hallId: string, orderedIds: string[]): Promise<void>` — `db.transaction`으로 각 id의 `sortOrder`를 배열 인덱스로 갱신, 각 UPDATE의 WHERE 절에 `hall_id = $hallId`를 포함해 다른 홀 항목이 섞여 들어와도 무시되게 한다(AD-2 안전장치)
-  - [ ] `lib/services/*`가 SQL/ORM을 직접 쓰지 않고 이 리포지토리만 호출하도록 강제(AD-2)
+- [x] Task 2: 리포지토리 레이어 — `lib/db/repositories/template-item.ts` (AC: 1, 2, 3)
+  - [x] `create(hallId: string, input: { stepName: string; description?: string | null }): Promise<TemplateItem>` — `sortOrder`는 해당 홀의 현재 최대값+1로 자동 계산(append). `WHERE hall_id = $hallId`가 모든 쿼리에 포함되어야 한다(AD-2).
+  - [x] `findAllByHall(hallId: string): Promise<TemplateItem[]>` — `WHERE hall_id = $hallId ORDER BY sort_order ASC`
+  - [x] `findById(hallId: string, id: string): Promise<TemplateItem | undefined>` — id뿐 아니라 hallId도 WHERE 조건에 포함(다른 홀 소속 id로 조회/수정 시도를 원천 차단, AD-2)
+  - [x] `update(hallId: string, id: string, input: { stepName: string; description?: string | null }): Promise<TemplateItem>`
+  - [x] `remove(hallId: string, id: string): Promise<void>` — 하드 삭제(아래 "삭제 정책" Dev Notes 참고, halls의 소프트 삭제와 다름)
+  - [x] `reorderAll(hallId: string, orderedIds: string[]): Promise<void>` — `db.transaction`으로 각 id의 `sortOrder`를 배열 인덱스로 갱신, 각 UPDATE의 WHERE 절에 `hall_id = $hallId`를 포함해 다른 홀 항목이 섞여 들어와도 무시되게 한다(AD-2 안전장치)
+  - [x] `lib/services/*`가 SQL/ORM을 직접 쓰지 않고 이 리포지토리만 호출하도록 강제(AD-2)
 
-- [ ] Task 3: 서비스 레이어 — `lib/services/template.ts` (AC: 1, 2, 3)
-  - [ ] `TemplateItemValidationError extends Error` — Story 1.2의 `HallValidationError`와 동일 패턴
-  - [ ] `createTemplateItem(hallId: string, input: { stepName: string; description?: string | null })`: `stepName`이 빈 문자열/공백이면 거부(`TemplateItemValidationError` throw). `hallId`가 존재하지 않거나 비활성 홀이면 거부(직접 URL 접근/Server Action 재전송으로 존재하지 않는 홀에 항목이 생기는 것을 서버에서 막음 — `lib/db/repositories/hall.ts::findById` 재사용)
-  - [ ] `listTemplateItems(hallId)`, `updateTemplateItem(hallId, id, input)`, `deleteTemplateItem(hallId, id)` — 리포지토리 위임
-  - [ ] `moveTemplateItem(hallId, id, direction: "up" | "down")`: `listTemplateItems(hallId)`로 현재 순서를 가져와 대상 항목과 인접 항목의 위치를 배열에서 바꾼 뒤 `reorderAll(hallId, newOrderedIds)` 호출. 맨 위에서 "up" 또는 맨 아래에서 "down" 요청은 조용히 무시(범위 밖 이동 없음)
+- [x] Task 3: 서비스 레이어 — `lib/services/template.ts` (AC: 1, 2, 3)
+  - [x] `TemplateItemValidationError extends Error` — Story 1.2의 `HallValidationError`와 동일 패턴
+  - [x] `createTemplateItem(hallId: string, input: { stepName: string; description?: string | null })`: `stepName`이 빈 문자열/공백이면 거부(`TemplateItemValidationError` throw). `hallId`가 존재하지 않거나 비활성 홀이면 거부(직접 URL 접근/Server Action 재전송으로 존재하지 않는 홀에 항목이 생기는 것을 서버에서 막음 — `lib/db/repositories/hall.ts::findById` 재사용)
+  - [x] `listTemplateItems(hallId)`, `updateTemplateItem(hallId, id, input)`, `deleteTemplateItem(hallId, id)` — 리포지토리 위임
+  - [x] `moveTemplateItem(hallId, id, direction: "up" | "down")`: `listTemplateItems(hallId)`로 현재 순서를 가져와 대상 항목과 인접 항목의 위치를 배열에서 바꾼 뒤 `reorderAll(hallId, newOrderedIds)` 호출. 맨 위에서 "up" 또는 맨 아래에서 "down" 요청은 조용히 무시(범위 밖 이동 없음)
 
-- [ ] Task 4: 템플릿 관리 화면 — 항목 목록 + 등록/수정 폼 (AC: 1, 2, 4)
-  - [ ] `app/admin/templates/[hallId]/page.tsx`(Server Component): `hallId` params로 `hall.findById` 조회 → 없거나 비활성이면 `notFound()`. `listTemplateItems(hallId)`로 항목 조회 후 렌더링. 상단에 "← 홀 목록" 링크 + `{hall.name} 체크리스트 항목` 헤딩. 항목이 하나도 없으면 UX-DR12 빈 상태(`#888888` 안내 문구 + 상시 노출된 등록 폼, 격려 톤 — "아직 등록된 체크리스트 항목이 없어요. 첫 항목을 등록해보세요." 류, DESIGN.md §10 금칙어 회피)
-  - [ ] `app/admin/templates/[hallId]/template-item-form.tsx`(Client Component): 단계명 입력 + 설명 textarea(일반 `.input` 스타일 — FR-6/8용 "있었던 일을 그대로" 톤의 자유서술 textarea와는 다른, 구조화된 운영 콘텐츠이므로 일반 placeholder "이 단계에서 해야 할 일을 설명하세요") + Primary 버튼(UX-DR2). `useActionState`로 Server Action 반환값을 폼 상태로 반영(Story 1.2의 `HallForm` 패턴 재사용)
-  - [ ] `app/admin/templates/[hallId]/template-item-row.tsx`(Client Component): **Feature Card 스타일(UX-DR6)** 적용 — 흰 배경, `border: 1px solid #E6E6E6`, `border-radius: 12px`(Story 1.2 hall-row의 8px/12px 컴팩트 리스트 스타일과 다름, `padding: 24px`. 단계명(16px/600) + 설명(14px/400, `#555555`) 표시. 위/아래 이동 버튼(맨 위/아래에서는 disabled) + "수정"(Secondary, 인라인 토글로 `TemplateItemForm` 재사용) + "삭제"(`confirm()` 후 하드 삭제)
-  - [ ] 서버 검증 실패(단계명 없음) 시 `1px solid #E0353B` 보더 + `#E0353B` 12px 헬퍼 텍스트 "단계명은 필수입니다"(UX-DR14, Story 1.2의 `.input--error`/`.field-error` 클래스 재사용)
+- [x] Task 4: 템플릿 관리 화면 — 항목 목록 + 등록/수정 폼 (AC: 1, 2, 4)
+  - [x] `app/admin/templates/[hallId]/page.tsx`(Server Component): `hallId` params로 `hall.findById` 조회 → 없거나 비활성이면 `notFound()`. `listTemplateItems(hallId)`로 항목 조회 후 렌더링. 상단에 "← 홀 목록" 링크 + `{hall.name} 체크리스트 항목` 헤딩. 항목이 하나도 없으면 UX-DR12 빈 상태(`#888888` 안내 문구 + 상시 노출된 등록 폼, 격려 톤 — "아직 등록된 체크리스트 항목이 없어요. 첫 항목을 등록해보세요." 류, DESIGN.md §10 금칙어 회피)
+  - [x] `app/admin/templates/[hallId]/template-item-form.tsx`(Client Component): 단계명 입력 + 설명 textarea(일반 `.input` 스타일 — FR-6/8용 "있었던 일을 그대로" 톤의 자유서술 textarea와는 다른, 구조화된 운영 콘텐츠이므로 일반 placeholder "이 단계에서 해야 할 일을 설명하세요") + Primary 버튼(UX-DR2). `useActionState`로 Server Action 반환값을 폼 상태로 반영(Story 1.2의 `HallForm` 패턴 재사용)
+  - [x] `app/admin/templates/[hallId]/template-item-row.tsx`(Client Component): **Feature Card 스타일(UX-DR6)** 적용 — 흰 배경, `border: 1px solid #E6E6E6`, `border-radius: 12px`(Story 1.2 hall-row의 8px/12px 컴팩트 리스트 스타일과 다름, `padding: 24px`. 단계명(16px/600) + 설명(14px/400, `#555555`) 표시. 위/아래 이동 버튼(맨 위/아래에서는 disabled) + "수정"(Secondary, 인라인 토글로 `TemplateItemForm` 재사용) + "삭제"(`confirm()` 후 하드 삭제)
+  - [x] 서버 검증 실패(단계명 없음) 시 `1px solid #E0353B` 보더 + `#E0353B` 12px 헬퍼 텍스트 "단계명은 필수입니다"(UX-DR14, Story 1.2의 `.input--error`/`.field-error` 클래스 재사용)
 
-- [ ] Task 5: Server Actions (AC: 1, 2, 3)
-  - [ ] `app/admin/templates/[hallId]/actions.ts`: `createTemplateItemAction`, `updateTemplateItemAction`, `deleteTemplateItemAction`, `moveTemplateItemAction` — Consistency Conventions(관리자 CRUD는 Server Actions)를 따름
-  - [ ] 각 액션은 첫 줄에 `requireAdminSession()`을 호출한다(`lib/auth-guard.ts` 재사용, layout 가드는 Server Action 자체를 보호하지 않음 — Story 1.2 코덱스 P1, [[project-wedding-check-auth-patterns]])
-  - [ ] 각 액션은 `lib/services/template.ts`만 호출(리포지토리/DB 직접 접근 금지, AD-2)
-  - [ ] 성공 시 `revalidatePath("/admin/templates/[hallId]")`로 목록 갱신
+- [x] Task 5: Server Actions (AC: 1, 2, 3)
+  - [x] `app/admin/templates/[hallId]/actions.ts`: `createTemplateItemAction`, `updateTemplateItemAction`, `deleteTemplateItemAction`, `moveTemplateItemAction` — Consistency Conventions(관리자 CRUD는 Server Actions)를 따름
+  - [x] 각 액션은 첫 줄에 `requireAdminSession()`을 호출한다(`lib/auth-guard.ts` 재사용, layout 가드는 Server Action 자체를 보호하지 않음 — Story 1.2 코덱스 P1, [[project-wedding-check-auth-patterns]])
+  - [x] 각 액션은 `lib/services/template.ts`만 호출(리포지토리/DB 직접 접근 금지, AD-2)
+  - [x] 성공 시 `revalidatePath("/admin/templates/[hallId]")`로 목록 갱신
 
-- [ ] Task 6: 홀 목록에서 템플릿 관리로 진입 경로 연결 (AC: 1 — 기능이 실제로 도달 가능해야 함)
-  - [ ] `app/admin/halls/hall-row.tsx`(UPDATE, Story 1.2가 만든 기존 파일)에 "템플릿 관리" 링크(Secondary 버튼 또는 텍스트 링크, `/admin/templates/${hall.id}`로 이동) 추가 — 기존 "수정"/"삭제" 액션 옆에 배치
-  - [ ] `app/admin/layout.tsx`의 상단 내비 "템플릿" 항목(현재 `admin-nav__link--placeholder`, 클릭 불가 `<span>`)은 이 스토리에서 건드리지 않는다 — 홀별로 스코프된 라우트라 홀을 먼저 골라야 하고, 홀 선택 UI 없는 최상위 `/admin/templates` 인덱스는 이 스토리 AC에 없다(Story 1.2와 동일하게 내비 전면 연결은 이후 스토리로 미룸)
+- [x] Task 6: 홀 목록에서 템플릿 관리로 진입 경로 연결 (AC: 1 — 기능이 실제로 도달 가능해야 함)
+  - [x] `app/admin/halls/hall-row.tsx`(UPDATE, Story 1.2가 만든 기존 파일)에 "템플릿 관리" 링크(Secondary 버튼 또는 텍스트 링크, `/admin/templates/${hall.id}`로 이동) 추가 — 기존 "수정"/"삭제" 액션 옆에 배치
+  - [x] `app/admin/layout.tsx`의 상단 내비 "템플릿" 항목(현재 `admin-nav__link--placeholder`, 클릭 불가 `<span>`)은 이 스토리에서 건드리지 않는다 — 홀별로 스코프된 라우트라 홀을 먼저 골라야 하고, 홀 선택 UI 없는 최상위 `/admin/templates` 인덱스는 이 스토리 AC에 없다(Story 1.2와 동일하게 내비 전면 연결은 이후 스토리로 미룸)
 
-- [ ] Task 7: 접근 제어 확인 (AC: 5)
-  - [ ] `app/admin/templates/`는 이미 `app/admin/layout.tsx`(Story 1.1)의 `role !== 'admin'` 차단 로직 아래에 위치하므로 별도 구현 불필요 — operator 세션으로 `/admin/templates/[hallId]` 접근 시 `/login`으로 리다이렉트됨을 수동 검증(Node fetch 스크립트)으로 확인
-  - [ ] `apps/web/proxy.ts`의 `/admin/:path*` 매처도 이미 커버함을 확인(Story 1.2와 동일)
+- [x] Task 7: 접근 제어 확인 (AC: 5)
+  - [x] `app/admin/templates/`는 이미 `app/admin/layout.tsx`(Story 1.1)의 `role !== 'admin'` 차단 로직 아래에 위치하므로 별도 구현 불필요 — operator 세션으로 `/admin/templates/[hallId]` 접근 시 `/login`으로 리다이렉트됨을 수동 검증(Node fetch 스크립트)으로 확인(307)
+  - [x] `apps/web/proxy.ts`의 `/admin/:path*` 매처도 이미 커버함을 확인 — 비로그인 상태도 307로 `/login` 차단됨을 확인
 
 ## Dev Notes
 
@@ -137,6 +141,33 @@ claude-sonnet-5
 
 ### Debug Log References
 
+- 스키마: `checklist_template_items`에 `hall_id`(uuid, FK→halls.id), `step_name`, `description`(nullable), `sort_order`(integer), `applicable_contract_conditions`(jsonb, default `{}`, AD-9)를 추가. `npx drizzle-kit generate`로 DB 연결 없이 마이그레이션 생성(`0004_naive_james_howlett.sql`), 로컬 Docker Postgres(`wedding-check-db`)에 직접 적용 — 이번 스토리부터는 스왑/원복 절차가 아예 필요 없어졌음을 확인(이전 fix 병합 덕분).
+- Server Action 검증은 Story 1.2와 동일하게 렌더된 HTML의 `$ACTION_REF_*`/`$ACTION_*:0`/`$ACTION_*:1`/`$ACTION_KEY` hidden 필드를 파싱해 Node `fetch`/`FormData`로 재전송하는 방식을 재사용. 단, `updateTemplateItemAction`은 클라이언트 `editing` 상태가 true일 때만 렌더되는 폼이라 순수 GET으로는 hidden 필드를 얻을 수 없었음 — AD-2 홀 격리 회귀 테스트는 대신 항상 렌더되는 `deleteTemplateItemAction`(및 `moveTemplateItemAction`)으로 수행: HALL_1F 소속 항목 id를 HALL_2F의 hallId와 조합해 삭제 요청 → 200 응답이지만 DB에는 아무 변화 없음을 확인(`WHERE hall_id = $hallId AND id = $id`가 매치되지 않아 조용히 무시됨).
+- 두 홀("1층 홀", "2층 홀")을 로컬 DB에 실제로 생성해 교차 검증. 한글 홀명/단계명/설명 모두 DB에 정상 저장됨을 `psql`로 직접 확인(이 환경의 curl 인자 인코딩 이슈와 무관하게 Node fetch 경로는 항상 정상).
+
 ### Completion Notes List
 
+- Task 1~7 전 항목 구현 및 검증 완료.
+- AC 1: HALL_1F("1층 홀")에 "촬영 시작"/"조명 점검" 두 항목을 Server Action으로 생성 → 응답에 포함, HALL_1F 페이지에서만 노출되고 HALL_2F("2층 홀") 페이지에는 노출되지 않음을 확인(AD-2 홀 격리). `template-item-card` 클래스(Feature Card, UX-DR6)로 렌더됨을 HTML에서 확인.
+- AC 2: 빈 단계명으로 제출 → DB row 수 불변, 응답에 "단계명은 필수입니다" 에러 메시지 포함 확인.
+- AC 3: "조명 점검" 항목을 위로 이동 → `sort_order`가 즉시 DB에 반영되어 순서가 바뀜을 `psql`로 확인(0↔1 스왑).
+- AC 4: 항목이 없는 HALL_2F 템플릿 화면에서 "아직 등록된 체크리스트 항목이 없어요..." 격려 톤 빈 상태 문구 확인.
+- AC 5: operator 세션 및 비로그인 상태 모두 `/admin/templates/[hallId]` 접근 시 307로 `/login` 리다이렉트 확인(Story 1.1 기존 가드 재사용, 추가 구현 없음).
+- AD-2 회귀(스코프 밖 추가 검증): HALL_1F 소속 항목 id를 HALL_2F의 hallId로 조합해 삭제 시도 → 항목이 삭제되지 않고 그대로 남아있음을 확인. 이 스토리부터 AD-2의 hallId 필터링이 실전 적용되는 첫 사례라 별도로 검증.
+- `npm run lint`, `npx tsc --noEmit`, `npm run build` 모두 통과(회귀 없음, `/admin/templates/[hallId]` 라우트가 빌드 결과에 정상 포함).
+- 자동화 테스트 프레임워크 미지정(Story 1.1/1.2와 동일 정책) — Dev Notes에 정의된 수동 검증 절차(Node fetch 스크립트 + DB 직접 조회)로 모든 AC를 확인함.
+
 ### File List
+
+- NEW `apps/web/lib/db/repositories/template-item.ts`
+- NEW `apps/web/lib/services/template.ts`
+- NEW `apps/web/app/admin/templates/[hallId]/page.tsx`
+- NEW `apps/web/app/admin/templates/[hallId]/template-item-form.tsx`
+- NEW `apps/web/app/admin/templates/[hallId]/template-item-row.tsx`
+- NEW `apps/web/app/admin/templates/[hallId]/actions.ts`
+- NEW `apps/web/app/admin/templates/[hallId]/templates.css`
+- NEW `apps/web/drizzle/0004_naive_james_howlett.sql`
+- NEW `apps/web/drizzle/meta/0004_snapshot.json`
+- MODIFIED `apps/web/lib/db/schema.ts` (`checklistTemplateItems` 테이블 추가)
+- MODIFIED `apps/web/drizzle/meta/_journal.json`
+- MODIFIED `apps/web/app/admin/halls/hall-row.tsx` ("템플릿 관리" 링크 추가)

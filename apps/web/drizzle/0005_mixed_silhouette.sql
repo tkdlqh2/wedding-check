@@ -1,0 +1,1 @@
+ALTER TABLE "checklist_template_items" ADD CONSTRAINT "checklist_template_items_hall_id_sort_order_unique" UNIQUE("hall_id","sort_order") DEFERRABLE INITIALLY DEFERRED;

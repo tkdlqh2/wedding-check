@@ -22,6 +22,9 @@ export function HallRow({ hall }: { hall: { id: string; name: string } }) {
     <li className="hall-row">
       <span className="hall-row__name">{hall.name}</span>
       <div className="hall-row__actions">
+        <a href={`/admin/templates/${hall.id}`} className="btn-secondary">
+          템플릿 관리
+        </a>
         <button type="button" className="btn-secondary" onClick={() => setEditing(true)}>
           수정
         </button>

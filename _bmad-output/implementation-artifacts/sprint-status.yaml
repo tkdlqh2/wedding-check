@@ -76,10 +76,10 @@ development_status:
 # Per-story git pipeline substage (see GIT PIPELINE STAGE legend above)
 git_pipeline:
   1-1-project-setup-and-login:
-    stage: branch-created
+    stage: pushed
     branch: story/1-1-project-setup-and-login
     pr_url: null
-    last_updated: "07-26-2026 16:19"
+    last_updated: "07-26-2026 16:35"
 
 # Action items committed during retrospectives (section created by the retrospective workflow)
 action_items: []

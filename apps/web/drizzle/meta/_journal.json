@@ -57,6 +57,13 @@
       "when": 1785066149984,
       "tag": "0007_sturdy_ultimo",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1785070832603,
+      "tag": "0008_happy_purifiers",
+      "breakpoints": true
     }
   ]
 }

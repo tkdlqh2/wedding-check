@@ -17,7 +17,19 @@ import { user } from "../lib/db/schema";
 import { eq } from "drizzle-orm";
 import type { Role } from "../lib/auth";
 
-async function seedAccount(email: string, password: string, name: string, role: Role) {
+// AD-10: 시크릿 하드코딩 금지 — 관리자 초기 비밀번호/연락처는 .env.local의 환경변수로
+// 주입한다. 값을 지정하지 않으면 로컬 개발용 기본값으로 대체된다.
+const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || "changeme123!";
+const ADMIN_PHONE_NUMBER = process.env.SEED_ADMIN_PHONE_NUMBER || "";
+const OPERATOR_PASSWORD = process.env.SEED_OPERATOR_PASSWORD || "changeme123!";
+
+async function seedAccount(
+  email: string,
+  password: string,
+  name: string,
+  role: Role,
+  phoneNumber?: string,
+) {
   const existing = await db.query.user.findFirst({ where: eq(user.email, email) });
   if (existing) {
     console.log(`이미 존재함, 건너뜀: ${email}`);
@@ -25,7 +37,7 @@ async function seedAccount(email: string, password: string, name: string, role: 
   }
 
   await auth.api.signUpEmail({
-    body: { email, password, name },
+    body: { email, password, name, ...(phoneNumber ? { phoneNumber } : {}) },
   });
 
   await db.update(user).set({ role }).where(eq(user.email, email));
@@ -33,8 +45,14 @@ async function seedAccount(email: string, password: string, name: string, role: 
 }
 
 async function main() {
-  await seedAccount("admin@wedding-check.local", "changeme123!", "관리자", "admin");
-  await seedAccount("operator@wedding-check.local", "changeme123!", "오퍼레이터", "operator");
+  await seedAccount(
+    "admin@wedding-check.local",
+    ADMIN_PASSWORD,
+    "관리자",
+    "admin",
+    ADMIN_PHONE_NUMBER,
+  );
+  await seedAccount("operator@wedding-check.local", OPERATOR_PASSWORD, "오퍼레이터", "operator");
 }
 
 main()

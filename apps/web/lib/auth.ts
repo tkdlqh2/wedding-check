@@ -22,6 +22,10 @@ export const auth = betterAuth({
         // scripts/seed-accounts.ts를 통해서만 이뤄진다(PRD에 셀프 가입 FR이 없음).
         input: false,
       },
+      phoneNumber: {
+        type: "string",
+        required: false,
+      },
     },
   },
 });

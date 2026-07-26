@@ -1,0 +1,23 @@
+{
+  "reference_id": "ichef",
+  "description": "웨딩홀 스캔(조명·음향·영상) 오퍼레이터 인수인계 시스템 — 태블릿 기반, 라이브 예식 중 사용, 체크리스트 템플릿+시연영상(정형)과 자연어 피드백·질의(AI, 변수 대응)를 분리한 내부 운영 도구. 신입/선임 오퍼레이터, 웨딩홀 대표가 사용자.",
+  "mode": "inspired",
+  "delta_set": {
+    "axes": {},
+    "voiceHints": [
+      "operator-empathetic",
+      "calm-under-load",
+      "never blame the user mid-service",
+      "no fabricated confidence when evidence is missing"
+    ],
+    "matchedKeywords": [
+      "practical",
+      "trustworthy",
+      "grounded",
+      "operator-empathetic",
+      "calm"
+    ],
+    "warnings": []
+  },
+  "bootstrapped_at": "2026-07-23T00:00:00+09:00"
+}

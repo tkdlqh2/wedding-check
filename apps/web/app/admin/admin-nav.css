@@ -1,0 +1,43 @@
+/* DESIGN.md §4 Navigation — 관리자: 흰색 스티키 헤더, 로고 좌측, 내비 중앙, 오렌지-레드 CTA 우측 */
+.admin-shell {
+  min-height: 100dvh;
+  background: var(--color-surface-soft);
+}
+
+.admin-nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-header);
+  padding: var(--space-md) var(--space-xl);
+}
+
+.admin-nav__logo {
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--color-text-primary);
+}
+
+.admin-nav__links {
+  display: flex;
+  gap: var(--space-lg);
+  flex: 1;
+}
+
+.admin-nav__link {
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--color-text-secondary);
+}
+
+.admin-nav__link--placeholder {
+  color: var(--color-text-disabled);
+}
+
+.admin-content {
+  padding: var(--space-xl);
+}

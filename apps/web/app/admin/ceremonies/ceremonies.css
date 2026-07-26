@@ -1,0 +1,97 @@
+/* DESIGN.md §4 Cards(예식/체크리스트 인스턴스 카드, UX-DR7), §14 Empty state */
+.ceremonies-page {
+  max-width: 640px;
+}
+
+.ceremonies-page h2 {
+  font-size: 20px;
+  margin-top: var(--space-xl);
+}
+
+.ceremonies-page__form-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-xl);
+}
+
+.ceremonies-page__empty {
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.ceremony-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  align-items: flex-start;
+}
+
+.ceremony-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  width: 100%;
+}
+
+.ceremony-form__conditions {
+  display: flex;
+  gap: var(--space-md);
+}
+
+.ceremony-form__checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.ceremony-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* UX-DR7: 흰 배경, radius 8px, padding 12px, 좌측 보더로 진행 상황 표시.
+   [ASSUMPTION] 완료/진행중 상태 FR이 아직 없어 중립(border-mid)으로 표시 —
+   Story 2.1 Dev Notes 참고. */
+.ceremony-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-left: 4px solid var(--color-border-mid);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.ceremony-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.ceremony-card__hall {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.ceremony-card__time {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.ceremony-card__item-count {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}

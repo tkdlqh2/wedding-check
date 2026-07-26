@@ -202,6 +202,8 @@ claude-sonnet-5
   3. Range 접미사 범위(`bytes=-N`, "파일 끝에서 N바이트")가 `bytes=N-`과 동일하게(start=0) 잘못 처리됨(P2) — 분기 로직 수정, `Range: bytes=-100`(2048바이트 파일)이 `Content-Range: bytes 1948-2047/2048`로 정확히 응답함을 확인. 빈 범위(`bytes=-`) 400/416 처리도 함께 보강.
 - **코덱스 리뷰 2차**(PR #6) — 1건, 실제 결함:
   1. blob 경로에서 `upload()` 응답 직후 단 한 번만 `router.refresh()`하면 `onUploadCompleted` 웹훅(비동기, 별도 요청)이 아직 DB에 반영되기 전 상태를 보여줄 수 있음(P1) — 완벽한 보장은 불가능(로컬은 웹훅 자체가 안 옴)하지만, 웹훅이 도착할 시간을 벌기 위해 1초/2초/2초 간격으로 최대 3회 추가 새로고침하도록 개선. `video-upload.tsx`만 수정(서버 라우트 변경 없음, UI 전용 완화).
+- **코덱스 리뷰 3차**(PR #6) — 1건, 실제 결함(2차 수정의 잔여 한계를 정확히 지적):
+  1. 고정 시간(1+2+2초) 새로고침으로는 웹훅이 5초보다 늦게 도착하면 "성공했지만 계속 낡은 상태로 보임"이 발생함(P2) — 새 GET `/api/templates/[hallId]/items/[itemId]/video/status` 엔드포인트(admin 전용, 현재 `videoUrl` 반환)를 추가해 실제 반영 여부를 폴링(1초 간격, 최대 15초)하고, **반영이 확인된 시점에만** `router.refresh()`. 15초 내 확인 안 되면 "업로드는 완료됐지만 아직 반영되지 않았어요" 안내로 정직하게 알림(성공을 가장하지 않음 — DESIGN.md "관련 사례 없음" 원칙과 동일 정신). `VideoUpload`에 `currentVideoUrl` prop 추가해 "새 영상인지" 판별.
 - Task 1~9 전 항목 구현. Task 9 중 `@vercel/blob` 경로의 종단 검증만 로컬 환경 한계로 인해 완료하지 못함(위 Debug Log 참고) — 이 항목은 실제 Vercel 배포 + Blob store 프로비저닝 시점으로 명시적으로 인계.
 - 로컬/프로덕션 듀얼 스토리지 전략을 `isBlobStorageConfigured()` 단일 분기점으로 구현: `BLOB_READ_WRITE_TOKEN` 존재 여부에 따라 클라이언트가 `@vercel/blob/client`의 `upload()` 또는 일반 `fetch` POST 중 하나를 선택. 토큰이 나중에 설정돼도 코드 변경 없이 AD-4 경로로 자동 전환됨(로컬로 이미 저장된 영상도 `storageProvider: "local"`로 계속 서빙되어 두 provider가 영구 공존).
 - AC 1: 로컬 폴백 업로드 → `demo_videos` 행 생성(`storage_provider: local`) → 페이지에 `<video controls>` 렌더 확인. `@vercel/blob` 경로는 코드 완성, 종단 검증은 배포 이후로 인계(§ Debug Log).
@@ -222,6 +224,7 @@ claude-sonnet-5
 - NEW `apps/web/app/api/local-videos/[fileName]/route.ts`
 - NEW `apps/web/app/api/templates/[hallId]/items/[itemId]/video/local/route.ts`
 - NEW `apps/web/app/api/templates/[hallId]/items/[itemId]/video/blob/route.ts`
+- NEW `apps/web/app/api/templates/[hallId]/items/[itemId]/video/status/route.ts` (코덱스 3차 P2 — blob 웹훅 반영 확인용 폴링 엔드포인트)
 - NEW `apps/web/app/admin/templates/[hallId]/video-upload.tsx`
 - NEW `apps/web/drizzle/0006_flawless_korvac.sql`
 - NEW `apps/web/drizzle/meta/0006_snapshot.json`

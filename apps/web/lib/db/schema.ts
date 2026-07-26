@@ -74,9 +74,11 @@ export const demoVideos = pgTable(
     hallId: uuid("hall_id")
       .notNull()
       .references(() => halls.id),
+    // onDelete cascade — 항목 삭제(하드 삭제, Story 1.3 정책)는 이 FK가 없으면
+    // NO ACTION으로 막혀버린다(영상 첨부 전에는 되던 삭제가 첨부 후 실패, 코덱스 P1).
     templateItemId: uuid("template_item_id")
       .notNull()
-      .references(() => checklistTemplateItems.id),
+      .references(() => checklistTemplateItems.id, { onDelete: "cascade" }),
     videoUrl: text("video_url").notNull(),
     fileName: text("file_name").notNull(),
     // 500MB 상한(PRD FR-3 [ASSUMPTION])은 integer 범위(최대 ~2.1GB) 안이라 bigint 불필요.

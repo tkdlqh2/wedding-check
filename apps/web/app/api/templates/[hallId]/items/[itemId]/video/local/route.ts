@@ -11,6 +11,7 @@ import { saveLocalVideoFile } from "@/lib/storage/local-video-store";
 import {
   ALLOWED_VIDEO_CONTENT_TYPE,
   MAX_VIDEO_SIZE_BYTES,
+  isBlobStorageConfigured,
 } from "@/lib/storage/video-storage";
 
 // Story 1.4 로컬 폴백 업로드 경로 — BLOB_READ_WRITE_TOKEN이 없을 때만 클라이언트가
@@ -22,6 +23,17 @@ export async function POST(
   { params }: { params: Promise<{ hallId: string; itemId: string }> },
 ) {
   await requireAdminSession();
+
+  // Blob 스토리지가 설정된 환경(프로덕션)에서는 이 경로를 절대 허용하지 않는다 —
+  // 서버리스 배포에서 로컬 파일시스템은 인스턴스 간 공유/영속되지 않아 저장 직후
+  // URL이 깨진다. 클라이언트는 blobEnabled=true일 때 이 경로를 호출하지 않지만,
+  // URL을 직접 두드리는 시도까지 서버가 차단해야 한다(코덱스 리뷰 P1 반영).
+  if (isBlobStorageConfigured()) {
+    return Response.json(
+      { error: { code: "local_upload_disabled", message: "이 환경에서는 사용할 수 없는 업로드 경로입니다" } },
+      { status: 404 },
+    );
+  }
 
   const { hallId, itemId } = await params;
   if (!isValidUuid(hallId) || !isValidUuid(itemId)) {

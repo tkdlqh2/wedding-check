@@ -196,6 +196,10 @@ claude-sonnet-5
 
 ### Completion Notes List
 
+- **코덱스 리뷰 1차**(PR #6) — 3건 모두 실제 결함이었다:
+  1. 로컬 업로드 라우트가 프로덕션(BLOB_READ_WRITE_TOKEN 설정됨)에서도 호출 가능(P1) — 서버리스 배포에서 로컬 파일시스템은 인스턴스 간 비영속이라 저장 직후 URL이 깨짐. `isBlobStorageConfigured()`가 true면 로컬 라우트가 404를 반환하도록 가드 추가, 실제로 토큰을 임시 설정해 서버 재시작 후 404 확인.
+  2. 영상이 연결된 항목을 기존 삭제 액션으로 삭제하면 새 FK(`ON DELETE NO ACTION` 기본값)에 막혀 500(P1, 영상 첨부 전에는 되던 삭제가 첨부 후 회귀) — `templateItemId` FK에 `onDelete: "cascade"` 추가(`0007_sturdy_ultimo.sql`), 영상이 연결된 항목 삭제 → 200 + `demo_videos` 행도 함께 삭제됨을 실제로 재현해 확인.
+  3. Range 접미사 범위(`bytes=-N`, "파일 끝에서 N바이트")가 `bytes=N-`과 동일하게(start=0) 잘못 처리됨(P2) — 분기 로직 수정, `Range: bytes=-100`(2048바이트 파일)이 `Content-Range: bytes 1948-2047/2048`로 정확히 응답함을 확인. 빈 범위(`bytes=-`) 400/416 처리도 함께 보강.
 - Task 1~9 전 항목 구현. Task 9 중 `@vercel/blob` 경로의 종단 검증만 로컬 환경 한계로 인해 완료하지 못함(위 Debug Log 참고) — 이 항목은 실제 Vercel 배포 + Blob store 프로비저닝 시점으로 명시적으로 인계.
 - 로컬/프로덕션 듀얼 스토리지 전략을 `isBlobStorageConfigured()` 단일 분기점으로 구현: `BLOB_READ_WRITE_TOKEN` 존재 여부에 따라 클라이언트가 `@vercel/blob/client`의 `upload()` 또는 일반 `fetch` POST 중 하나를 선택. 토큰이 나중에 설정돼도 코드 변경 없이 AD-4 경로로 자동 전환됨(로컬로 이미 저장된 영상도 `storageProvider: "local"`로 계속 서빙되어 두 provider가 영구 공존).
 - AC 1: 로컬 폴백 업로드 → `demo_videos` 행 생성(`storage_provider: local`) → 페이지에 `<video controls>` 렌더 확인. `@vercel/blob` 경로는 코드 완성, 종단 검증은 배포 이후로 인계(§ Debug Log).
@@ -219,6 +223,8 @@ claude-sonnet-5
 - NEW `apps/web/app/admin/templates/[hallId]/video-upload.tsx`
 - NEW `apps/web/drizzle/0006_flawless_korvac.sql`
 - NEW `apps/web/drizzle/meta/0006_snapshot.json`
+- NEW `apps/web/drizzle/0007_sturdy_ultimo.sql` (코덱스 1차 P1 — `templateItemId` FK `ON DELETE cascade`)
+- NEW `apps/web/drizzle/meta/0007_snapshot.json`
 - MODIFIED `apps/web/lib/db/schema.ts` (`demoVideos` 테이블 추가)
 - MODIFIED `apps/web/drizzle/meta/_journal.json`
 - MODIFIED `apps/web/app/admin/templates/[hallId]/page.tsx` (영상 데이터 fetch + prop 전달)

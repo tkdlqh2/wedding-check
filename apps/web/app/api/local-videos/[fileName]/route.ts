@@ -34,14 +34,25 @@ export async function GET(
   // 되어도 탐색(스크럽)이 깨진다.
   if (range) {
     const match = /^bytes=(\d*)-(\d*)$/.exec(range);
-    if (!match) {
+    if (!match || (match[1] === "" && match[2] === "")) {
       return new Response(null, {
         status: 416,
         headers: { "Content-Range": `bytes */${fileSize}` },
       });
     }
-    const start = match[1] ? parseInt(match[1], 10) : 0;
-    const end = match[2] ? parseInt(match[2], 10) : fileSize - 1;
+    // "bytes=-N"(접미사 범위, 파일 끝에서부터 N바이트)은 "bytes=N-"(N바이트부터 끝까지)와
+    // 완전히 다른 의미다 — match[1]이 빈 문자열이면 접미사 범위로 취급해야 한다
+    // (코덱스 리뷰 P2 반영: 이전에는 둘 다 start=0으로 잘못 처리됨).
+    let start: number;
+    let end: number;
+    if (match[1] === "") {
+      const suffixLength = parseInt(match[2], 10);
+      start = Math.max(0, fileSize - suffixLength);
+      end = fileSize - 1;
+    } else {
+      start = parseInt(match[1], 10);
+      end = match[2] ? parseInt(match[2], 10) : fileSize - 1;
+    }
     if (start >= fileSize || end >= fileSize || start > end) {
       return new Response(null, {
         status: 416,

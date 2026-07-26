@@ -13,19 +13,55 @@
  */
 import { auth } from "../lib/auth";
 import { db } from "../lib/db";
-import { user } from "../lib/db/schema";
-import { eq } from "drizzle-orm";
+import { user, account } from "../lib/db/schema";
+import { hashPassword } from "better-auth/crypto";
+import { and, eq } from "drizzle-orm";
 import type { Role } from "../lib/auth";
 
-async function seedAccount(email: string, password: string, name: string, role: Role) {
+// AD-10: 시크릿 하드코딩 금지 — 관리자/오퍼레이터 초기 비밀번호는 .env.local의 환경변수로만
+// 주입한다. 미지정 시 알려진 기본 비밀번호로 조용히 대체하면 그 자체로 보안 사고이므로,
+// 값이 없으면 즉시 에러로 중단한다(코덱스 리뷰 P1 반영).
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(
+      `${name} 환경변수가 필요합니다 — 알려진 기본 비밀번호로 계정이 생성되는 것을 막기 위해 필수입니다. .env.local에 값을 설정하세요.`,
+    );
+  }
+  return value;
+}
+
+const ADMIN_PASSWORD = requireEnv("SEED_ADMIN_PASSWORD");
+const OPERATOR_PASSWORD = requireEnv("SEED_OPERATOR_PASSWORD");
+const ADMIN_PHONE_NUMBER = process.env.SEED_ADMIN_PHONE_NUMBER || "";
+
+async function seedAccount(
+  email: string,
+  password: string,
+  name: string,
+  role: Role,
+  phoneNumber?: string,
+) {
   const existing = await db.query.user.findFirst({ where: eq(user.email, email) });
   if (existing) {
-    console.log(`이미 존재함, 건너뜀: ${email}`);
+    // 이미 시드된 계정이라도 role/phoneNumber/비밀번호를 최신 환경변수 값으로 갱신한다
+    // (코덱스 리뷰 P1/P2 반영) — 그렇지 않으면 값을 나중에 바꿔도 기존 계정에는 절대
+    // 반영되지 않고, 특히 이전에 알려진 기본 비밀번호로 생성된 계정이 그대로 남는다.
+    // phoneNumber는 빈 문자열이면 명시적으로 null로 초기화한다(값을 지워도 이전 값이 남지 않게).
+    await db
+      .update(user)
+      .set({ role, phoneNumber: phoneNumber || null })
+      .where(eq(user.email, email));
+    await db
+      .update(account)
+      .set({ password: await hashPassword(password) })
+      .where(and(eq(account.userId, existing.id), eq(account.providerId, "credential")));
+    console.log(`이미 존재함, role/phoneNumber/비밀번호 갱신: ${email}`);
     return;
   }
 
   await auth.api.signUpEmail({
-    body: { email, password, name },
+    body: { email, password, name, ...(phoneNumber ? { phoneNumber } : {}) },
   });
 
   await db.update(user).set({ role }).where(eq(user.email, email));
@@ -33,8 +69,14 @@ async function seedAccount(email: string, password: string, name: string, role: 
 }
 
 async function main() {
-  await seedAccount("admin@wedding-check.local", "changeme123!", "관리자", "admin");
-  await seedAccount("operator@wedding-check.local", "changeme123!", "오퍼레이터", "operator");
+  await seedAccount(
+    "admin@wedding-check.local",
+    ADMIN_PASSWORD,
+    "관리자",
+    "admin",
+    ADMIN_PHONE_NUMBER,
+  );
+  await seedAccount("operator@wedding-check.local", OPERATOR_PASSWORD, "오퍼레이터", "operator");
 }
 
 main()

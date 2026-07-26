@@ -76,6 +76,14 @@ development_status:
 # Per-story git pipeline substage (see GIT PIPELINE STAGE legend above).
 # 번호가 매겨진 스토리가 아닌 개별 수정(fix/*)도 동일한 파이프라인으로 추적한다.
 git_pipeline:
+  fix-local-dev-db-and-phone-normalization:
+    stage: merged
+    branch: fix/local-dev-db-and-phone-normalization
+    pr_url: "https://github.com/tkdlqh2/wedding-check/pull/4"
+    merge_commit: "93fdf5a"
+    notes: "일반 merge, 브랜치 삭제 완료. 코덱스 리뷰 1차 클린(결함 없음, lint/tsc 통과). DATABASE_URL이 Neon 플레이스홀더로 남아있어 npm run dev 로그인이 fetch failed로 실패하던 문제 — lib/db/index.ts가 localhost DATABASE_URL이면 node-postgres, 아니면 기존 neon-http로 자동 분기하도록 수정해 로컬 Docker Postgres(wedding-check-db)를 상시 개발 DB로 씀(임시 스왑-원복 불필요해짐). 전화번호 로그인도 하이픈 유무 무관하게 정규화(lib/phone.ts)."
+    last_updated: "07-26-2026 21:15"
+
   fix-phone-number-login:
     stage: merged
     branch: fix/phone-number-login

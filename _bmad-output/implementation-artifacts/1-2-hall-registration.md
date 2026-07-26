@@ -1,10 +1,10 @@
 ---
-baseline_commit: NO_VCS
+baseline_commit: 5562ce6630cfd92c100c1e948520b84ad618bce2
 ---
 
 # Story 1.2: 홀 등록
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -21,38 +21,38 @@ so that 홀별로 독립된 체크리스트 템플릿을 관리할 기반을 마
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: `halls` 테이블 스키마 + 마이그레이션 (AC: 1, 2, 3)
-  - [ ] `lib/db/schema.ts`에 `halls` 테이블 추가: `id`(uuid, `defaultRandom()`, PK), `name`(text, not null), `isActive`(boolean, not null, default true — AC 3의 "완전 삭제 대신 비활성화" 구현), `createdAt`/`updatedAt`(timestamp, ISO 8601 규약)
-  - [ ] `npx drizzle-kit generate`로 마이그레이션 생성(`00xx_*.sql`) — DB 연결 없이 스키마 diff만으로 생성 가능(Story 1.1 Dev Agent Record 참고)
-  - [ ] 실제 DB(로컬 Postgres 등)에 마이그레이션을 적용해 스키마가 유효한지 검증
+- [x] Task 1: `halls` 테이블 스키마 + 마이그레이션 (AC: 1, 2, 3)
+  - [x] `lib/db/schema.ts`에 `halls` 테이블 추가: `id`(uuid, `defaultRandom()`, PK), `name`(text, not null), `isActive`(boolean, not null, default true — AC 3의 "완전 삭제 대신 비활성화" 구현), `createdAt`/`updatedAt`(timestamp, ISO 8601 규약)
+  - [x] `npx drizzle-kit generate`로 마이그레이션 생성(`0002_futuristic_doctor_doom.sql`) — DB 연결 없이 스키마 diff만으로 생성됨(Story 1.1 Dev Agent Record 참고)
+  - [x] 실제 DB(로컬 Postgres 등)에 마이그레이션을 적용해 스키마가 유효한지 검증 — 3개 마이그레이션(0000/0001/0002) 모두 로컬 Postgres에 순서대로 적용 성공
 
-- [ ] Task 2: 리포지토리 레이어 — `lib/db/repositories/hall.ts` (AC: 1, 2, 3)
-  - [ ] `create(input: { name: string }): Promise<Hall>` — `halls`에 INSERT
-  - [ ] `findAllActive(): Promise<Hall[]>` — `WHERE is_active = true`만 반환(비활성화된 홀은 기본 목록에서 숨김, 아래 Dev Notes "비활성 홀 노출 정책" 참고)
-  - [ ] `findById(id: string): Promise<Hall | undefined>`
-  - [ ] `update(id: string, input: { name: string }): Promise<Hall>`
-  - [ ] `deactivate(id: string): Promise<void>` — `UPDATE halls SET is_active = false WHERE id = $id`(하드 삭제 없음, AD-2 참고 — `halls`는 홀 종속 엔티티가 아니므로 `hallId` 필터링 인자는 필요 없다)
-  - [ ] `lib/services/*`가 SQL/ORM을 직접 쓰지 않고 이 리포지토리만 호출하도록 강제(AD-2)
+- [x] Task 2: 리포지토리 레이어 — `lib/db/repositories/hall.ts` (AC: 1, 2, 3)
+  - [x] `create(input: { name: string }): Promise<Hall>` — `halls`에 INSERT
+  - [x] `findAllActive(): Promise<Hall[]>` — `WHERE is_active = true`만 반환(비활성화된 홀은 기본 목록에서 숨김, 아래 Dev Notes "비활성 홀 노출 정책" 참고)
+  - [x] `findById(id: string): Promise<Hall | undefined>`
+  - [x] `update(id: string, input: { name: string }): Promise<Hall>`
+  - [x] `deactivate(id: string): Promise<void>` — `UPDATE halls SET is_active = false WHERE id = $id`(하드 삭제 없음, AD-2 참고 — `halls`는 홀 종속 엔티티가 아니므로 `hallId` 필터링 인자는 필요 없다)
+  - [x] `lib/services/*`가 SQL/ORM을 직접 쓰지 않고 이 리포지토리만 호출하도록 강제(AD-2)
 
-- [ ] Task 3: 서비스 레이어 — `lib/services/hall.ts` (AC: 1, 2, 3)
-  - [ ] `createHall(input: { name: string })`: `name`이 빈 문자열/공백이면 서버 사이드에서 거부(에러 throw 또는 `{ error }` 반환 — 아래 Task 4 Server Action과의 계약에 맞춰 결정) — 클라이언트 검증만으로는 불충분(AC 2는 서버 사이드 강제가 실제 안전장치)
-  - [ ] `listActiveHalls()`, `updateHall(id, input)`, `deactivateHall(id)` — 리포지토리 위임, 벤더 SDK/ORM 직접 호출 없음(AD-2)
+- [x] Task 3: 서비스 레이어 — `lib/services/hall.ts` (AC: 1, 2, 3)
+  - [x] `createHall(input: { name: string })`: `name`이 빈 문자열/공백이면 서버 사이드에서 거부(`HallValidationError` throw → Server Action이 캐치해 폼 상태로 변환) — 클라이언트 검증만으로는 불충분(AC 2는 서버 사이드 강제가 실제 안전장치)
+  - [x] `listActiveHalls()`, `updateHall(id, input)`, `deactivateHall(id)` — 리포지토리 위임, 벤더 SDK/ORM 직접 호출 없음(AD-2)
 
-- [ ] Task 4: 홀 관리 화면 — 목록 + 등록/수정 폼 (AC: 1, 2)
-  - [ ] `app/admin/halls/page.tsx`: Server Component로 `listActiveHalls()` 조회 후 목록 렌더링. 홀이 하나도 없으면 UX-DR12 빈 상태(`#888888` 안내 문구 + Primary CTA "홀 등록하기")
-  - [ ] `app/admin/halls/hall-form.tsx`(Client Component): 홀명 입력 + Primary 버튼(UX-DR2: `#E8552D` bg, 8px radius, 16px/600)으로 저장 실행. Server Action(`createHallAction`/`updateHallAction`)을 호출
-  - [ ] 서버 검증 실패(홀명 없음) 시 입력 필드에 `1px solid #E0353B` 보더 + `#E0353B` 12px 헬퍼 텍스트 "홀명은 필수입니다" 표시(UX-DR14) — Server Action의 반환값을 폼 상태로 반영(예: `useActionState`)
-  - [ ] 목록의 각 홀 행에 "수정"(Secondary/Outlined, UX-DR3) / "삭제"(비활성화 확인 다이얼로그 또는 인라인 확인) 액션 배치
-  - [ ] `app/admin/admin-nav.css`의 내비 자리(Story 1.1에서 골격만 배치된 "템플릿" 링크 등)를 이 스토리 범위에서 활성 링크로 바꿀지는 스코프 아님 — `app/admin/halls`는 직접 URL 접근으로 충분(내비 연결은 이후 스토리)
+- [x] Task 4: 홀 관리 화면 — 목록 + 등록/수정 폼 (AC: 1, 2)
+  - [x] `app/admin/halls/page.tsx`: Server Component로 `listActiveHalls()` 조회 후 목록 렌더링. 홀이 하나도 없으면 UX-DR12 빈 상태(`#888888` 안내 문구 + 상단 상시 노출된 등록 폼)
+  - [x] `app/admin/halls/hall-form.tsx`(Client Component): 홀명 입력 + Primary 버튼(UX-DR2: `#E8552D` bg, 8px radius, 16px/600)으로 저장 실행. Server Action(`createHallAction`/`updateHallAction`)을 호출
+  - [x] 서버 검증 실패(홀명 없음) 시 입력 필드에 `1px solid #E0353B` 보더 + `#E0353B` 12px 헬퍼 텍스트 "홀명은 필수입니다" 표시(UX-DR14) — `useActionState`로 Server Action 반환값을 폼 상태로 반영
+  - [x] 목록의 각 홀 행(`hall-row.tsx`)에 "수정"(Secondary/Outlined, UX-DR3, 인라인 토글로 `HallForm` 재사용) / "삭제"(`confirm()` 확인 후 비활성화) 액션 배치
+  - [x] `app/admin/admin-nav.css`의 내비 자리는 이 스토리 범위에서 바꾸지 않음 — `app/admin/halls`는 직접 URL 접근으로 충분(내비 연결은 이후 스토리)
 
-- [ ] Task 5: Server Actions (AC: 1, 2, 3)
-  - [ ] `app/admin/halls/actions.ts`(또는 `page.tsx` 내 `"use server"` 함수): `createHallAction`, `updateHallAction`, `deactivateHallAction` — Consistency Conventions(관리자 CRUD는 Server Actions)를 따름, Route Handler 아님
-  - [ ] 각 액션은 `lib/services/hall.ts`만 호출(리포지토리/DB 직접 접근 금지, AD-2)
-  - [ ] 저장/비활성화 성공 시 `revalidatePath("/admin/halls")`로 목록 갱신
+- [x] Task 5: Server Actions (AC: 1, 2, 3)
+  - [x] `app/admin/halls/actions.ts`: `createHallAction`, `updateHallAction`, `deactivateHallAction` — Consistency Conventions(관리자 CRUD는 Server Actions)를 따름, Route Handler 아님
+  - [x] 각 액션은 `lib/services/hall.ts`만 호출(리포지토리/DB 직접 접근 금지, AD-2)
+  - [x] 저장/비활성화 성공 시 `revalidatePath("/admin/halls")`로 목록 갱신
 
-- [ ] Task 6: 접근 제어 확인 (AC: 4)
-  - [ ] `app/admin/halls/`는 이미 `app/admin/layout.tsx`(Story 1.1)의 `role !== 'admin'` 차단 로직 아래에 위치하므로 별도 구현 불필요 — operator 세션으로 `/admin/halls` 접근 시 자동으로 `/login`으로 리다이렉트됨을 수동 검증만 수행
-  - [ ] proxy.ts의 미인증 리다이렉트(Story 1.1)도 `/admin/:path*` 매처에 이미 포함되어 있어 `/admin/halls`도 커버됨을 확인
+- [x] Task 6: 접근 제어 확인 (AC: 4)
+  - [x] `app/admin/halls/`는 이미 `app/admin/layout.tsx`(Story 1.1)의 `role !== 'admin'` 차단 로직 아래에 위치하므로 별도 구현 불필요 — operator 세션으로 `/admin/halls` 접근 시 307로 `/login` 리다이렉트됨을 수동 검증(curl)으로 확인
+  - [x] proxy.ts의 미인증 리다이렉트(Story 1.1)도 `/admin/:path*` 매처에 이미 포함되어 있어 `/admin/halls`도 커버됨을 확인(비로그인 상태 curl로 307 리다이렉트 확인)
 
 ## Dev Notes
 
@@ -115,8 +115,37 @@ so that 홀별로 독립된 체크리스트 템플릿을 관리할 기반을 마
 
 ### Agent Model Used
 
+claude-sonnet-5
+
 ### Debug Log References
+
+- `halls` 테이블/마이그레이션은 DB 연결 없이 `drizzle-kit generate`로 생성(Story 1.1에서 확인된 방식 재사용).
+- 검증 시 로컬 Postgres에 마이그레이션 3개(0000/0001/0002)를 순서대로 적용. 컨테이너 이름을 `wedding-check-pg`로 재사용하려다 포트 충돌 발견 — 조사 결과 `wedding-check-db`라는 이전 세션에서 만들어진 컨테이너(2026-07-24 생성, better-auth 스키마만 있고 halls 없음, `verify-*@example.com` 테스트 계정)가 이미 포트 5434를 점유 중이었음. 사용자 데이터가 아닌 이전 검증 잔재로 판단해 건드리지 않고 별도 포트(5435)의 새 컨테이너(`wedding-check-pg-verify`)로 검증 진행.
+- Server Action은 REST 엔드포인트가 아니라 Next.js 고유의 인코딩(`$ACTION_ID_*`/`$ACTION_REF_*`/`$ACTION_KEY` hidden 필드)을 쓴다 — curl로 직접 재현 가능함을 확인(렌더된 폼의 hidden 필드를 그대로 재전송). 단, `curl -F`로 한글 값을 이 Windows 환경(한글 로케일)에서 직접 넘기면 인자 인코딩이 깨짐을 발견(예: "1층 웨딩홀"이 DB에 깨진 바이트로 저장) — 앱 버그 아님을 Node.js `fetch`/`FormData`(항상 UTF-8)로 동일 액션을 재현해 확인(예: "3층 스카이홀"은 정상 저장). 이후 모든 Server Action 검증은 Node 스크립트로 수행.
+- AC 2(빈 홀명 검증) 첫 시도에서 테스트 스크립트 자체의 버그(`hallName || "기본값"` — 빈 문자열이 falsy라 기본값으로 폴백)로 오탐 발생 → 스크립트를 수정해 진짜 빈 문자열을 보내도록 고친 뒤, DB row count가 요청 전후로 변하지 않고 에러 메시지·`input--error` 클래스가 응답에 포함됨을 재확인.
 
 ### Completion Notes List
 
+- Task 1~6 전 항목 구현 및 검증 완료.
+- AC 1: Node 스크립트로 admin 세션에서 홀 생성 Server Action을 재현 → 응답에 새 홀명 포함, DB에 `is_active=true`로 저장됨을 확인.
+- AC 2: 빈 홀명으로 제출 → DB row 수 불변(서버 검증이 실제로 막음), 응답에 "홀명은 필수입니다" 에러 메시지 + `input--error` 클래스 포함 확인.
+- AC 3: 삭제 액션 실행 → 해당 홀 row가 DB에서 사라지지 않고 `is_active=false`로만 바뀜, `findAllActive()` 쿼리(활성 홀 수)에서 제외됨을 확인.
+- AC 4: operator 세션으로 `/admin/halls` 접근 시 307로 `/login` 리다이렉트, 비로그인 상태도 동일하게 차단됨을 curl로 확인(Story 1.1의 기존 가드를 그대로 재사용, 추가 구현 없음).
+- `npm run lint`, `npm run build` 모두 통과(회귀 없음, `/admin/halls` 라우트가 빌드 결과에 정상 포함).
+- 검증 후 `lib/db/index.ts`(neon-http 유지), `.env.local`(Neon 플레이스홀더 유지)은 모두 원복, 임시 로컬 Postgres 컨테이너·`pg` 패키지도 정리 완료 — 실제 운영 코드에는 검증용 변경이 남지 않음.
+- 자동화 테스트 프레임워크 미지정(Story 1.1과 동일 정책) — Dev Notes에 정의된 수동 검증 절차로 AC를 확인함.
+
 ### File List
+
+- NEW `apps/web/lib/db/repositories/hall.ts`
+- NEW `apps/web/lib/services/hall.ts`
+- NEW `apps/web/app/admin/halls/page.tsx`
+- NEW `apps/web/app/admin/halls/hall-form.tsx`
+- NEW `apps/web/app/admin/halls/hall-row.tsx`
+- NEW `apps/web/app/admin/halls/actions.ts`
+- NEW `apps/web/app/admin/halls/halls.css`
+- NEW `apps/web/drizzle/0002_futuristic_doctor_doom.sql`
+- NEW `apps/web/drizzle/meta/0002_snapshot.json`
+- MODIFIED `apps/web/lib/db/schema.ts` (`halls` 테이블 추가)
+- MODIFIED `apps/web/drizzle/meta/_journal.json`
+- MODIFIED `apps/web/app/design-tokens.css` (`.btn-secondary`, `.input`, `.input--error` 재사용 프리미티브 추가)

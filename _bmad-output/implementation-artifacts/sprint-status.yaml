@@ -77,11 +77,12 @@ development_status:
 # 번호가 매겨진 스토리가 아닌 개별 수정(fix/*)도 동일한 파이프라인으로 추적한다.
 git_pipeline:
   fix-phone-number-login:
-    stage: codex-review
+    stage: merged
     branch: fix/phone-number-login
     pr_url: "https://github.com/tkdlqh2/wedding-check/pull/3"
-    notes: "5차 리뷰 클린 (결함 없음) — 자동 머지 진행"
-    last_updated: "07-26-2026 19:55"
+    merge_commit: "73fd026"
+    notes: "일반 merge, 브랜치 삭제 완료. 총 5회 코덱스 리뷰 라운드(P1 4건 발견/수정: 기본 비밀번호 폴백 방지는 이전 PR에서 이미 반영됨, 이 fix에서는 /sign-in/email 우회 차단, 시드 계정 안정 식별자(role→고정 이메일), 시드 식별자를 Story 1.1 기존 값으로 유지)."
+    last_updated: "07-26-2026 20:00"
 
   1-2-hall-registration:
     stage: merged

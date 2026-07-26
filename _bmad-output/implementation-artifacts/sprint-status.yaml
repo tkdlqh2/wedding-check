@@ -75,6 +75,12 @@ development_status:
 
 # Per-story git pipeline substage (see GIT PIPELINE STAGE legend above)
 git_pipeline:
+  1-2-hall-registration:
+    stage: branch-created
+    branch: story/1-2-hall-registration
+    pr_url: null
+    last_updated: "07-26-2026 17:20"
+
   1-1-project-setup-and-login:
     stage: merged
     branch: story/1-1-project-setup-and-login

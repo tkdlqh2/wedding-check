@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { normalizePhoneNumber } from "@/lib/phone";
 import "../login.css";
 
 export default function LoginPage() {
@@ -18,7 +19,7 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     const { data, error: signInError } = await authClient.signIn.phoneNumber({
-      phoneNumber,
+      phoneNumber: normalizePhoneNumber(phoneNumber),
       password,
     });
 
@@ -41,8 +42,10 @@ export default function LoginPage() {
         <input
           id="phoneNumber"
           type="tel"
+          inputMode="numeric"
+          placeholder="01012345678"
           value={phoneNumber}
-          onChange={(e) => setPhoneNumber(e.target.value)}
+          onChange={(e) => setPhoneNumber(normalizePhoneNumber(e.target.value))}
           required
         />
         <label htmlFor="password">비밀번호</label>

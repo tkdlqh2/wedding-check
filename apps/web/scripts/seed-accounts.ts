@@ -21,6 +21,7 @@ import { user, account } from "../lib/db/schema";
 import { hashPassword } from "better-auth/crypto";
 import { and, eq } from "drizzle-orm";
 import type { Role } from "../lib/auth";
+import { normalizePhoneNumber } from "../lib/phone";
 
 // AD-10: 시크릿 하드코딩 금지 — 관리자/오퍼레이터 초기 비밀번호는 .env.local의 환경변수로만
 // 주입한다. 미지정 시 알려진 기본 비밀번호로 조용히 대체하면 그 자체로 보안 사고이므로,
@@ -38,8 +39,10 @@ function requireEnv(name: string): string {
 const ADMIN_PASSWORD = requireEnv("SEED_ADMIN_PASSWORD");
 const OPERATOR_PASSWORD = requireEnv("SEED_OPERATOR_PASSWORD");
 // 전화번호가 로그인 식별자이므로 비밀번호와 마찬가지로 필수다.
-const ADMIN_PHONE_NUMBER = requireEnv("SEED_ADMIN_PHONE_NUMBER");
-const OPERATOR_PHONE_NUMBER = requireEnv("SEED_OPERATOR_PHONE_NUMBER");
+// 하이픈 유무와 무관하게 항상 숫자만 저장한다(lib/phone.ts) — 로그인 폼도 동일하게
+// 정규화하므로, .env.local에 하이픈을 넣어도/안 넣어도 결과는 같다.
+const ADMIN_PHONE_NUMBER = normalizePhoneNumber(requireEnv("SEED_ADMIN_PHONE_NUMBER"));
+const OPERATOR_PHONE_NUMBER = normalizePhoneNumber(requireEnv("SEED_OPERATOR_PHONE_NUMBER"));
 
 async function seedAccount(
   seedEmail: string,

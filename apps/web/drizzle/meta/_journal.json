@@ -29,6 +29,13 @@
       "when": 1785054347746,
       "tag": "0003_illegal_zemo",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785058695305,
+      "tag": "0004_naive_james_howlett",
+      "breakpoints": true
     }
   ]
 }

@@ -20,7 +20,7 @@ const STATUS_POLL_MAX_ATTEMPTS = 15; // 약 15초까지 대기
 // 낡은 상태로 남는다). 반영을 확인한 시점에만 새로고침하고, 시간 내 확인되지
 // 않으면 성공을 가장하지 않고 솔직하게 안내한다(DESIGN.md §4 "관련 사례 없음"과
 // 같은 원칙 — 확인 안 된 것을 확인된 것처럼 보여주지 않는다).
-async function waitForVideoUpdate(
+export async function waitForVideoUpdate(
   hallId: string,
   templateItemId: string,
   previousVideoUrl: string | undefined,

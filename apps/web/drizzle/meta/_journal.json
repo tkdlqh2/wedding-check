@@ -15,6 +15,13 @@
       "when": 1785049663127,
       "tag": "0001_flat_iron_man",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785052633415,
+      "tag": "0002_futuristic_doctor_doom",
+      "breakpoints": true
     }
   ]
 }

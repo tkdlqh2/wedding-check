@@ -4,42 +4,30 @@ import { checklistTemplateItems } from "../schema";
 
 export type TemplateItem = typeof checklistTemplateItems.$inferSelect;
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
-
 // AD-2: checklist_template_items는 홀 종속 엔티티다 — hallId를 모든 함수의 첫 인자로
 //받고, 모든 조회/수정 쿼리는 WHERE hall_id = $hallId를 포함한다.
 
-// 같은 홀에 대한 동시 쓰기(생성/순서변경)가 서로의 중간 상태를 밟고 지나가지 않도록
-// 홀 단위로 직렬화한다(코덱스 리뷰 P2 반영 2건 — 트랜잭션 종료 시 자동 해제).
-async function lockHall(tx: Tx, hallId: string): Promise<void> {
-  await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${hallId}))`);
-}
+// 주의: 프로덕션 DB는 drizzle-orm/neon-http를 쓰는데 이 드라이버는 db.transaction()을
+// 지원하지 않고 항상 throw한다(코덱스 리뷰 P1로 발견 — 로컬 node-postgres에서는 통과하지만
+// 실제 Neon 환경에서는 생성/순서변경이 전부 깨졌을 것). 그래서 동시성 안전장치는 여러 SQL문을
+// 감싼 JS 트랜잭션이 아니라, Postgres가 자체적으로 원자적으로 실행하는 "문장 하나"로만 구현한다.
 
 export async function create(
   hallId: string,
   input: { stepName: string; description?: string | null },
 ): Promise<TemplateItem> {
-  return db.transaction(async (tx) => {
-    await lockHall(tx, hallId);
-
-    const [{ nextOrder }] = await tx
-      .select({
-        nextOrder: sql<number>`coalesce(max(${checklistTemplateItems.sortOrder}), -1) + 1`,
-      })
-      .from(checklistTemplateItems)
-      .where(eq(checklistTemplateItems.hallId, hallId));
-
-    const [item] = await tx
-      .insert(checklistTemplateItems)
-      .values({
-        hallId,
-        stepName: input.stepName,
-        description: input.description ?? null,
-        sortOrder: nextOrder,
-      })
-      .returning();
-    return item;
-  });
+  const [item] = await db
+    .insert(checklistTemplateItems)
+    .values({
+      hallId,
+      stepName: input.stepName,
+      description: input.description ?? null,
+      // INSERT 문 하나 안에서 sortOrder를 계산한다 — 별도 SELECT 후 INSERT하는 두 번의
+      // 왕복이 아니므로 그 사이에 다른 요청이 끼어들 틈이 없다.
+      sortOrder: sql<number>`coalesce((select max(${checklistTemplateItems.sortOrder}) from ${checklistTemplateItems} where ${checklistTemplateItems.hallId} = ${hallId}), -1) + 1`,
+    })
+    .returning();
+  return item;
 }
 
 export async function findAllByHall(hallId: string): Promise<TemplateItem[]> {
@@ -76,36 +64,36 @@ export async function remove(hallId: string, id: string): Promise<void> {
     .where(and(eq(checklistTemplateItems.id, id), eq(checklistTemplateItems.hallId, hallId)));
 }
 
-// AC 3: 대상 항목을 인접 항목과 스왑한다. 목록 조회 → 스왑 계산 → 저장을 lockHall로
-// 잠근 같은 트랜잭션 안에서 전부 수행해, 동시에 들어온 두 번째 이동 요청이 첫 번째
-// 요청의 결과를 덮어써 유실시키는 것을 막는다(코덱스 리뷰 2차 P2 반영).
+// AC 3: 대상 항목을 인접 항목(같은 홀 안에서 sort_order 기준 바로 앞/뒤)과 스왑한다.
+// "조회 → 계산 → 저장"을 여러 왕복으로 나누지 않고, CTE를 쓴 UPDATE 문 하나로 표현해
+// Postgres가 그 자체로 원자적으로 실행하게 한다 — target/neighbor 중 하나라도 없으면
+// (맨 위에서 up, 맨 아래에서 down 등) neighbor가 빈 결과가 되어 자연히 0행 갱신으로 끝난다.
 export async function moveAdjacent(
   hallId: string,
   id: string,
   direction: "up" | "down",
 ): Promise<void> {
-  await db.transaction(async (tx) => {
-    await lockHall(tx, hallId);
+  const comparator = direction === "up" ? sql`<` : sql`>`;
+  const neighborOrder = direction === "up" ? sql`desc` : sql`asc`;
 
-    const items = await tx.query.checklistTemplateItems.findMany({
-      where: eq(checklistTemplateItems.hallId, hallId),
-      orderBy: asc(checklistTemplateItems.sortOrder),
-    });
-
-    const index = items.findIndex((item) => item.id === id);
-    if (index === -1) return;
-
-    const targetIndex = direction === "up" ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= items.length) return;
-
-    const orderedIds = items.map((item) => item.id);
-    [orderedIds[index], orderedIds[targetIndex]] = [orderedIds[targetIndex], orderedIds[index]];
-
-    for (const [newIndex, itemId] of orderedIds.entries()) {
-      await tx
-        .update(checklistTemplateItems)
-        .set({ sortOrder: newIndex })
-        .where(and(eq(checklistTemplateItems.id, itemId), eq(checklistTemplateItems.hallId, hallId)));
-    }
-  });
+  await db.execute(sql`
+    with target as (
+      select id, sort_order from ${checklistTemplateItems}
+      where id = ${id} and hall_id = ${hallId}
+    ),
+    neighbor as (
+      select id, sort_order from ${checklistTemplateItems}
+      where hall_id = ${hallId}
+        and sort_order ${comparator} (select sort_order from target)
+      order by sort_order ${neighborOrder}
+      limit 1
+    )
+    update ${checklistTemplateItems} as t
+    set sort_order = case
+      when t.id = (select id from target) then (select sort_order from neighbor)
+      when t.id = (select id from neighbor) then (select sort_order from target)
+    end
+    where exists (select 1 from neighbor)
+      and t.id in (select id from target union select id from neighbor)
+  `);
 }

@@ -6,17 +6,24 @@
  * 진행 단계 자체는 홀마다 달라질 이유가 없고, 실제로 홀마다 다른 것은 시연 영상 정도
  * (FR-3, demo_videos)이므로 그건 이 스크립트 범위 밖으로 남겨둔다.
  *
- * 재실행 안전(idempotent) — 삭제 후 재생성이 아니라 stepName 기준 매칭:
- * - 이름이 일치하는 기존 항목은 UPDATE(id 보존) — demo_videos.template_item_id가
- *   ON DELETE CASCADE라, 삭제 후 재생성하면 기존에 연결된 시연 영상까지 함께 사라진다
- *   (코덱스 리뷰 1차 P1). 이 12단계 이름과 우연히 같은 기존 항목이 있다면 그 영상은
- *   보존된다.
- * - 이 12단계 이름에 없는 기존 항목(예: 이전 스토리 2.1~2.3 수동 검증용 더미)만 삭제한다.
- * - 매칭되지 않는 새 단계만 새로 생성한다.
+ * 이 스크립트는 아무 것도 삭제하지 않는다(코덱스 리뷰 1·2차 P1) — "이 12개 이름에
+ * 없는 기존 항목은 처분 가능"으로 간주해 지우는 첫 버전은, 나중에 관리자가 실제로
+ * 등록한 커스텀 단계까지 이 스크립트가 재실행될 때마다 지워버릴 수 있었다(게다가
+ * demo_videos.template_item_id가 ON DELETE CASCADE라 연결된 시연 영상까지 함께
+ * 사라진다). 이전 스토리 2.1~2.3의 수동 검증용 더미 항목은 이미 이 스크립트의 첫
+ * 실행에서 정리됐으므로, 이후 실행은 순수 upsert만 하면 된다.
+ *
+ * stepName 기준으로 매칭해 upsert한다: 일치하는 기존 항목은 UPDATE(id 보존 — 연결된
+ * 시연 영상도 함께 보존됨), 없으면 새로 생성한다. 이 12단계는 항상 그 홀의 기존
+ * sortOrder 최댓값보다 큰 값부터 STEPS 배열 순서 그대로 재배치된다 — 매번 이 최댓값을
+ * 기준으로 다시 계산하므로 이미 있던 다른 항목(관리자가 등록한 커스텀 단계 포함)의
+ * sortOrder와 절대 충돌하지 않으면서도, 재실행할 때마다 이 12개의 상대 순서가 STEPS와
+ * 정확히 같아진다(코덱스 리뷰 2차 P2 — 매칭된 기존 항목의 옛 sortOrder를 그대로 두면
+ * 재실행해도 선언한 순서로 수렴하지 않는 문제였다).
+ *
  * db.transaction()은 프로덕션 드라이버(neon-http)가 지원하지 않아 이 저장소 전체가
- * 쓰지 않는다(template-item.ts 주석 참고) — 완전한 원자성 대신, 위 매칭 전략 자체가
- * 재실행해도 같은 최종 상태로 수렴하게 만들어 중간 실패 시에도 재실행으로 안전하게
- * 복구되도록 한다(코덱스 리뷰 1차 P2).
+ * 쓰지 않는다(template-item.ts 주석 참고) — 완전한 원자성 대신, 삭제가 없는 순수
+ * upsert 구조 자체가 중간 실패 후 재실행해도 안전하게 같은 최종 상태로 수렴하게 한다.
  *
  * 실행: npm run seed:ceremony-checklist (package.json이 --env-file=.env.local로 실행한다)
  */
@@ -86,37 +93,30 @@ async function seedHall(hallId: string, hallName: string) {
   console.log(`\n[${hallName}]`);
 
   const existing = await templateItemRepo.findAllByHall(hallId);
-  const targetStepNames = new Set(STEPS.map((step) => step.stepName));
   const existingByStepName = new Map(existing.map((item) => [item.stepName, item]));
+  // 이 홀의 현재 sortOrder 최댓값을 미리 한 번만 계산해둔다 — 이후 이 12단계를
+  // (currentMax+1)부터 STEPS 순서 그대로 배치하면, 다른 기존 항목의 sortOrder와
+  // 절대 겹치지 않는다(모든 대상 값이 원래 최댓값보다 크므로).
+  const currentMax = existing.reduce((max, item) => Math.max(max, item.sortOrder), -1);
 
-  // 12단계 이름에 없는 기존 항목만 삭제한다 — 이름이 일치하는 항목은 아래에서
-  // UPDATE로 대체해 id(및 연결된 시연 영상)를 보존한다.
-  for (const item of existing) {
-    if (!targetStepNames.has(item.stepName)) {
-      await templateItemRepo.remove(hallId, item.id);
-      console.log(`  삭제됨(대상 아님): ${item.stepName}`);
-    }
-  }
-
-  for (const step of STEPS) {
+  for (const [index, step] of STEPS.entries()) {
+    const targetSortOrder = currentMax + 1 + index;
     const match = existingByStepName.get(step.stepName);
     if (match) {
       await templateItemRepo.update(hallId, match.id, {
         stepName: step.stepName,
         description: step.description,
       });
-      console.log(`  갱신됨: ${step.stepName}`);
+      await templateItemRepo.setSortOrder(hallId, match.id, targetSortOrder);
+      console.log(`  갱신됨 (${targetSortOrder}): ${step.stepName}`);
       continue;
     }
-    // create()가 INSERT 문 안에서 sortOrder를 계산해 그 홀의 마지막 순서 다음으로
-    // 자동 배치한다(template-item.ts) — 여기서 별도로 sortOrder를 지정하지 않는다.
-    // (신규 홀이거나 기존 항목이 전부 대상 밖이었던 일반적인 경우, 12단계가 이
-    // 순서 그대로 0~11번으로 채워진다.)
     const created = await templateItemRepo.create(hallId, {
       stepName: step.stepName,
       description: step.description,
     });
-    console.log(`  생성됨 (${created.sortOrder}): ${created.stepName}`);
+    await templateItemRepo.setSortOrder(hallId, created.id, targetSortOrder);
+    console.log(`  생성됨 (${targetSortOrder}): ${created.stepName}`);
   }
 }
 

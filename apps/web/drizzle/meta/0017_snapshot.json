@@ -1,6 +1,6 @@
 {
-  "id": "4606566f-3fbc-41f4-abfa-b1d6452c60be",
-  "prevId": "5166d489-a245-4fcb-80e6-1cf9634f0b0f",
+  "id": "8a0981db-acba-477f-bcea-a53ba5b44565",
+  "prevId": "69a1e7c9-745d-4c46-9ffe-bc56ffaffda9",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -170,18 +170,6 @@
           "notNull": true,
           "default": "now()"
         },
-        "groom_name": {
-          "name": "groom_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "bride_name": {
-          "name": "bride_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "assigned_operator_id": {
           "name": "assigned_operator_id",
           "type": "text",
@@ -277,12 +265,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "ad_hoc_group_root_id": {
-          "name": "ad_hoc_group_root_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {},
@@ -930,6 +912,127 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.feedback": {
+      "name": "feedback",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "hall_id": {
+          "name": "hall_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ceremony_id": {
+          "name": "ceremony_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "template_item_id": {
+          "name": "template_item_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "step_name": {
+          "name": "step_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'draft'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "feedback_hall_id_halls_id_fk": {
+          "name": "feedback_hall_id_halls_id_fk",
+          "tableFrom": "feedback",
+          "columnsFrom": [
+            "hall_id"
+          ],
+          "tableTo": "halls",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "feedback_ceremony_id_ceremonies_id_fk": {
+          "name": "feedback_ceremony_id_ceremonies_id_fk",
+          "tableFrom": "feedback",
+          "columnsFrom": [
+            "ceremony_id"
+          ],
+          "tableTo": "ceremonies",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "feedback_template_item_id_checklist_template_items_id_fk": {
+          "name": "feedback_template_item_id_checklist_template_items_id_fk",
+          "tableFrom": "feedback",
+          "columnsFrom": [
+            "template_item_id"
+          ],
+          "tableTo": "checklist_template_items",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "feedback_ceremony_id_template_item_id_unique": {
+          "name": "feedback_ceremony_id_template_item_id_unique",
+          "columns": [
+            "ceremony_id",
+            "template_item_id"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

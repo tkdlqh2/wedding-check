@@ -30,18 +30,25 @@
   text-decoration: none;
 }
 
-.operator-ceremony-card__hall {
-  font-size: 14px;
-  color: var(--color-text-secondary);
-}
-
-.operator-ceremony-card__time {
+/* 예식 목록 카드(admin ceremony-card)와 동일 위계 — 시간+신랑신부가 제일 크게. */
+.operator-ceremony-card__title {
   font-size: 20px;
   font-weight: 700;
   color: var(--color-text-primary);
 }
 
-.operator-ceremony-card__item-count {
-  font-size: 14px;
+.operator-ceremony-card__couple {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.operator-ceremony-card__meta {
+  font-size: 13px;
   color: var(--color-text-muted);
+}
+
+.operator-ceremony-card__assignees {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
 }

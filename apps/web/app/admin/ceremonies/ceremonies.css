@@ -106,6 +106,12 @@
   color: var(--color-text-primary);
 }
 
+.ceremony-card__couple {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
 .ceremony-card__item-count {
   font-size: 14px;
   color: var(--color-text-muted);

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createCeremony, CeremonyValidationError } from "@/lib/services/ceremony";
 import { requireAdminSession } from "@/lib/auth-guard";
 
-export type CeremonyFormState = { error?: string };
+export type CeremonyFormState = { error?: string; errorField?: "groomName" | "brideName" };
 
 // datetime-local 입력값("YYYY-MM-DDTHH:mm")은 타임존 정보가 없다 — 이 제품은 국내 단일
 // 웨딩홀 대상(KST 전용)이므로 입력값을 KST 벽시계 시각으로 해석해 정확한 UTC 인스턴트로
@@ -28,13 +28,22 @@ export async function createCeremonyAction(
     return { error: "예식 일시를 입력해주세요" };
   }
 
+  const groomName = String(formData.get("groomName") ?? "").trim();
+  const brideName = String(formData.get("brideName") ?? "").trim();
+  if (!groomName) {
+    return { error: "신랑 이름을 입력해주세요", errorField: "groomName" };
+  }
+  if (!brideName) {
+    return { error: "신부 이름을 입력해주세요", errorField: "brideName" };
+  }
+
   const contractConditions = {
     requiresOfficiant: formData.get("requiresOfficiant") === "on",
     hasAdditionalEvent: formData.get("hasAdditionalEvent") === "on",
   };
 
   try {
-    await createCeremony({ hallId, ceremonyAt, contractConditions });
+    await createCeremony({ hallId, ceremonyAt, contractConditions, groomName, brideName });
   } catch (err) {
     if (err instanceof CeremonyValidationError) return { error: err.message };
     throw err;

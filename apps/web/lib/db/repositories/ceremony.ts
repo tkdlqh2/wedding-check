@@ -22,7 +22,12 @@ export type CeremonyWithItemCount = Ceremony & { itemCount: number };
 // 빠진다(빈 단계는 오퍼레이터가 체크할 것이 없으므로 의도된 동작).
 export async function create(
   hallId: string,
-  input: { ceremonyAt: Date; contractConditions: Record<string, boolean> },
+  input: {
+    ceremonyAt: Date;
+    contractConditions: Record<string, boolean>;
+    groomName?: string | null;
+    brideName?: string | null;
+  },
 ): Promise<{ ceremonyId: string; instanceId: string }> {
   // 주의: JS Date 객체를 raw sql 파라미터로 그대로 넘기면 node-postgres가 클라이언트/세션
   // 타임존(KST, +9h)을 거쳐 timestamp(without time zone) 컬럼에 값을 써버려, 저장된
@@ -35,8 +40,11 @@ export async function create(
   const ceremonyAtLiteral = input.ceremonyAt.toISOString().replace("Z", "");
   const result = await db.execute<{ ceremony_id: string; instance_id: string }>(sql`
     with new_ceremony as (
-      insert into ceremonies (hall_id, ceremony_at, contract_conditions)
-      values (${hallId}, ${ceremonyAtLiteral}::timestamp, ${JSON.stringify(input.contractConditions)}::jsonb)
+      insert into ceremonies (hall_id, ceremony_at, contract_conditions, groom_name, bride_name)
+      values (
+        ${hallId}, ${ceremonyAtLiteral}::timestamp, ${JSON.stringify(input.contractConditions)}::jsonb,
+        ${input.groomName ?? null}, ${input.brideName ?? null}
+      )
       returning id, hall_id, contract_conditions
     ),
     new_instance as (

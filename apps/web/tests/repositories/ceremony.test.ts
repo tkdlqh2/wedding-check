@@ -173,6 +173,37 @@ describe("ceremonyRepo.create — 원자적 생성(ceremony+instance+instance_it
     expect(first.ceremonyId).not.toBe(second.ceremonyId);
     expect(first.instanceId).not.toBe(second.instanceId);
   });
+
+  // Story 5.3 AC 2, 4
+  it("groomName/brideName을 넘기면 저장되고 그대로 조회된다", async () => {
+    const hall = await createTestHall();
+
+    const { ceremonyId } = await ceremonyRepo.create(hall.id, {
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+      groomName: "김철수",
+      brideName: "이영희",
+    });
+
+    const ceremony = await ceremonyRepo.findById(hall.id, ceremonyId);
+    expect(ceremony?.groomName).toBe("김철수");
+    expect(ceremony?.brideName).toBe("이영희");
+  });
+
+  // Story 5.3: 기존 호출부(groomName/brideName 생략)와의 하위 호환 — DB 컬럼이
+  // nullable이므로 생략 시 null로 저장된다.
+  it("groomName/brideName을 생략하면 null로 저장된다", async () => {
+    const hall = await createTestHall();
+
+    const { ceremonyId } = await ceremonyRepo.create(hall.id, {
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+
+    const ceremony = await ceremonyRepo.findById(hall.id, ceremonyId);
+    expect(ceremony?.groomName).toBeNull();
+    expect(ceremony?.brideName).toBeNull();
+  });
 });
 
 describe("ceremonyRepo.findByHallForDateRange — 홀 스코프 격리", () => {

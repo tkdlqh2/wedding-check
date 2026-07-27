@@ -74,6 +74,11 @@ export default async function CeremonyDetailPage({
       <h1>
         {hall.name} · {ceremonyDateFormatter.format(ceremony.ceremonyAt)}
       </h1>
+      {ceremony.groomName && ceremony.brideName && (
+        <p className="ceremony-detail-page__couple">
+          {ceremony.groomName} · {ceremony.brideName} 예식
+        </p>
+      )}
 
       <h2>포함된 항목 ({items.length}개)</h2>
       {items.length === 0 ? (

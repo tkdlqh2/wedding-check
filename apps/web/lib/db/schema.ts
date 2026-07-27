@@ -227,6 +227,12 @@ export const checklistInstanceItems = pgTable(
       () => checklistTemplateItemChecks.id,
       { onDelete: "set null" },
     ),
+    // Story 5.8: 이 예식에만 존재하는 임시(ad-hoc) 단계를 만들 때(템플릿에 없는 단계) 그
+    // 단계에 속한 항목들을 함께 그룹핑하기 위한 태그. templateItemId는 실제 템플릿
+    // 단계에만 걸리므로 ad-hoc 단계는 이 값이 항상 null이라 그룹핑 키로 못 쓴다 — 진짜
+    // FK가 아니라 순수 그룹핑 태그라 참조 무결성 제약을 걸지 않는다(같은 그룹의 첫 항목이
+    // 생성될 때 새 uuid를 발급해 이후 항목들이 같은 값을 그대로 복사해 쓴다).
+    adHocGroupRootId: uuid("ad_hoc_group_root_id"),
     stepName: text("step_name").notNull(),
     title: text("title").notNull(),
     description: text("description"),

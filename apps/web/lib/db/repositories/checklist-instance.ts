@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { eq, and, asc, notInArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "../index";
 import {
@@ -171,6 +172,102 @@ export async function addItem(
     throw new Error("addItem: 충돌 처리 후에도 기존 행을 찾지 못했습니다");
   }
   return existing;
+}
+
+// Story 5.8: "이 예식에만" 존재하는 자유 서술 항목 추가 — 템플릿 카탈로그를 거치지
+// 않는다(templateItemCheckId는 항상 null). 기존 단계(실제 템플릿 단계 또는 이미 만들어진
+// ad-hoc 단계)에 추가할 때는 stepId(templateItemId) 또는 groupRootId 중 하나를 넘겨
+// addItem()과 동일한 "그 단계의 마지막 항목 바로 뒤에 삽입, 없으면 인스턴스 맨 뒤"
+// 전략을 그대로 재사용한다. 완전히 새 단계를 만들 때는 둘 다 null로 넘기면 새
+// groupRootId를 발급해 맨 뒤에 추가한다(§Dev Notes 참고).
+export async function addAdHocItem(
+  hallId: string,
+  instanceId: string,
+  input: {
+    stepName: string;
+    title: string;
+    description: string | null;
+    stepId: string | null;
+    groupRootId: string | null;
+  },
+): Promise<ChecklistInstanceItem> {
+  const newGroupRootId = input.stepId || input.groupRootId ? null : randomUUID();
+  const rowGroupRootId = input.groupRootId ?? newGroupRootId;
+
+  return withConcurrencyRetry(async () => {
+    const result = await db.execute<ChecklistInstanceItem>(sql`
+      with target as (
+        select coalesce(
+          ${
+            input.stepId
+              ? sql`(select max(sort_order) from ${checklistInstanceItems}
+                  where instance_id = ${instanceId} and template_item_id = ${input.stepId})`
+              : input.groupRootId
+                ? sql`(select max(sort_order) from ${checklistInstanceItems}
+                    where instance_id = ${instanceId} and ad_hoc_group_root_id = ${input.groupRootId})`
+                : sql`null`
+          },
+          (select max(sort_order) from ${checklistInstanceItems}
+            where instance_id = ${instanceId}),
+          -1
+        ) as base
+      ),
+      shifted as (
+        update ${checklistInstanceItems}
+        set sort_order = sort_order + 1
+        where instance_id = ${instanceId}
+          and sort_order > (select base from target)
+        returning id
+      )
+      insert into checklist_instance_items
+        (hall_id, instance_id, template_item_id, template_item_check_id, ad_hoc_group_root_id, step_name, title, description, sort_order)
+      select
+        ${hallId}, ${instanceId}, ${input.stepId}, null, ${rowGroupRootId},
+        ${input.stepName}, ${input.title}, ${input.description},
+        (select base from target) + 1
+      -- addItem()과 동일한 이유로 shifted를 강제 참조(§addItem 주석 참고).
+      where (select count(*) from shifted) >= 0
+      returning
+        id,
+        hall_id as "hallId",
+        instance_id as "instanceId",
+        template_item_id as "templateItemId",
+        template_item_check_id as "templateItemCheckId",
+        ad_hoc_group_root_id as "adHocGroupRootId",
+        step_name as "stepName",
+        title,
+        description,
+        sort_order as "sortOrder",
+        created_at as "createdAt"
+    `);
+    const inserted = result.rows[0];
+    if (!inserted) {
+      throw new Error("addAdHocItem: 삽입 후 반환된 행이 없습니다");
+    }
+    return inserted;
+  });
+}
+
+// Story 5.8: 인스턴스 항목의 제목/설명 수정(기존에는 추가/제외만 가능했다). 존재하지
+// 않으면 undefined를 반환해 서비스가 사용자 오류로 번역할 수 있게 한다.
+export async function updateItem(
+  hallId: string,
+  instanceId: string,
+  itemId: string,
+  input: { title: string; description: string | null },
+): Promise<ChecklistInstanceItem | undefined> {
+  const [updated] = await db
+    .update(checklistInstanceItems)
+    .set({ title: input.title, description: input.description })
+    .where(
+      and(
+        eq(checklistInstanceItems.id, itemId),
+        eq(checklistInstanceItems.instanceId, instanceId),
+        eq(checklistInstanceItems.hallId, hallId),
+      ),
+    )
+    .returning();
+  return updated;
 }
 
 // FR-2 삭제 정책과 동일하게 하드 삭제(Story 1.3 Dev Notes "삭제 정책" 참고).

@@ -274,6 +274,38 @@ describe("structureFeedback (AC 1, 4)", () => {
       FeedbackValidationError,
     );
   });
+
+  // 코덱스 리뷰: 프롬프트가 "1~5개"를 요청해도 구조화 출력 스키마(JSON Schema)는
+  // minItems/maxItems를 강제하지 못한다 — LLM이 이를 어기면 서비스 레이어가 막아야 한다.
+  it("LLM 응답의 tags가 빈 배열이면 에러를 던진다", async () => {
+    const { hall, ceremonyId, step } = await setupCeremonyWithStep();
+    await saveDraftFeedback(hall.id, ceremonyId, step.id, "내용");
+    generateMock.mockResolvedValue({
+      text: JSON.stringify({
+        situation: "상황",
+        outcome: "well_handled",
+        rationale: "판단",
+        tags: [],
+      }),
+    });
+
+    await expect(structureFeedback(hall.id, ceremonyId, step.id)).rejects.toThrow();
+  });
+
+  it("LLM 응답의 tags가 5개를 초과하면 에러를 던진다", async () => {
+    const { hall, ceremonyId, step } = await setupCeremonyWithStep();
+    await saveDraftFeedback(hall.id, ceremonyId, step.id, "내용");
+    generateMock.mockResolvedValue({
+      text: JSON.stringify({
+        situation: "상황",
+        outcome: "well_handled",
+        rationale: "판단",
+        tags: ["1", "2", "3", "4", "5", "6"],
+      }),
+    });
+
+    await expect(structureFeedback(hall.id, ceremonyId, step.id)).rejects.toThrow();
+  });
 });
 
 describe("updateStructuredFields (AC 2)", () => {
@@ -320,7 +352,79 @@ describe("updateStructuredFields (AC 2)", () => {
         situation: "상황",
         outcome: "invalid",
         rationale: "판단",
+        tags: ["태그"],
+      }),
+    ).rejects.toThrow(FeedbackValidationError);
+  });
+
+  // 코덱스 리뷰: AC 1이 "5개 필드가 모두 채워진 초안"이라고 명시하므로 tags도 다른
+  // 3개 필드와 동일하게 완결성 검증 대상이다.
+  it("tags가 빈 배열이면 거부된다", async () => {
+    const { hall, ceremonyId, step } = await setupCeremonyWithStep();
+    await saveDraftFeedback(hall.id, ceremonyId, step.id, "내용");
+
+    await expect(
+      updateStructuredFields(hall.id, ceremonyId, step.id, {
+        situation: "상황",
+        outcome: "well_handled",
+        rationale: "판단",
         tags: [],
+      }),
+    ).rejects.toThrow(FeedbackValidationError);
+  });
+
+  it("tags가 5개를 초과하면 거부된다", async () => {
+    const { hall, ceremonyId, step } = await setupCeremonyWithStep();
+    await saveDraftFeedback(hall.id, ceremonyId, step.id, "내용");
+
+    await expect(
+      updateStructuredFields(hall.id, ceremonyId, step.id, {
+        situation: "상황",
+        outcome: "well_handled",
+        rationale: "판단",
+        tags: ["1", "2", "3", "4", "5", "6"],
+      }),
+    ).rejects.toThrow(FeedbackValidationError);
+  });
+
+  // 코덱스 리뷰: situation/rationale과 달리 tags는 trim되지 않고 저장되면
+  // " 순서변경"과 "순서변경"이 서로 다른 태그로 취급돼 3.3/3.4 검색에서 조용히
+  // 갈라질 수 있었다.
+  it("tags의 각 항목을 trim해서 저장한다", async () => {
+    const { hall, ceremonyId, step } = await setupCeremonyWithStep();
+    await saveDraftFeedback(hall.id, ceremonyId, step.id, "내용");
+
+    const result = await updateStructuredFields(hall.id, ceremonyId, step.id, {
+      situation: "상황",
+      outcome: "well_handled",
+      rationale: "판단",
+      tags: ["  순서변경  ", "주례자"],
+    });
+
+    expect(result.tags).toEqual(["순서변경", "주례자"]);
+  });
+
+  // 코덱스 리뷰: 리포지토리 레벨(feedback.test.ts)에는 이미 confirmed 방어 테스트가
+  // 있었지만, 실제 라우트가 호출하는 서비스 레이어(updateStructuredFields)에서는
+  // 이 AD-8 핵심 경로가 검증되지 않고 있었다.
+  it("이미 confirmed인 피드백의 필드는 수정할 수 없다(AD-8)", async () => {
+    const { hall, ceremonyId, step } = await setupCeremonyWithStep();
+    await saveDraftFeedback(hall.id, ceremonyId, step.id, "내용");
+    await updateStructuredFields(hall.id, ceremonyId, step.id, {
+      situation: "상황",
+      outcome: "well_handled",
+      rationale: "판단",
+      tags: ["태그"],
+    });
+    embedMock.mockResolvedValue([Array.from({ length: 1024 }, () => 0.1)]);
+    await confirmFeedback(hall.id, ceremonyId, step.id);
+
+    await expect(
+      updateStructuredFields(hall.id, ceremonyId, step.id, {
+        situation: "덮어쓰기 시도",
+        outcome: "mishandled",
+        rationale: "덮어쓰기 시도",
+        tags: ["태그"],
       }),
     ).rejects.toThrow(FeedbackValidationError);
   });
@@ -361,6 +465,42 @@ describe("confirmFeedback (AC 3, AD-8)", () => {
     expect(embedMock).not.toHaveBeenCalled();
   });
 
+  // 코덱스 리뷰: confirmFeedback 자체의 완결성 재검증(tags/outcome)이 서비스 레이어
+  // 검증을 우회하는 경로(예: 리포지토리 직접 호출)에도 방어가 되는지 확인한다 —
+  // updateStructuredFields(서비스 함수)는 이미 tags 빈 배열을 거부하므로, 여기서는
+  // 리포지토리를 직접 호출해 그 방어를 우회한 상태를 인위적으로 재현한다.
+  it("tags가 빈 배열인 draft는(서비스 검증을 우회해도) 확정을 거부한다", async () => {
+    const { hall, ceremonyId, step } = await setupCeremonyWithStep();
+    const created = await saveDraftFeedback(hall.id, ceremonyId, step.id, "내용");
+    await feedbackRepo.updateStructuredFields(created.id, {
+      situation: "상황",
+      outcome: "well_handled",
+      rationale: "판단",
+      tags: [],
+    });
+
+    await expect(confirmFeedback(hall.id, ceremonyId, step.id)).rejects.toThrow(
+      FeedbackValidationError,
+    );
+    expect(embedMock).not.toHaveBeenCalled();
+  });
+
+  it("outcome이 허용된 값이 아닌 draft는(서비스 검증을 우회해도) 확정을 거부한다", async () => {
+    const { hall, ceremonyId, step } = await setupCeremonyWithStep();
+    const created = await saveDraftFeedback(hall.id, ceremonyId, step.id, "내용");
+    await feedbackRepo.updateStructuredFields(created.id, {
+      situation: "상황",
+      outcome: "invalid_value",
+      rationale: "판단",
+      tags: ["태그"],
+    });
+
+    await expect(confirmFeedback(hall.id, ceremonyId, step.id)).rejects.toThrow(
+      FeedbackValidationError,
+    );
+    expect(embedMock).not.toHaveBeenCalled();
+  });
+
   it("이미 confirmed인 피드백은 다시 확정할 수 없다", async () => {
     const { hall, ceremonyId, step } = await setupCeremonyWithStep();
     await saveDraftFeedback(hall.id, ceremonyId, step.id, "내용");
@@ -368,7 +508,7 @@ describe("confirmFeedback (AC 3, AD-8)", () => {
       situation: "상황",
       outcome: "well_handled",
       rationale: "판단",
-      tags: [],
+      tags: ["태그"],
     });
     embedMock.mockResolvedValue([Array.from({ length: 1024 }, () => 0.1)]);
     await confirmFeedback(hall.id, ceremonyId, step.id);

@@ -14,6 +14,22 @@ function isOutcome(value: unknown): value is Outcome {
   return typeof value === "string" && (OUTCOME_VALUES as readonly string[]).includes(value);
 }
 
+const TAGS_MIN = 1;
+const TAGS_MAX = 5;
+
+// 코덱스 리뷰: 프롬프트는 "1~5개"를 요청하지만 구조화 출력 스키마(JSON Schema)는
+// minItems/maxItems를 지원하지 않아 LLM이 어겨도 스키마 레벨에서 막히지 않는다 —
+// AC 1("5개 필드가 모두 채워진 초안")이 tags도 포함하므로 서비스 레이어에서 개수를
+// 강제한다. 오퍼레이터 수동 수정(updateStructuredFields)에도 동일 규칙을 적용해
+// LLM 결과와 수동 편집 사이에 다른 기준이 생기지 않게 한다.
+function normalizeTags(tags: string[], ErrorClass: new (message: string) => Error = Error): string[] {
+  const trimmed = tags.map((t) => t.trim()).filter((t) => t.length > 0);
+  if (trimmed.length < TAGS_MIN || trimmed.length > TAGS_MAX) {
+    throw new ErrorClass(`태그는 ${TAGS_MIN}~${TAGS_MAX}개여야 합니다`);
+  }
+  return trimmed;
+}
+
 const STRUCTURE_RESPONSE_SCHEMA = {
   type: "object",
   properties: {
@@ -59,7 +75,7 @@ function parseStructuredDraft(text: string): StructuredDraft {
   if (!Array.isArray(tags) || !tags.every((t) => typeof t === "string")) {
     throw new Error("구조화 응답의 tags 형식이 올바르지 않습니다");
   }
-  return { situation: situation.trim(), outcome, rationale: rationale.trim(), tags };
+  return { situation: situation.trim(), outcome, rationale: rationale.trim(), tags: normalizeTags(tags) };
 }
 
 // AD-2 2-hop 재검증: ceremonyRepo/templateItemRepo 둘 다 hallId로 스코프된 조회다 —
@@ -214,12 +230,13 @@ export async function updateStructuredFields(
   if (!Array.isArray(fields.tags) || !fields.tags.every((t) => typeof t === "string")) {
     throw new FeedbackValidationError("태그 형식이 올바르지 않습니다");
   }
+  const tags = normalizeTags(fields.tags, FeedbackValidationError);
 
   const updated = await feedbackRepo.updateStructuredFields(existing.id, {
     situation,
     outcome: fields.outcome,
     rationale,
-    tags: fields.tags,
+    tags,
   });
   if (!updated) {
     throw new FeedbackValidationError("이미 확정된 피드백은 수정할 수 없습니다");
@@ -238,12 +255,17 @@ export async function confirmFeedback(
 ): Promise<Feedback> {
   const existing = await requireDraftFeedback(hallId, ceremonyId, templateItemId);
 
+  // AC 1/3: "5필드 모두 채워짐"이 확정 조건이다 — tags도 그 5개 중 하나이므로
+  // situation/outcome/rationale과 동일하게 완결성 체크에 포함한다(코덱스 리뷰).
+  // outcome은 enum 멤버십까지 재확인한다(진입 경로가 늘어나도 이 시점에 한 번 더
+  // 방어 — DB에 CHECK 제약이 없으므로).
   if (
     !existing.situation ||
     existing.situation.trim().length === 0 ||
-    !existing.outcome ||
+    !isOutcome(existing.outcome) ||
     !existing.rationale ||
-    existing.rationale.trim().length === 0
+    existing.rationale.trim().length === 0 ||
+    existing.tags.length === 0
   ) {
     throw new FeedbackValidationError("구조화를 먼저 완료하세요");
   }

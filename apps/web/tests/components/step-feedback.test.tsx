@@ -114,14 +114,14 @@ describe("StepFeedback (AC 1, 2, 3)", () => {
   });
 });
 
-// Story 3.2(FR-9, AD-8): 자동 구조화 -> 필드 확인/수정 -> 확정.
+// Story 3.2(FR-9, AD-8): 구조화하기 -> 필드 확인/수정 -> 확정.
 describe("StepFeedback — 구조화/확정 (Story 3.2 AC 1, 2, 3, 4)", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
-  it("draft 저장 후에만 '자동 구조화' 버튼이 나타나고, 성공하면 4개 필드가 채워진다", async () => {
+  it("draft 저장 후에만 '구조화하기' 버튼이 나타나고, 성공하면 4개 필드가 채워진다", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ feedback: null }) }) // GET (펼침)
@@ -149,11 +149,11 @@ describe("StepFeedback — 구조화/확정 (Story 3.2 AC 1, 2, 3, 4)", () => {
     const textarea = await screen.findByPlaceholderText("있었던 일을 그대로 적으세요");
     fireEvent.change(textarea, { target: { value: "내용" } });
 
-    expect(screen.queryByRole("button", { name: "자동 구조화" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "구조화하기" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "저장" }));
-    await screen.findByRole("button", { name: "자동 구조화" });
+    await screen.findByRole("button", { name: "구조화하기" });
 
-    fireEvent.click(screen.getByRole("button", { name: "자동 구조화" }));
+    fireEvent.click(screen.getByRole("button", { name: "구조화하기" }));
 
     expect(await screen.findByDisplayValue("구조화된 상황 설명")).toBeInTheDocument();
     expect(screen.getByDisplayValue("구조화된 사후 판단")).toBeInTheDocument();
@@ -179,7 +179,7 @@ describe("StepFeedback — 구조화/확정 (Story 3.2 AC 1, 2, 3, 4)", () => {
             situation: "상황",
             outcome: "well_handled",
             rationale: "판단",
-            tags: [],
+            tags: ["태그"],
           },
         }),
       }) // GET (펼침 — 이미 구조화된 draft)
@@ -192,7 +192,7 @@ describe("StepFeedback — 구조화/확정 (Story 3.2 AC 1, 2, 3, 4)", () => {
             situation: "수정된 상황",
             outcome: "well_handled",
             rationale: "판단",
-            tags: [],
+            tags: ["태그"],
           },
         }),
       }); // PATCH
@@ -207,10 +207,14 @@ describe("StepFeedback — 구조화/확정 (Story 3.2 AC 1, 2, 3, 4)", () => {
 
     fireEvent.change(situationInput, { target: { value: "수정된 상황" } });
     expect(confirmBtn).toBeDisabled();
+    // 코덱스 리뷰: 저장 안 된 수정 중에 재구조화를 누르면 그 수정이 조용히
+    // 덮어써진다 — 필드 저장 전까지는 "구조화하기"도 비활성화돼야 한다.
+    expect(screen.getByRole("button", { name: "구조화하기" })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "필드 저장" }));
     await screen.findByText("임시저장됨");
     expect(confirmBtn).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "구조화하기" })).not.toBeDisabled();
     expect(fetchMock).toHaveBeenLastCalledWith(
       `/api/feedback/${props.hallId}/${props.ceremonyId}`,
       expect.objectContaining({
@@ -220,7 +224,7 @@ describe("StepFeedback — 구조화/확정 (Story 3.2 AC 1, 2, 3, 4)", () => {
           situation: "수정된 상황",
           outcome: "well_handled",
           rationale: "판단",
-          tags: [],
+          tags: ["태그"],
         }),
       }),
     );
@@ -287,7 +291,7 @@ describe("StepFeedback — 구조화/확정 (Story 3.2 AC 1, 2, 3, 4)", () => {
             situation: "상황",
             outcome: "well_handled",
             rationale: "판단",
-            tags: [],
+            tags: ["태그"],
           },
         }),
       })

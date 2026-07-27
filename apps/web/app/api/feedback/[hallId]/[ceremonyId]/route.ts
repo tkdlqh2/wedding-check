@@ -1,4 +1,4 @@
-import { requireSession } from "@/lib/auth-guard";
+import { requireSessionOr401 } from "@/lib/auth-guard";
 import { isValidUuid } from "@/lib/uuid";
 import {
   saveDraftFeedback,
@@ -11,17 +11,8 @@ import {
 // 피드백·구조화 → api/feedback/route.ts"를 따라 Server Action이 아니라 Route
 // Handler로 구현한다. AD-3: 피드백 입력은 operator/admin 둘 다 접근 가능한 화면
 // 기능이라 requireAdminSession()이 아니라 requireSession()을 쓴다.
-async function requireSessionOr401() {
-  try {
-    await requireSession();
-    return null;
-  } catch {
-    return Response.json(
-      { error: { code: "unauthorized", message: "로그인이 필요합니다" } },
-      { status: 401 },
-    );
-  }
-}
+// requireSessionOr401()은 structure/route.ts, confirm/route.ts와 공유(코덱스 리뷰
+// 후 lib/auth-guard.ts로 추출 — 세 파일에 동일 구현이 복붙돼 있던 것을 정리).
 
 function parseParams(hallId: string, ceremonyId: string) {
   if (!isValidUuid(hallId) || !isValidUuid(ceremonyId)) {

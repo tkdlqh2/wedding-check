@@ -168,6 +168,74 @@ describe("feedback 리포지토리", () => {
       const untouched = await feedbackRepo.findByCeremonyAndStep(ceremonyId, step.id);
       expect(untouched?.content).toBe("확정된 내용");
     });
+
+    // 코덱스 리뷰(Edge Case Hunter): 구조화 이후 원본 content를 다시 저장해도
+    // situation/outcome/rationale/tags가 그대로 남으면, 내용과 어긋난 구조화 결과가
+    // 조용히 확정될 수 있었다(AD-8 "근거는 신성하다" 위반 소지) — content가 실제로
+    // 바뀐 경우에만 구조화 필드를 초기화해 재구조화를 강제한다.
+    it("content가 실제로 바뀌면 구조화 필드(situation/outcome/rationale/tags)를 초기화한다", async () => {
+      const hall = await createTestHall();
+      const { ceremonyId } = await createCeremony(hall.id);
+      const step = await createTestTemplateItem(hall.id);
+      const created = await feedbackRepo.upsertDraft({
+        hallId: hall.id,
+        ceremonyId,
+        templateItemId: step.id,
+        stepName: step.stepName,
+        content: "원본 내용",
+      });
+      await feedbackRepo.updateStructuredFields(created!.id, {
+        situation: "구조화된 상황",
+        outcome: "well_handled",
+        rationale: "구조화된 판단",
+        tags: ["태그"],
+      });
+
+      const resaved = await feedbackRepo.upsertDraft({
+        hallId: hall.id,
+        ceremonyId,
+        templateItemId: step.id,
+        stepName: step.stepName,
+        content: "수정된 내용",
+      });
+
+      expect(resaved?.content).toBe("수정된 내용");
+      expect(resaved?.situation).toBeNull();
+      expect(resaved?.outcome).toBeNull();
+      expect(resaved?.rationale).toBeNull();
+      expect(resaved?.tags).toEqual([]);
+    });
+
+    it("content가 그대로면(재시도 등) 기존 구조화 필드를 보존한다", async () => {
+      const hall = await createTestHall();
+      const { ceremonyId } = await createCeremony(hall.id);
+      const step = await createTestTemplateItem(hall.id);
+      const created = await feedbackRepo.upsertDraft({
+        hallId: hall.id,
+        ceremonyId,
+        templateItemId: step.id,
+        stepName: step.stepName,
+        content: "원본 내용",
+      });
+      await feedbackRepo.updateStructuredFields(created!.id, {
+        situation: "구조화된 상황",
+        outcome: "well_handled",
+        rationale: "구조화된 판단",
+        tags: ["태그"],
+      });
+
+      const resaved = await feedbackRepo.upsertDraft({
+        hallId: hall.id,
+        ceremonyId,
+        templateItemId: step.id,
+        stepName: step.stepName,
+        content: "원본 내용",
+      });
+
+      expect(resaved?.situation).toBe("구조화된 상황");
+      expect(resaved?.outcome).toBe("well_handled");
+      expect(resaved?.tags).toEqual(["태그"]);
+    });
   });
 
   // Story 3.2 AC 1/2: 구조화 초안(LLM 결과 또는 오퍼레이터 수정)을 draft 행에 저장.

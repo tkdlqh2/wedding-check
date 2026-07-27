@@ -85,22 +85,34 @@ export async function updateInstanceItemAction(
   return {};
 }
 
+export type AssignOperatorFormState = { error?: string };
+
 // Story 5.8 AC 7: operatorId는 better-auth user.id(uuid 형식이 아닌 text)라
 // isValidUuid로 검증하지 않는다 — assignOperator 서비스의 memberRepo.findById
 // 존재/역할/활성 여부 확인이 실질적인 검증 계층이다(Story 5.7 setMemberRoleAction과
 // 동일한 원칙 — 존재 확인을 서비스에 위임).
-export async function assignOperatorAction(formData: FormData): Promise<void> {
+//
+// 코덱스 리뷰 P2: 화면 렌더링과 제출 사이에 그 오퍼레이터가 비활성화/역할 변경되면
+// assignOperator가 거부하는데, 예전엔 이 실패를 조용히 삼켜 대화상자가 성공한 것처럼
+// 닫혔다 — useActionState로 에러를 반환해 대화상자가 계속 열려 있고 오류가 보이게 한다.
+export async function assignOperatorAction(
+  _prevState: AssignOperatorFormState,
+  formData: FormData,
+): Promise<AssignOperatorFormState> {
   await requireAdminSession();
   const hallId = String(formData.get("hallId") ?? "");
   const ceremonyId = String(formData.get("ceremonyId") ?? "");
   const operatorIdRaw = String(formData.get("operatorId") ?? "");
-  if (!isValidUuid(hallId) || !isValidUuid(ceremonyId)) return;
+  if (!isValidUuid(hallId) || !isValidUuid(ceremonyId)) {
+    return { error: "잘못된 요청입니다" };
+  }
   try {
     await assignOperator(hallId, ceremonyId, operatorIdRaw || null);
   } catch (err) {
-    if (err instanceof CeremonyValidationError) return;
+    if (err instanceof CeremonyValidationError) return { error: err.message };
     throw err;
   }
   revalidatePath(`/admin/ceremonies/${hallId}/${ceremonyId}`);
   revalidatePath("/admin/ceremonies");
+  return {};
 }

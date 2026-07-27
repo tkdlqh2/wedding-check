@@ -54,6 +54,22 @@ describe("createCeremony — 검증", () => {
 
     expect(first.id).not.toBe(second.id);
   });
+
+  // Story 5.3 AC 2: 신랑·신부 이름이 함께 저장되고, 앞뒤 공백은 제거된다.
+  it("groomName/brideName을 넘기면 trim되어 저장된다", async () => {
+    const hall = await createTestHall();
+
+    const ceremony = await createCeremony({
+      hallId: hall.id,
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+      groomName: "  김철수  ",
+      brideName: "  이영희  ",
+    });
+
+    expect(ceremony.groomName).toBe("김철수");
+    expect(ceremony.brideName).toBe("이영희");
+  });
 });
 
 describe("listTodaysCeremonies", () => {

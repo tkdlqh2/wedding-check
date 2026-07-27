@@ -1,11 +1,12 @@
-/* DESIGN.md §4 Cards(예식/체크리스트 인스턴스 카드, UX-DR7), §14 Empty state */
-.ceremonies-page {
-  max-width: 640px;
-}
-
-.ceremonies-page h2 {
-  font-size: 20px;
-  margin-top: var(--space-xl);
+/* DESIGN.md §4 Cards(예식/체크리스트 인스턴스 카드, UX-DR7), §14 Empty state.
+   Story 5.2: prototype/js/screens/WeddingScreen.js와 동일한 2단 그리드(고정폭 등록 폼 +
+   캘린더/목록 컬럼)로 재구성. */
+.ceremonies-page__layout {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: var(--space-lg);
+  align-items: start;
+  margin-top: var(--space-lg);
 }
 
 .ceremonies-page__form-card {
@@ -13,7 +14,22 @@
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-lg);
   padding: var(--space-lg);
-  margin-bottom: var(--space-xl);
+}
+
+.ceremonies-page__form-title {
+  font-size: 18px;
+  margin: 0 0 var(--space-md);
+}
+
+.ceremonies-page__list-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.ceremonies-page__list-title {
+  font-size: 16px;
+  margin: var(--space-sm) 0 0;
 }
 
 .ceremonies-page__empty {
@@ -94,4 +110,159 @@
   font-size: 14px;
   color: var(--color-text-muted);
   flex-shrink: 0;
+}
+
+/* Story 5.2 — 예식 날짜 필터 캘린더. prototype/js/screens/WeddingScreen.js와 동일한
+   구조(요일 헤더 + 주 단위 그리드 + 점 마커)를 DESIGN.md 라운딩 스케일에 맞춰 이식. */
+.ceremony-calendar {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md) var(--space-base);
+}
+
+.ceremony-calendar__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.ceremony-calendar__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.ceremony-calendar__hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.ceremony-calendar__clear {
+  margin-left: auto;
+  background: var(--color-brand-tint);
+  border: 1px solid var(--color-brand);
+  border-radius: var(--radius-sm);
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-brand);
+}
+
+.ceremony-calendar__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.ceremony-calendar__nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-mid);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.ceremony-calendar__nav-btn:hover {
+  background: var(--color-surface-soft);
+}
+
+.ceremony-calendar__month-label {
+  font-size: 14px;
+  font-weight: 700;
+  min-width: 90px;
+  text-align: center;
+}
+
+.ceremony-calendar__grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-top: var(--space-sm);
+}
+
+.ceremony-calendar__day-head {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text-disabled);
+  padding: 2px 0;
+}
+
+.ceremony-calendar__cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.ceremony-calendar__cell:hover {
+  outline: 1px solid var(--color-brand);
+}
+
+.ceremony-calendar__cell--selected {
+  background: var(--color-brand);
+  color: #ffffff;
+}
+
+.ceremony-calendar__dot {
+  font-size: 7px;
+  line-height: 1;
+  color: transparent;
+}
+
+.ceremony-calendar__cell:not(.ceremony-calendar__cell--selected) .ceremony-calendar__dot--visible {
+  color: var(--color-brand);
+}
+
+.ceremony-calendar__cell--selected .ceremony-calendar__dot--visible {
+  color: #ffffff;
+}
+
+/* Story 5.2 — 날짜 필터 없을 때만 노출되는 예식 목록 페이지네이션. */
+.ceremony-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+}
+
+.ceremony-pagination__btn {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-mid);
+  border-radius: var(--radius-md);
+  padding: 8px var(--space-md);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.ceremony-pagination__btn:hover {
+  background: var(--color-surface-soft);
+}
+
+.ceremony-pagination__btn--disabled {
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
+.ceremony-pagination__status {
+  font-size: 13px;
+  color: var(--color-text-muted);
 }

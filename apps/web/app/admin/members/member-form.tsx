@@ -43,6 +43,9 @@ export function MemberForm() {
         id="member-password"
         name="password"
         type="password"
+        minLength={8}
+        maxLength={128}
+        placeholder="8자 이상"
         className={state.error ? "input input--error" : "input"}
         aria-invalid={Boolean(state.error)}
       />

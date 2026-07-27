@@ -9,6 +9,16 @@ export type { Member };
 
 export class MemberValidationError extends Error {}
 
+// better-auth 기본값(node_modules/better-auth/dist/context/create-context.mjs:
+// `options.emailAndPassword?.minPasswordLength || 8`, maxPasswordLength 128) — lib/auth.ts의
+// emailAndPassword 설정이 이 값을 오버라이드하지 않으므로 그대로 맞춘다. 코덱스 리뷰 P2:
+// auth.api.createUser는 회원가입(sign-up) 경로와 달리 이 길이 제한을 직접 검사하지 않고
+// 비밀번호를 그대로 해싱해버려서, 검증 없이는 한 글자짜리 비밀번호도 그대로 발급된다 —
+// 여기서 sign-up과 동일한 정책을 직접 적용한다. lib/auth.ts에서 minPasswordLength/
+// maxPasswordLength를 오버라이드하면 이 값도 함께 바꿔야 한다.
+const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 128;
+
 // Postgres unique_violation(SQLSTATE 23505) — drizzle-orm은 raw 드라이버 에러를
 // DrizzleQueryError로 감싸 err.cause에 원본을 보존한다(node_modules/drizzle-orm/errors.js
 // 확인 완료). 감싸지 않은 raw 에러가 직접 올라오는 경로도 함께 확인한다.
@@ -38,6 +48,11 @@ export async function createMember(input: {
   }
   if (!password.trim()) {
     throw new MemberValidationError("초기 비밀번호는 필수입니다");
+  }
+  if (password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
+    throw new MemberValidationError(
+      `비밀번호는 ${MIN_PASSWORD_LENGTH}자 이상 ${MAX_PASSWORD_LENGTH}자 이하여야 합니다`,
+    );
   }
   const phoneNumber = normalizePhoneNumber(input.phoneNumber);
   if (!phoneNumber) {

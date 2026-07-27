@@ -34,6 +34,19 @@ describe("checklistInstanceRepo — addItem/removeItem", () => {
     expect(items).toHaveLength(1);
   });
 
+  it("같은 항목을 두 번 addItem해도 중복 행이 생기지 않는다(재전송/동시 제출 대비, 코덱스 P2)", async () => {
+    const hall = await createTestHall();
+    const { instanceId } = await createCeremonyWithNoItems(hall.id);
+    const templateItem = await createTestTemplateItem(hall.id, { stepName: "신랑입장" });
+
+    const first = await instanceRepo.addItem(hall.id, instanceId, templateItem);
+    const second = await instanceRepo.addItem(hall.id, instanceId, templateItem);
+
+    expect(second.id).toBe(first.id);
+    const items = await instanceRepo.listItems(hall.id, instanceId);
+    expect(items).toHaveLength(1);
+  });
+
   it("removeItem은 인스턴스에서 해당 항목만 제거한다", async () => {
     const hall = await createTestHall();
     const { instanceId } = await createCeremonyWithNoItems(hall.id);

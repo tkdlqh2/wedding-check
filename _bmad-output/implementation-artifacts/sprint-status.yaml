@@ -87,6 +87,13 @@ development_status:
 # Per-story git pipeline substage (see GIT PIPELINE STAGE legend above).
 # 번호가 매겨진 스토리가 아닌 개별 수정(fix/*)도 동일한 파이프라인으로 추적한다.
 git_pipeline:
+  5-6-admin-account-menu:
+    stage: pr-open
+    branch: story/5-6-admin-account-menu
+    pr_url: "https://github.com/tkdlqh2/wedding-check/pull/18"
+    notes: "git worktree(.claude/worktrees/story-5-6-admin-account-menu)로 착수, main(de05700) 기준 분기. 대표의 2차 어드민 화면 점검 후속 3건 중 1번째(FR-16). 상단 내비 우측 '새 예식 등록'(예식 탭과 중복 경로)을 계정 메뉴(비밀번호 변경/로그아웃)로 교체. tsc/lint/test(125)/build 전부 클린, 로컬 서버+curl로 better-auth changePassword/sign-out 엔드포인트 직접 검증(틀린 비밀번호 거부, 로그아웃 후 admin 라우트 307 리다이렉트). 코덱스 CLI 대신 자체 검토. 자동 merge가 이 세션의 권한 정책(classifier)에 막혀 PR만 오픈 — 사용자 승인 후 병합 필요."
+    last_updated: "07-27-2026 16:10"
+
   5-4-member-management:
     stage: merged
     branch: story/5-4-member-management

@@ -29,6 +29,19 @@
   font-size: 14px;
 }
 
+/* Story 5.5: 단계 그룹핑 — DESIGN.md §7 "실행 화면을 장식하지 말 것" 원칙대로
+   절제된 섹션 라벨(굵기만으로 위계 표현, 장식 없음). */
+.checklist-step-group + .checklist-step-group {
+  margin-top: var(--space-lg);
+}
+
+.checklist-step-group__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-sm);
+}
+
 .checklist-tile-grid {
   list-style: none;
   padding: 0;

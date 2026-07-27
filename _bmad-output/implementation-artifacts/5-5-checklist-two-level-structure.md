@@ -33,33 +33,33 @@ so that 실제 큐시트처럼 한 단계 안의 여러 개별 확인 사항을 
   - [x] `checklistInstanceItems`: `templateItemId`(단계로의 소프트 참조) 컬럼을 `templateItemCheckId`로 이름 변경, 참조 대상을 `checklistTemplateItemChecks.id`로 변경(`onDelete: "set null"` 유지 — Story 2.1 "실행용 사본" 원칙: 원본 삭제/수정이 이미 만들어진 예식의 체크리스트를 바꾸지 않음). `title`(text, notNull) 컬럼 추가(체크리스트 항목의 제목 스냅샷). `description`은 그대로 유지하되 이제 "단계 설명"이 아니라 "체크리스트 항목 설명"의 스냅샷이 된다. `stepName`은 그대로 유지(그룹핑 표시용, 소속 단계명 스냅샷). UNIQUE 제약을 `(instance_id, template_item_id)`에서 `(instance_id, template_item_check_id)`로 변경.
   - [x] `drizzle-kit generate`가 rename 모호성 때문에 비대화형 셸에서 프롬프트로 막혀 `--custom`으로 빈 마이그레이션(`0010_checklist-two-level-structure.sql`)을 생성한 뒤 SQL을 직접 작성(DEFERRABLE 포함). dev DB(`wedding_check`)는 관련 행이 0개라 무손실 적용됨. 테스트 DB(`wedding_check_test`)는 기존 `demo_videos` 2행이 있어 1차 적용 중 NOT NULL 위반으로 중간 실패 — 마이그레이션에 `DELETE FROM "demo_videos";`를 추가해 파일을 고치고, 이미 부분 적용된 테스트 DB는 수기 SQL로 나머지 단계(컬럼 추가+제약)를 맞춰 최종 상태를 dev DB와 동일하게 수렴시켰다(`\d` 출력으로 4개 테이블 전부 대조 확인). `checklist_instance_items` 기존 2행(전부 이전 스토리들의 수동 검증용 테스트 데이터)은 새 구조로 백필 불가능해 삭제.
 
-- [ ] Task 2: 단계(Step) 리포지토리/서비스 축소 — `apps/web/lib/db/repositories/template-item.ts`, `apps/web/lib/services/template.ts` (MODIFY, AC: 1)
-  - [ ] `template-item.ts`: `create`/`update`의 input에서 `description` 제거(타입도 함께). `TemplateItem` 타입은 스키마 변경에 따라 자동으로 description 없는 형태가 된다. `findAllByHall`/`findById`/`remove`/`setSortOrder`/`moveAdjacent`는 그대로.
-  - [ ] `template.ts`: `createTemplateItem`/`updateTemplateItem`의 input에서 `description` 제거. `assertValidStepName` 등 검증 로직은 그대로.
+- [x] Task 2: 단계(Step) 리포지토리/서비스 축소 — `apps/web/lib/db/repositories/template-item.ts`, `apps/web/lib/services/template.ts` (MODIFY, AC: 1)
+  - [x] `template-item.ts`: `create`/`update`의 input에서 `description` 제거(타입도 함께). `TemplateItem` 타입은 스키마 변경에 따라 자동으로 description 없는 형태가 된다. `findAllByHall`/`findById`/`remove`/`setSortOrder`/`moveAdjacent`는 그대로.
+  - [x] `template.ts`: `createTemplateItem`/`updateTemplateItem`의 input에서 `description` 제거. `assertValidStepName` 등 검증 로직은 그대로.
 
-- [ ] Task 3: 체크리스트 항목(Checklist Item) 리포지토리/서비스 신설 — `apps/web/lib/db/repositories/checklist-item.ts`(NEW), `apps/web/lib/services/checklist-item.ts`(NEW) (AC: 2, 4)
-  - [ ] 리포지토리: `template-item.ts`와 동일한 패턴(동시성 재시도 `withConcurrencyRetry`, `(hallId, templateItemId)` 스코프의 sort_order 계산, `moveAdjacent`)을 그대로 재사용하되, sort_order 스코프가 `hallId` 전체가 아니라 `templateItemId`(그 단계 안)로 좁혀진다는 점만 다르다:
+- [x] Task 3: 체크리스트 항목(Checklist Item) 리포지토리/서비스 신설 — `apps/web/lib/db/repositories/checklist-item.ts`(NEW), `apps/web/lib/services/checklist-item.ts`(NEW) (AC: 2, 4)
+  - [x] 리포지토리: `template-item.ts`와 동일한 패턴(동시성 재시도 `withConcurrencyRetry`, `(hallId, templateItemId)` 스코프의 sort_order 계산, `moveAdjacent`)을 그대로 재사용하되, sort_order 스코프가 `hallId` 전체가 아니라 `templateItemId`(그 단계 안)로 좁혀진다는 점만 다르다:
     - `create(hallId, templateItemId, { title, description? })`: `sortOrder`는 `coalesce(max(sort_order) where template_item_id = $templateItemId, -1) + 1`로 단일 INSERT 문 안에서 계산(기존 `template-item.ts:create`와 동일 기법). UNIQUE 위반 시 재시도.
     - `findAllByTemplateItem(hallId, templateItemId)`: `sortOrder` asc 정렬.
     - `findById(hallId, id)`.
     - `update(hallId, id, { title, description? })`.
     - `remove(hallId, id)`: 하드 삭제(FR-2 정책 동일, `demoVideos.checklistItemId`의 `onDelete: cascade`가 연결된 영상도 함께 정리).
     - `moveAdjacent(hallId, id, direction)`: 인접 항목 탐색 시 `where hall_id = $hallId and template_item_id = (select template_item_id from target) and sort_order <op> (select sort_order from target)`로 같은 단계 안에서만 스왑(다른 단계로 넘어가지 않음).
-  - [ ] 서비스: `createChecklistItem(hallId, templateItemId, input)` — AD-2 2-hop 재검증(기존 `assertTemplateItemOwnedByHall` 패턴 재사용 — `templateItemRepo.findById(hallId, templateItemId)`가 없으면 거부) 후 `title` 필수 검증(`assertValidStepName`과 동일한 트림+빈값 거부 로직, 이름은 `assertValidTitle` 등으로) → repo 호출. `updateChecklistItem`/`deleteChecklistItem`/`moveChecklistItem`/`listChecklistItems`도 동일 패턴으로.
-  - [ ] `ChecklistItemValidationError` 클래스(기존 `TemplateItemValidationError`와 동일 패턴).
+  - [x] 서비스: `createChecklistItem(hallId, templateItemId, input)` — AD-2 2-hop 재검증(기존 `assertTemplateItemOwnedByHall` 패턴 재사용 — `templateItemRepo.findById(hallId, templateItemId)`가 없으면 거부) 후 `title` 필수 검증(`assertValidStepName`과 동일한 트림+빈값 거부 로직, 이름은 `assertValidTitle` 등으로) → repo 호출. `updateChecklistItem`/`deleteChecklistItem`/`moveChecklistItem`/`listChecklistItems`도 동일 패턴으로.
+  - [x] `ChecklistItemValidationError` 클래스(기존 `TemplateItemValidationError`와 동일 패턴).
 
-- [ ] Task 4: 시연 영상 서비스/리포지토리 대상 변경 — `apps/web/lib/db/repositories/demo-video.ts`, `apps/web/lib/services/demo-video.ts` (MODIFY, AC: 3)
-  - [ ] 리포지토리: `upsertForTemplateItem` → `upsertForChecklistItem(hallId, checklistItemId, input)`(컬럼명 `checklistItemId`로 insert). `findByTemplateItemIds` → `findByChecklistItemIds(hallId, checklistItemIds)`.
-  - [ ] 서비스: `assertTemplateItemOwnedByHall` → `assertChecklistItemOwnedByHall(hallId, checklistItemId)`(`checklistItemRepo.findById` 사용, 존재하지 않으면 `DemoVideoValidationError`). `saveDemoVideo(hallId, checklistItemId, input)`, `listDemoVideosByItems(hallId, checklistItemIds)`.
-  - [ ] 이 이름 변경이 Task 5의 video API 라우트 3개(`blob`/`local`/`status`)에서 쓰는 `saveDemoVideo`/`assertTemplateItemOwnedByHall` import를 깨뜨린다 — 라우트도 함께 갱신(Task 5).
+- [x] Task 4: 시연 영상 서비스/리포지토리 대상 변경 — `apps/web/lib/db/repositories/demo-video.ts`, `apps/web/lib/services/demo-video.ts` (MODIFY, AC: 3)
+  - [x] 리포지토리: `upsertForTemplateItem` → `upsertForChecklistItem(hallId, checklistItemId, input)`(컬럼명 `checklistItemId`로 insert). `findByTemplateItemIds` → `findByChecklistItemIds(hallId, checklistItemIds)`.
+  - [x] 서비스: `assertTemplateItemOwnedByHall` → `assertChecklistItemOwnedByHall(hallId, checklistItemId)`(`checklistItemRepo.findById` 사용, 존재하지 않으면 `DemoVideoValidationError`). `saveDemoVideo(hallId, checklistItemId, input)`, `listDemoVideosByItems(hallId, checklistItemIds)`.
+  - [x] 이 이름 변경이 Task 5의 video API 라우트 3개(`blob`/`local`/`status`)에서 쓰는 `saveDemoVideo`/`assertTemplateItemOwnedByHall` import를 깨뜨린다 — 라우트도 함께 갱신(Task 5).
 
-- [ ] Task 5: 시연 영상 API 라우트 — `apps/web/app/api/templates/[hallId]/items/[itemId]/video/{blob,local,status}/route.ts` (MODIFY, AC: 3)
-  - [ ] URL 경로의 `itemId` 세그먼트는 이미 범용 이름이라 그대로 유지(경로 자체는 바꾸지 않음) — 다만 이 값이 이제 "단계 id"가 아니라 "체크리스트 항목 id"를 의미하게 된다는 점을 각 라우트 상단 주석에 명시.
-  - [ ] 세 라우트 모두 `assertTemplateItemOwnedByHall`/`saveDemoVideo` 호출을 Task 4에서 이름 바뀐 `assertChecklistItemOwnedByHall`/`saveDemoVideo(hallId, checklistItemId, ...)`로 갱신. `tokenPayload`에 담기는 `templateItemId` 키도 `checklistItemId`로 이름 변경(blob 라우트의 `onBeforeGenerateToken`/`onUploadCompleted` 양쪽).
-  - [ ] `revalidatePath`는 그대로(`/admin/templates/${hallId}`).
+- [x] Task 5: 시연 영상 API 라우트 — `apps/web/app/api/templates/[hallId]/items/[itemId]/video/{blob,local,status}/route.ts` (MODIFY, AC: 3)
+  - [x] URL 경로의 `itemId` 세그먼트는 이미 범용 이름이라 그대로 유지(경로 자체는 바꾸지 않음) — 다만 이 값이 이제 "단계 id"가 아니라 "체크리스트 항목 id"를 의미하게 된다는 점을 각 라우트 상단 주석에 명시.
+  - [x] 세 라우트 모두 `assertTemplateItemOwnedByHall`/`saveDemoVideo` 호출을 Task 4에서 이름 바뀐 `assertChecklistItemOwnedByHall`/`saveDemoVideo(hallId, checklistItemId, ...)`로 갱신. `tokenPayload`에 담기는 `templateItemId` 키도 `checklistItemId`로 이름 변경(blob 라우트의 `onBeforeGenerateToken`/`onUploadCompleted` 양쪽).
+  - [x] `revalidatePath`는 그대로(`/admin/templates/${hallId}`).
 
-- [ ] Task 6: 예식 등록 시 인스턴스 자동 조합 CTE 재작성 — `apps/web/lib/db/repositories/ceremony.ts` (MODIFY, AC: 5)
-  - [ ] `create()`의 `new_items` CTE를 단계→체크리스트 항목 전개로 재작성. `checklist_template_items`를 계약 형태 조건으로 필터링(기존 로직 그대로, AD-9 `@>` 매칭 유지)한 뒤, 각 단계에 속한 `checklist_template_item_checks`를 JOIN해 항목 단위로 전개하고, `row_number() over (order by ti.sort_order, tic.sort_order)`로 단계 순서 → 단계 안 항목 순서 순으로 평탄화된 단일 `sort_order`를 계산해 insert:
+- [x] Task 6: 예식 등록 시 인스턴스 자동 조합 CTE 재작성 — `apps/web/lib/db/repositories/ceremony.ts` (MODIFY, AC: 5)
+  - [x] `create()`의 `new_items` CTE를 단계→체크리스트 항목 전개로 재작성. `checklist_template_items`를 계약 형태 조건으로 필터링(기존 로직 그대로, AD-9 `@>` 매칭 유지)한 뒤, 각 단계에 속한 `checklist_template_item_checks`를 JOIN해 항목 단위로 전개하고, `row_number() over (order by ti.sort_order, tic.sort_order)`로 단계 순서 → 단계 안 항목 순서 순으로 평탄화된 단일 `sort_order`를 계산해 insert:
     ```sql
     new_items as (
       insert into checklist_instance_items
@@ -76,42 +76,42 @@ so that 실제 큐시트처럼 한 단계 안의 여러 개별 확인 사항을 
       returning id
     )
     ```
-  - [ ] 단계에 체크리스트 항목이 하나도 없으면(빈 단계) 그 단계는 INNER JOIN 특성상 자동으로 인스턴스에서 빠진다 — 의도된 동작인지 Dev Notes에 명시(빈 단계는 어차피 오퍼레이터가 체크할 것이 없으므로 인스턴스에 나타나지 않는 것이 맞다).
+  - [x] 단계에 체크리스트 항목이 하나도 없으면(빈 단계) 그 단계는 INNER JOIN 특성상 자동으로 인스턴스에서 빠진다 — 의도된 동작인지 Dev Notes에 명시(빈 단계는 어차피 오퍼레이터가 체크할 것이 없으므로 인스턴스에 나타나지 않는 것이 맞다).
 
-- [ ] Task 7: 인스턴스 조회/수동 추가·제외 리포지토리·서비스 — `apps/web/lib/db/repositories/checklist-instance.ts`, `apps/web/lib/services/checklist-instance.ts` (MODIFY, AC: 6, 7)
-  - [ ] `listItems`: 반환 타입(`ChecklistInstanceItem`)이 스키마 변경에 따라 자동으로 `title` 포함 형태가 됨 — 함수 본문 변경 없음.
-  - [ ] `addItem(hallId, instanceId, checklistItem)`: 파라미터를 템플릿 항목(step) 대신 체크리스트 항목으로 받도록 시그니처 변경 — `checklistItem: Pick<ChecklistTemplateItemCheck, "id" | "title" | "description" | "sortOrder"> & { stepName: string }`(stepName은 호출자인 서비스가 부모 단계에서 조회해 채워 넘김). insert 시 `templateItemCheckId: checklistItem.id`, `title`, `description`, `stepName`, `sortOrder`. `onConflictDoNothing`의 `target`을 `[instanceId, templateItemCheckId]`로 갱신.
-  - [ ] `removeItem`: 시그니처 변경 없음(인스턴스 항목 id로 삭제하는 기존 방식 그대로 — 이제 그 행이 체크리스트 항목 1개를 가리킬 뿐).
-  - [ ] `listCandidateTemplateItems` → `listCandidateChecklistItems(hallId, instanceId)`로 이름 변경: 이미 포함된 `templateItemCheckId` 목록을 조회한 뒤, 그 홀의 모든 체크리스트 항목(`checklistTemplateItemChecks`, 소속 단계 `stepName`도 함께 join해서 반환 — 관리자 화면에서 단계별로 그룹핑해 보여줘야 하므로) 중 아직 포함되지 않은 것만 반환. 반환 타입에 `stepName`을 포함시켜 서비스/화면이 그룹핑할 수 있게 한다.
-  - [ ] 서비스 `getCeremonyDetail`: `candidates` 타입이 체크리스트 항목(+stepName) 배열로 바뀜.
-  - [ ] 서비스 `addInstanceItem(hallId, ceremonyId, checklistItemId)`: `checklistItemRepo.findById(hallId, checklistItemId)`로 항목을 찾고, 그 항목의 `templateItemId`로 부모 단계를 `templateItemRepo.findById`로 조회해 `stepName`을 얻은 뒤 `instanceRepo.addItem`에 전달(AD-2 2-hop 재검증은 `checklistItemRepo.findById(hallId, ...)` 자체가 hallId로 스코프되어 있어 충족됨 — 다른 홀의 checklistItemId를 넣으면 findById가 undefined를 반환).
+- [x] Task 7: 인스턴스 조회/수동 추가·제외 리포지토리·서비스 — `apps/web/lib/db/repositories/checklist-instance.ts`, `apps/web/lib/services/checklist-instance.ts` (MODIFY, AC: 6, 7)
+  - [x] `listItems`: 반환 타입(`ChecklistInstanceItem`)이 스키마 변경에 따라 자동으로 `title` 포함 형태가 됨 — 함수 본문 변경 없음.
+  - [x] `addItem(hallId, instanceId, checklistItem)`: 파라미터를 템플릿 항목(step) 대신 체크리스트 항목으로 받도록 시그니처 변경 — `checklistItem: Pick<ChecklistTemplateItemCheck, "id" | "title" | "description" | "sortOrder"> & { stepName: string }`(stepName은 호출자인 서비스가 부모 단계에서 조회해 채워 넘김). insert 시 `templateItemCheckId: checklistItem.id`, `title`, `description`, `stepName`, `sortOrder`. `onConflictDoNothing`의 `target`을 `[instanceId, templateItemCheckId]`로 갱신.
+  - [x] `removeItem`: 시그니처 변경 없음(인스턴스 항목 id로 삭제하는 기존 방식 그대로 — 이제 그 행이 체크리스트 항목 1개를 가리킬 뿐).
+  - [x] `listCandidateTemplateItems` → `listCandidateChecklistItems(hallId, instanceId)`로 이름 변경: 이미 포함된 `templateItemCheckId` 목록을 조회한 뒤, 그 홀의 모든 체크리스트 항목(`checklistTemplateItemChecks`, 소속 단계 `stepName`도 함께 join해서 반환 — 관리자 화면에서 단계별로 그룹핑해 보여줘야 하므로) 중 아직 포함되지 않은 것만 반환. 반환 타입에 `stepName`을 포함시켜 서비스/화면이 그룹핑할 수 있게 한다.
+  - [x] 서비스 `getCeremonyDetail`: `candidates` 타입이 체크리스트 항목(+stepName) 배열로 바뀜.
+  - [x] 서비스 `addInstanceItem(hallId, ceremonyId, checklistItemId)`: `checklistItemRepo.findById(hallId, checklistItemId)`로 항목을 찾고, 그 항목의 `templateItemId`로 부모 단계를 `templateItemRepo.findById`로 조회해 `stepName`을 얻은 뒤 `instanceRepo.addItem`에 전달(AD-2 2-hop 재검증은 `checklistItemRepo.findById(hallId, ...)` 자체가 hallId로 스코프되어 있어 충족됨 — 다른 홀의 checklistItemId를 넣으면 findById가 undefined를 반환).
 
-- [ ] Task 8: 오퍼레이터 조회 서비스 타입 — `apps/web/lib/services/checklist-instance.ts`의 `OperatorInstanceView` (AC 없음 — Task 7과 같은 파일, 타입은 스키마 변경으로 자동 갱신되므로 별도 코드 변경 불필요, 확인만)
+- [x] Task 8: 오퍼레이터 조회 서비스 타입 — `apps/web/lib/services/checklist-instance.ts`의 `OperatorInstanceView` (AC 없음 — Task 7과 같은 파일, 타입은 스키마 변경으로 자동 갱신되므로 별도 코드 변경 불필요, 확인만)
 
-- [ ] Task 9: 어드민 템플릿 관리 화면 — 단계 폼/행 축소 — `apps/web/app/admin/templates/[hallId]/template-item-form.tsx`, `template-item-row.tsx`, `actions.ts` (MODIFY, AC: 1)
-  - [ ] `template-item-form.tsx`: "설명" `<textarea>` 필드 제거. `item` prop 타입에서 `description` 제거.
-  - [ ] `template-item-row.tsx`: `item.description` 렌더링 블록과 영상 블록(`template-item-card__video`, `<VideoUpload .../>`) 제거 — 영상은 이제 Task 10의 체크리스트 항목 행에 있음. 대신 그 단계의 체크리스트 항목 목록(Task 10의 `ChecklistItemRow` 리스트)과 "체크리스트 항목 추가" 폼(Task 10의 `ChecklistItemForm`)을 이 컴포넌트 안에 중첩 렌더링.
-  - [ ] `actions.ts`: `createTemplateItemAction`/`updateTemplateItemAction`에서 `description` formData 읽기/전달 제거.
+- [x] Task 9: 어드민 템플릿 관리 화면 — 단계 폼/행 축소 — `apps/web/app/admin/templates/[hallId]/template-item-form.tsx`, `template-item-row.tsx`, `actions.ts` (MODIFY, AC: 1)
+  - [x] `template-item-form.tsx`: "설명" `<textarea>` 필드 제거. `item` prop 타입에서 `description` 제거.
+  - [x] `template-item-row.tsx`: `item.description` 렌더링 블록과 영상 블록(`template-item-card__video`, `<VideoUpload .../>`) 제거 — 영상은 이제 Task 10의 체크리스트 항목 행에 있음. 대신 그 단계의 체크리스트 항목 목록(Task 10의 `ChecklistItemRow` 리스트)과 "체크리스트 항목 추가" 폼(Task 10의 `ChecklistItemForm`)을 이 컴포넌트 안에 중첩 렌더링.
+  - [x] `actions.ts`: `createTemplateItemAction`/`updateTemplateItemAction`에서 `description` formData 읽기/전달 제거.
 
-- [ ] Task 10: 어드민 템플릿 관리 화면 — 체크리스트 항목 폼/행 신설 — `apps/web/app/admin/templates/[hallId]/checklist-item-form.tsx`(NEW), `checklist-item-row.tsx`(NEW), `actions.ts`(MODIFY) (AC: 2, 3, 4)
-  - [ ] `checklist-item-form.tsx`: `template-item-form.tsx`를 참고해 동일한 `useActionState` 패턴. 필드: 제목(text, required — `assertValidTitle`이 서버에서 검증하지만 클라이언트 `required`도 UX상 추가), 설명(textarea, optional). `hallId`/`templateItemId`/(수정 시) `id`를 hidden input으로.
-  - [ ] `checklist-item-row.tsx`: `template-item-row.tsx`의 기존 영상 블록(`<video controls>`/`영상 없음`/`<VideoUpload>`)을 그대로 옮겨오되 prop명을 `templateItemId` → `checklistItemId`로. 제목/설명 표시, 단계 내 위/아래 재정렬 버튼(`moveChecklistItemAction`), 수정/삭제 버튼.
-  - [ ] `actions.ts`: `createChecklistItemAction`/`updateChecklistItemAction`/`deleteChecklistItemAction`/`moveChecklistItemAction` 추가(기존 4종 템플릿 항목 액션과 동일한 `isMalformedId` 가드 패턴).
-  - [ ] `video-upload.tsx`: prop명 `templateItemId` → `checklistItemId`로 변경(내부적으로 API 경로 문자열 조합에만 쓰이므로 실질 동작 변화 없음).
+- [x] Task 10: 어드민 템플릿 관리 화면 — 체크리스트 항목 폼/행 신설 — `apps/web/app/admin/templates/[hallId]/checklist-item-form.tsx`(NEW), `checklist-item-row.tsx`(NEW), `actions.ts`(MODIFY) (AC: 2, 3, 4)
+  - [x] `checklist-item-form.tsx`: `template-item-form.tsx`를 참고해 동일한 `useActionState` 패턴. 필드: 제목(text, required — `assertValidTitle`이 서버에서 검증하지만 클라이언트 `required`도 UX상 추가), 설명(textarea, optional). `hallId`/`templateItemId`/(수정 시) `id`를 hidden input으로.
+  - [x] `checklist-item-row.tsx`: `template-item-row.tsx`의 기존 영상 블록(`<video controls>`/`영상 없음`/`<VideoUpload>`)을 그대로 옮겨오되 prop명을 `templateItemId` → `checklistItemId`로. 제목/설명 표시, 단계 내 위/아래 재정렬 버튼(`moveChecklistItemAction`), 수정/삭제 버튼.
+  - [x] `actions.ts`: `createChecklistItemAction`/`updateChecklistItemAction`/`deleteChecklistItemAction`/`moveChecklistItemAction` 추가(기존 4종 템플릿 항목 액션과 동일한 `isMalformedId` 가드 패턴).
+  - [x] `video-upload.tsx`: prop명 `templateItemId` → `checklistItemId`로 변경(내부적으로 API 경로 문자열 조합에만 쓰이므로 실질 동작 변화 없음).
 
-- [ ] Task 11: 어드민 템플릿 페이지 데이터 로딩 — `apps/web/app/admin/templates/[hallId]/page.tsx` (MODIFY, AC: 1, 2, 3)
-  - [ ] 각 단계(`items`)마다 그 소속 체크리스트 항목 목록(`listChecklistItems(hallId, item.id)`)과 그 항목들에 연결된 영상(`listDemoVideosByItems(hallId, checklistItemIds)`, 이제 checklistItemId 기준)을 함께 조회해 `TemplateItemRow`에 전달.
-  - [ ] N+1 방지: 모든 단계의 체크리스트 항목을 한 번에 가져오는 `listChecklistItemsByTemplateItems(hallId, templateItemIds)` 같은 배치 조회 함수를 Task 3에 추가하고 여기서 사용(기존 `listDemoVideosByItems`가 이미 이 배치 조회 패턴을 쓰고 있음 — 동일하게).
+- [x] Task 11: 어드민 템플릿 페이지 데이터 로딩 — `apps/web/app/admin/templates/[hallId]/page.tsx` (MODIFY, AC: 1, 2, 3)
+  - [x] 각 단계(`items`)마다 그 소속 체크리스트 항목 목록(`listChecklistItems(hallId, item.id)`)과 그 항목들에 연결된 영상(`listDemoVideosByItems(hallId, checklistItemIds)`, 이제 checklistItemId 기준)을 함께 조회해 `TemplateItemRow`에 전달.
+  - [x] N+1 방지: 모든 단계의 체크리스트 항목을 한 번에 가져오는 `listChecklistItemsByTemplateItems(hallId, templateItemIds)` 같은 배치 조회 함수를 Task 3에 추가하고 여기서 사용(기존 `listDemoVideosByItems`가 이미 이 배치 조회 패턴을 쓰고 있음 — 동일하게).
 
-- [ ] Task 12: 어드민 예식 상세 화면 — 수동 추가/제외 대상 변경 — `apps/web/app/admin/ceremonies/[hallId]/[ceremonyId]/page.tsx`, `add-item-button.tsx` (MODIFY, AC: 7)
-  - [ ] `page.tsx`: "포함된 항목" 목록은 이제 체크리스트 항목 단위(각 행에 `item.title` 표시, `item.stepName`을 소속 표시로 함께 보여줌 — 예: "개식사 · 조명: 사회자 조명 준비"). "추가 가능한 항목" 목록(`candidates`)은 소속 단계(`stepName`)로 그룹핑해서 렌더링(예: 단계명을 소제목으로, 그 아래 체크리스트 항목들을 나열).
-  - [ ] `add-item-button.tsx`: prop명 `templateItemId` → `checklistItemId`로 변경(내부 hidden input name도 `checklistItemId`).
-  - [ ] `actions.ts`(`ceremonies/[hallId]/[ceremonyId]/actions.ts`): `addInstanceItemAction`의 formData 키 `templateItemId` → `checklistItemId`.
+- [x] Task 12: 어드민 예식 상세 화면 — 수동 추가/제외 대상 변경 — `apps/web/app/admin/ceremonies/[hallId]/[ceremonyId]/page.tsx`, `add-item-button.tsx` (MODIFY, AC: 7)
+  - [x] `page.tsx`: "포함된 항목" 목록은 이제 체크리스트 항목 단위(각 행에 `item.title` 표시, `item.stepName`을 소속 표시로 함께 보여줌 — 예: "개식사 · 조명: 사회자 조명 준비"). "추가 가능한 항목" 목록(`candidates`)은 소속 단계(`stepName`)로 그룹핑해서 렌더링(예: 단계명을 소제목으로, 그 아래 체크리스트 항목들을 나열).
+  - [x] `add-item-button.tsx`: prop명 `templateItemId` → `checklistItemId`로 변경(내부 hidden input name도 `checklistItemId`).
+  - [x] `actions.ts`(`ceremonies/[hallId]/[ceremonyId]/actions.ts`): `addInstanceItemAction`의 formData 키 `templateItemId` → `checklistItemId`.
 
-- [ ] Task 13: 오퍼레이터 조회 화면 — 단계별 그룹핑 렌더링 — `apps/web/app/operator/ceremonies/[hallId]/[ceremonyId]/checklist-instance-view.tsx`, `checklist-instance-view.css` (MODIFY, AC: 6)
-  - [ ] `OperatorItem` 타입에 `title: string` 추가(POS Tile 라벨로 사용, 기존 `stepName` 대신). `stepName`은 그룹핑 헤더용으로 유지.
-  - [ ] 렌더링: `items`를 순서 그대로(이미 서버가 정렬해서 줌, Task 6의 flattened sort_order) 순회하며 `stepName`이 바뀔 때마다 새 그룹 헤더(`<h2>` 또는 유사, 비인터랙티브)를 렌더링하고, 그 아래 `checklist-tile-grid`에 그 단계의 체크리스트 항목들을 POS Tile로 나열(각 타일 라벨은 `item.title`). `selectedIds`/`toggleSelected`/오프라인·캐시·폴링 로직은 항목 단위로 그대로 동작(itemId가 이제 체크리스트 항목 id이므로 자연히 맞음).
-  - [ ] CSS: 그룹 헤더 스타일 추가(DESIGN.md 토큰 — `--color-text-secondary`, 14px/600 정도의 절제된 섹션 라벨, 화려하지 않게 §7 Do's/Don'ts "실행 화면을 장식하지 말 것" 준수).
+- [x] Task 13: 오퍼레이터 조회 화면 — 단계별 그룹핑 렌더링 — `apps/web/app/operator/ceremonies/[hallId]/[ceremonyId]/checklist-instance-view.tsx`, `checklist-instance-view.css` (MODIFY, AC: 6)
+  - [x] `OperatorItem` 타입에 `title: string` 추가(POS Tile 라벨로 사용, 기존 `stepName` 대신). `stepName`은 그룹핑 헤더용으로 유지.
+  - [x] 렌더링: `items`를 순서 그대로(이미 서버가 정렬해서 줌, Task 6의 flattened sort_order) 순회하며 `stepName`이 바뀔 때마다 새 그룹 헤더(`<h2>` 또는 유사, 비인터랙티브)를 렌더링하고, 그 아래 `checklist-tile-grid`에 그 단계의 체크리스트 항목들을 POS Tile로 나열(각 타일 라벨은 `item.title`). `selectedIds`/`toggleSelected`/오프라인·캐시·폴링 로직은 항목 단위로 그대로 동작(itemId가 이제 체크리스트 항목 id이므로 자연히 맞음).
+  - [x] CSS: 그룹 헤더 스타일 추가(DESIGN.md 토큰 — `--color-text-secondary`, 14px/600 정도의 절제된 섹션 라벨, 화려하지 않게 §7 Do's/Don'ts "실행 화면을 장식하지 말 것" 준수).
 
 - [ ] Task 14: 시드 스크립트 전면 재작성 — `apps/web/scripts/seed-ceremony-checklist.ts` (MODIFY, AC 없음 — 검증용 실 데이터 정합성)
   - [ ] `STEPS` 배열 구조를 `{ stepName: string; items: { title: string; description?: string }[] }[]`로 변경. 기존 12단계 각각의 "·"로 구분된 description 문자열을 개별 체크리스트 항목(제목+선택적 설명)으로 분해 — 예: "개식사"의 기존 `"조명: 사회자 조명 준비 · 주의: 조명이 들어가면 개식사부터 진행하도록 사회자에게 사전 안내"`를 `[{ title: "사회자 조명 준비" }, { title: "조명 진입 시 개식사 진행 안내", description: "조명이 들어가면 개식사부터 진행하도록 사회자에게 사전 안내" }]` 형태로(제목은 핵심 동작을 짧게, 부가 맥락이 있으면 설명으로). 12단계 전체를 원본 큐시트 메모(세션 앞부분에서 사용자가 제공한 원문, 이 스토리 파일에는 재수록하지 않음 — 기존 커밋의 `seed-ceremony-checklist.ts` git 히스토리에서 원문 확인 가능)를 참고해 분해.

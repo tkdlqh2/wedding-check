@@ -52,6 +52,7 @@ export default async function OperatorCeremonyPage({
         initialItems={view.items.map((item) => ({
           id: item.id,
           stepName: item.stepName,
+          title: item.title,
           description: item.description,
           sortOrder: item.sortOrder,
         }))}

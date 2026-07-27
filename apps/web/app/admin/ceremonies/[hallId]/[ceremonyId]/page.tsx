@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import * as hallRepo from "@/lib/db/repositories/hall";
 import { getCeremonyDetail, ChecklistInstanceValidationError } from "@/lib/services/checklist-instance";
+import type { CandidateChecklistItem } from "@/lib/db/repositories/checklist-instance";
 import { isValidUuid } from "@/lib/uuid";
 import { removeInstanceItemAction } from "./actions";
 import { AddItemButton } from "./add-item-button";
@@ -15,6 +16,23 @@ const ceremonyDateFormatter = new Intl.DateTimeFormat("ko-KR", {
   minute: "2-digit",
   hour12: false,
 });
+
+// candidates는 이미 리포지토리에서 (단계 순서, 항목 순서)로 정렬되어 온다 — 순서를
+// 유지한 채 연속된 같은 stepName끼리만 묶는 순차 그룹핑이면 충분하다(재정렬 불필요).
+function groupCandidatesByStep(
+  candidates: CandidateChecklistItem[],
+): [string, CandidateChecklistItem[]][] {
+  const groups: [string, CandidateChecklistItem[]][] = [];
+  for (const candidate of candidates) {
+    const lastGroup = groups[groups.length - 1];
+    if (lastGroup && lastGroup[0] === candidate.stepName) {
+      lastGroup[1].push(candidate);
+    } else {
+      groups.push([candidate.stepName, [candidate]]);
+    }
+  }
+  return groups;
+}
 
 export default async function CeremonyDetailPage({
   params,
@@ -61,7 +79,9 @@ export default async function CeremonyDetailPage({
         <ul className="instance-item-list">
           {items.map((item) => (
             <li key={item.id} className="instance-item-card">
-              <span className="instance-item-card__name">{item.stepName}</span>
+              <span className="instance-item-card__name">
+                {item.stepName} · {item.title}
+              </span>
               <form action={removeInstanceItemAction}>
                 <input type="hidden" name="hallId" value={hallId} />
                 <input type="hidden" name="ceremonyId" value={ceremonyId} />
@@ -79,14 +99,21 @@ export default async function CeremonyDetailPage({
       {candidates.length === 0 ? (
         <p className="ceremony-detail-page__empty">추가할 수 있는 항목이 없습니다.</p>
       ) : (
-        <ul className="instance-item-list">
-          {candidates.map((item) => (
-            <li key={item.id} className="instance-item-card">
-              <span className="instance-item-card__name">{item.stepName}</span>
-              <AddItemButton hallId={hallId} ceremonyId={ceremonyId} templateItemId={item.id} />
-            </li>
+        <div className="instance-candidate-groups">
+          {groupCandidatesByStep(candidates).map(([stepName, stepCandidates]) => (
+            <div key={stepName} className="instance-candidate-group">
+              <h3 className="instance-candidate-group__step-name">{stepName}</h3>
+              <ul className="instance-item-list">
+                {stepCandidates.map((item) => (
+                  <li key={item.id} className="instance-item-card">
+                    <span className="instance-item-card__name">{item.title}</span>
+                    <AddItemButton hallId={hallId} ceremonyId={ceremonyId} checklistItemId={item.id} />
+                  </li>
+                ))}
+              </ul>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </section>
   );

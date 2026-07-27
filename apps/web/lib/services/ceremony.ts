@@ -143,7 +143,19 @@ export async function setCeremonyStatus(
   if (nextCeremonyStatus(current) !== next) {
     throw new CeremonyValidationError("허용되지 않는 상태 변경입니다");
   }
-  await ceremonyRepo.updateStatus(hallId, ceremonyId, current, next);
+  const updated = await ceremonyRepo.updateStatus(hallId, ceremonyId, current, next);
+  // 코덱스 리뷰 P2: WHERE 현재 상태 조건 때문에 경합에서 진 요청은 0행을 갱신한다 —
+  // 이를 무시하고 성공으로 응답하면 클라이언트가 실제 DB 상태(예: 이미 done)와 다른
+  // 상태(ongoing)를 성공으로 믿고 표시한다. 0행이면 실제 상태를 다시 읽어, 요청한
+  // 상태에 이미 도달했을 때만 멱등 성공으로 처리하고 아니면 명시적으로 거부한다.
+  if (updated === 0) {
+    const latest = await ceremonyRepo.findById(hallId, ceremonyId);
+    if (!latest || asCeremonyStatus(latest.status) !== next) {
+      throw new CeremonyValidationError(
+        "예식 상태가 이미 변경되었습니다 — 화면을 새로고침해주세요",
+      );
+    }
+  }
 }
 
 export type CeremonyAssigneeInfo = { id: string; name: string };

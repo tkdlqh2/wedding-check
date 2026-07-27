@@ -79,6 +79,9 @@ development_status:
   5-3-ceremony-couple-names: done
   5-4-member-management: done
   5-5-checklist-two-level-structure: done
+  5-6-admin-account-menu: review
+  5-7-member-management-polish: backlog
+  5-8-ceremony-screens-polish: backlog
   epic-5-retrospective: optional
 
 # Per-story git pipeline substage (see GIT PIPELINE STAGE legend above).

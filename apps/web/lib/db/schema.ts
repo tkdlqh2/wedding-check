@@ -195,6 +195,12 @@ export const user = pgTable("user", {
   // 요구해 남아있을 뿐 실제로 수집/노출하지 않는다.
   phoneNumber: text("phone_number").unique(),
   phoneNumberVerified: boolean("phone_number_verified").default(false).notNull(),
+  // Story 5.4: better-auth 공식 admin 플러그인이 요구하는 필드(node_modules/better-auth/dist/
+  // plugins/admin/schema.mjs와 필드명/타입 일치 필수) — 계정 비활성화(회원 관리)와 로그인 시
+  // 자동 차단을 플러그인이 직접 처리하므로 커스텀 isActive 컬럼을 만들지 않는다.
+  banned: boolean("banned").default(false).notNull(),
+  banReason: text("ban_reason"),
+  banExpires: timestamp("ban_expires"),
 });
 
 export const session = pgTable(

@@ -22,14 +22,14 @@ const STATUS_POLL_MAX_ATTEMPTS = 15; // 약 15초까지 대기
 // 같은 원칙 — 확인 안 된 것을 확인된 것처럼 보여주지 않는다).
 export async function waitForVideoUpdate(
   hallId: string,
-  templateItemId: string,
+  checklistItemId: string,
   previousVideoUrl: string | undefined,
 ): Promise<boolean> {
   for (let attempt = 0; attempt < STATUS_POLL_MAX_ATTEMPTS; attempt++) {
     await sleep(STATUS_POLL_INTERVAL_MS);
     try {
       const res = await fetch(
-        `/api/templates/${hallId}/items/${templateItemId}/video/status`,
+        `/api/templates/${hallId}/items/${checklistItemId}/video/status`,
       );
       if (res.ok) {
         const body = (await res.json()) as { videoUrl: string | null };
@@ -46,12 +46,12 @@ export async function waitForVideoUpdate(
 
 export function VideoUpload({
   hallId,
-  templateItemId,
+  checklistItemId,
   blobEnabled,
   currentVideoUrl,
 }: {
   hallId: string;
-  templateItemId: string;
+  checklistItemId: string;
   blobEnabled: boolean;
   currentVideoUrl?: string;
 }) {
@@ -87,7 +87,7 @@ export function VideoUpload({
       if (blobEnabled) {
         await upload(file.name, file, {
           access: "public",
-          handleUploadUrl: `/api/templates/${hallId}/items/${templateItemId}/video/blob`,
+          handleUploadUrl: `/api/templates/${hallId}/items/${checklistItemId}/video/blob`,
           clientPayload: JSON.stringify({ fileSize: file.size }),
         });
         if (inputRef.current) inputRef.current.value = "";
@@ -95,7 +95,7 @@ export function VideoUpload({
         // 실제로 반영될 때까지 상태 확인 API를 폴링한다(로컬은 웹훅 자체가 오지
         // 않아 항상 타임아웃함, Dev Notes 참고 — 이 경우 안내 문구로 솔직하게 알림).
         setNotice("업로드 완료, 목록에 반영 중...");
-        const confirmed = await waitForVideoUpdate(hallId, templateItemId, currentVideoUrl);
+        const confirmed = await waitForVideoUpdate(hallId, checklistItemId, currentVideoUrl);
         if (confirmed) {
           router.refresh();
           setNotice(null);
@@ -106,7 +106,7 @@ export function VideoUpload({
         const formData = new FormData();
         formData.set("file", file);
         const res = await fetch(
-          `/api/templates/${hallId}/items/${templateItemId}/video/local`,
+          `/api/templates/${hallId}/items/${checklistItemId}/video/local`,
           { method: "POST", body: formData },
         );
         if (!res.ok) {

@@ -1,14 +1,15 @@
-/* DESIGN.md §4 Cards, §14 Empty state */
+/* templates.css와 동일한 시각 언어(중앙 정렬 컨테이너, 카드 리스트, 점선 추가 카드)를
+   맞춰 어드민 화면 전체의 일관성을 유지한다(프로토타입에는 별도 홀 관리 화면이 없어
+   TemplateScreen.js의 카드/버튼 톤을 그대로 가져왔다). */
 .halls-page {
-  max-width: 640px;
+  max-width: 900px;
+  margin: 0 auto;
 }
 
-.halls-page__form-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-lg);
-  padding: var(--space-lg);
-  margin-bottom: var(--space-xl);
+.halls-page__subtitle {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin: 6px 0 var(--space-lg);
 }
 
 .halls-page__empty {
@@ -39,8 +40,8 @@
   gap: var(--space-md);
   background: var(--color-surface);
   border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
-  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md) 20px;
 }
 
 .hall-row--editing {
@@ -49,12 +50,26 @@
 }
 
 .hall-row__name {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 17px;
+  font-weight: 700;
   color: var(--color-text-primary);
 }
 
 .hall-row__actions {
   display: flex;
   gap: var(--space-sm);
+}
+
+.hall-row__actions .btn-secondary {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+/* 새 홀 추가 — templates.css의 .templates-page__add-step과 동일 톤 */
+.halls-page__add-hall {
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border-mid);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg) 20px;
+  margin-top: var(--space-md);
 }

@@ -1,6 +1,8 @@
 export type CachedOperatorItem = {
   id: string;
+  templateItemId: string | null;
   stepName: string;
+  title: string;
   description: string | null;
   sortOrder: number;
 };
@@ -29,7 +31,9 @@ function isValidCachedItem(value: unknown): value is CachedOperatorItem {
   const item = value as Record<string, unknown>;
   return (
     typeof item.id === "string" &&
+    (item.templateItemId === null || typeof item.templateItemId === "string") &&
     typeof item.stepName === "string" &&
+    typeof item.title === "string" &&
     (item.description === null || typeof item.description === "string") &&
     typeof item.sortOrder === "number"
   );

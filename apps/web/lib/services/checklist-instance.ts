@@ -1,9 +1,13 @@
 import * as instanceRepo from "../db/repositories/checklist-instance";
 import * as templateItemRepo from "../db/repositories/template-item";
+import * as checklistItemRepo from "../db/repositories/checklist-item";
 import * as ceremonyRepo from "../db/repositories/ceremony";
 import type { Ceremony } from "../db/repositories/ceremony";
-import type { ChecklistInstance, ChecklistInstanceItem } from "../db/repositories/checklist-instance";
-import type { TemplateItem } from "../db/repositories/template-item";
+import type {
+  ChecklistInstance,
+  ChecklistInstanceItem,
+  CandidateChecklistItem,
+} from "../db/repositories/checklist-instance";
 
 export class ChecklistInstanceValidationError extends Error {}
 
@@ -11,7 +15,7 @@ export type CeremonyDetail = {
   ceremony: Ceremony;
   instance: ChecklistInstance;
   items: ChecklistInstanceItem[];
-  candidates: TemplateItem[];
+  candidates: CandidateChecklistItem[];
 };
 
 async function requireInstance(hallId: string, ceremonyId: string): Promise<ChecklistInstance> {
@@ -27,7 +31,7 @@ export type OperatorInstanceView = {
   items: ChecklistInstanceItem[];
 };
 
-// getCeremonyDetail과 달리 listCandidateTemplateItems를 호출하지 않는다 — 오퍼레이터
+// getCeremonyDetail과 달리 listCandidateChecklistItems를 호출하지 않는다 — 오퍼레이터
 // 화면은 후보 목록이 필요 없고, 이 함수는 클라이언트가 60초마다 폴링하므로 불필요한
 // 템플릿 항목 쿼리를 매번 추가하지 않는다(Story 2.3).
 export async function getOperatorInstanceView(
@@ -56,26 +60,39 @@ export async function getCeremonyDetail(hallId: string, ceremonyId: string): Pro
   }
   const [items, candidates] = await Promise.all([
     instanceRepo.listItems(hallId, instance.id),
-    instanceRepo.listCandidateTemplateItems(hallId, instance.id),
+    instanceRepo.listCandidateChecklistItems(hallId, instance.id),
   ]);
   return { ceremony, instance, items, candidates };
 }
 
 // AD-2 2-hop 재검증: instanceId만으로 항목 추가를 허용하지 않는다. instance와
-// templateItem을 각각 신뢰된 hallId 파라미터로 스코프해서 조회하고, 둘 다 조회에
+// checklistItem을 각각 신뢰된 hallId 파라미터로 스코프해서 조회하고, 둘 다 조회에
 // 성공해야만 진행한다 — 두 조회 모두 통과해야 instance.hall_id === hallId ===
-// template_item.hall_id가 성립한다(Story 1.4 assertTemplateItemOwnedByHall과 동일 원리).
+// checklist_item.hall_id가 성립한다(demo-video.ts::assertChecklistItemOwnedByHall과
+// 동일 원리). Story 5.5: 대상이 단계(templateItem)에서 체크리스트 항목으로 바뀌었다 —
+// 인스턴스 스냅샷에 필요한 소속 단계명(stepName)은 checklistItem.templateItemId로
+// 부모 단계를 조회해 채운다.
 export async function addInstanceItem(
   hallId: string,
   ceremonyId: string,
-  templateItemId: string,
+  checklistItemId: string,
 ): Promise<ChecklistInstanceItem> {
   const instance = await requireInstance(hallId, ceremonyId);
-  const templateItem = await templateItemRepo.findById(hallId, templateItemId);
-  if (!templateItem) {
+  const checklistItem = await checklistItemRepo.findById(hallId, checklistItemId);
+  if (!checklistItem) {
     throw new ChecklistInstanceValidationError("존재하지 않는 체크리스트 항목입니다");
   }
-  return instanceRepo.addItem(hallId, instance.id, templateItem);
+  const step = await templateItemRepo.findById(hallId, checklistItem.templateItemId);
+  if (!step) {
+    throw new ChecklistInstanceValidationError("존재하지 않는 단계입니다");
+  }
+  return instanceRepo.addItem(hallId, instance.id, {
+    id: checklistItem.id,
+    title: checklistItem.title,
+    description: checklistItem.description,
+    stepId: step.id,
+    stepName: step.stepName,
+  });
 }
 
 export async function removeInstanceItem(

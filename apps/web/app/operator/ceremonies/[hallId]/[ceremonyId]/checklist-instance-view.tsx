@@ -14,9 +14,12 @@ const ceremonyDateFormatter = new Intl.DateTimeFormat("ko-KR", {
   hour12: false,
 });
 
+// Story 5.5: 항목의 최소 단위가 단계에서 체크리스트 항목으로 내려갔다 — title이
+// POS Tile 라벨(체크 대상)이고, stepName은 그룹핑 헤더로만 쓰인다.
 export type OperatorItem = {
   id: string;
   stepName: string;
+  title: string;
   description: string | null;
   sortOrder: number;
 };
@@ -31,6 +34,21 @@ type ApiSuccessResponse = {
   ceremony: OperatorCeremony;
   items: OperatorItem[];
 };
+
+// 서버가 이미 (단계 순서, 항목 순서)로 정렬해서 items를 준다 — 순서를 유지한 채
+// 연속된 같은 stepName끼리만 묶는 순차 그룹핑이면 충분하다(재정렬 불필요).
+function groupItemsByStep(items: OperatorItem[]): [string, OperatorItem[]][] {
+  const groups: [string, OperatorItem[]][] = [];
+  for (const item of items) {
+    const lastGroup = groups[groups.length - 1];
+    if (lastGroup && lastGroup[0] === item.stepName) {
+      lastGroup[1].push(item);
+    } else {
+      groups.push([item.stepName, [item]]);
+    }
+  }
+  return groups;
+}
 
 export function ChecklistInstanceView({
   hallId,
@@ -179,22 +197,27 @@ export function ChecklistInstanceView({
       {items.length === 0 ? (
         <p className="checklist-instance-view__empty">포함된 항목이 없습니다.</p>
       ) : (
-        <ul className="checklist-tile-grid">
-          {items.map((item) => (
-            <li key={item.id}>
-              <button
-                type="button"
-                className={
-                  "checklist-tile" + (selectedIds.has(item.id) ? " checklist-tile--selected" : "")
-                }
-                onClick={() => toggleSelected(item.id)}
-                aria-pressed={selectedIds.has(item.id)}
-              >
-                {item.stepName}
-              </button>
-            </li>
-          ))}
-        </ul>
+        groupItemsByStep(items).map(([stepName, stepItems]) => (
+          <section key={stepName} className="checklist-step-group">
+            <h2 className="checklist-step-group__name">{stepName}</h2>
+            <ul className="checklist-tile-grid">
+              {stepItems.map((item) => (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    className={
+                      "checklist-tile" + (selectedIds.has(item.id) ? " checklist-tile--selected" : "")
+                    }
+                    onClick={() => toggleSelected(item.id)}
+                    aria-pressed={selectedIds.has(item.id)}
+                  >
+                    {item.title}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))
       )}
     </div>
   );

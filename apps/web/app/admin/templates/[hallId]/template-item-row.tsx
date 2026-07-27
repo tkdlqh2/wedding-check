@@ -3,26 +3,30 @@
 import { useState } from "react";
 import { deleteTemplateItemAction, moveTemplateItemAction } from "./actions";
 import { TemplateItemForm } from "./template-item-form";
-import { VideoUpload } from "./video-upload";
+import { ChecklistItemForm } from "./checklist-item-form";
+import { ChecklistItemRow } from "./checklist-item-row";
 
+// Story 5.5: 단계는 이름만 갖는다(설명·영상 제거, 체크리스트 항목으로 이동) — 그
+// 대신 이 행 안에 소속 체크리스트 항목 목록 + 새 항목 등록 폼을 중첩 렌더링한다.
 export function TemplateItemRow({
   hallId,
   item,
   isFirst,
   isLast,
-  demoVideo,
+  checklistItems,
+  demoVideosByChecklistItemId,
   blobEnabled,
 }: {
   hallId: string;
   item: {
     id: string;
     stepName: string;
-    description: string | null;
     applicableContractConditions?: Record<string, boolean>;
   };
   isFirst: boolean;
   isLast: boolean;
-  demoVideo?: { videoUrl: string; fileName: string };
+  checklistItems: { id: string; title: string; description: string | null }[];
+  demoVideosByChecklistItemId: Map<string, { videoUrl: string; fileName: string }>;
   blobEnabled: boolean;
 }) {
   const [editing, setEditing] = useState(false);
@@ -42,9 +46,6 @@ export function TemplateItemRow({
     <li className="template-item-card">
       <div className="template-item-card__body">
         <span className="template-item-card__step-name">{item.stepName}</span>
-        {item.description && (
-          <p className="template-item-card__description">{item.description}</p>
-        )}
         {(item.applicableContractConditions?.requiresOfficiant ||
           item.applicableContractConditions?.hasAdditionalEvent) && (
           <div className="template-item-card__conditions">
@@ -56,19 +57,6 @@ export function TemplateItemRow({
             )}
           </div>
         )}
-        <div className="template-item-card__video">
-          {demoVideo ? (
-            <video controls src={demoVideo.videoUrl} />
-          ) : (
-            <p className="template-item-card__video-empty">영상 없음</p>
-          )}
-          <VideoUpload
-            hallId={hallId}
-            templateItemId={item.id}
-            blobEnabled={blobEnabled}
-            currentVideoUrl={demoVideo?.videoUrl}
-          />
-        </div>
       </div>
       <div className="template-item-card__actions">
         <form action={moveTemplateItemAction}>
@@ -93,7 +81,7 @@ export function TemplateItemRow({
         <form
           action={deleteTemplateItemAction}
           onSubmit={(e) => {
-            if (!confirm(`"${item.stepName}" 항목을 삭제할까요?`)) {
+            if (!confirm(`"${item.stepName}" 단계를 삭제할까요? 소속 체크리스트 항목도 함께 삭제됩니다.`)) {
               e.preventDefault();
             }
           }}
@@ -104,6 +92,32 @@ export function TemplateItemRow({
             삭제
           </button>
         </form>
+      </div>
+
+      <div className="template-item-card__checklist">
+        {checklistItems.length === 0 ? (
+          <p className="template-item-card__checklist-empty">
+            아직 등록된 체크리스트 항목이 없어요.
+          </p>
+        ) : (
+          <ul className="checklist-item-list">
+            {checklistItems.map((checklistItem, index) => (
+              <ChecklistItemRow
+                key={checklistItem.id}
+                hallId={hallId}
+                templateItemId={item.id}
+                item={checklistItem}
+                isFirst={index === 0}
+                isLast={index === checklistItems.length - 1}
+                demoVideo={demoVideosByChecklistItemId.get(checklistItem.id)}
+                blobEnabled={blobEnabled}
+              />
+            ))}
+          </ul>
+        )}
+        <div className="template-item-card__checklist-form">
+          <ChecklistItemForm hallId={hallId} templateItemId={item.id} />
+        </div>
       </div>
     </li>
   );

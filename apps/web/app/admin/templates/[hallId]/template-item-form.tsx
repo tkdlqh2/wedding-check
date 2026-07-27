@@ -18,7 +18,6 @@ export function TemplateItemForm({
   item?: {
     id: string;
     stepName: string;
-    description: string | null;
     applicableContractConditions?: Record<string, boolean>;
   };
   onSuccess?: () => void;
@@ -55,16 +54,6 @@ export function TemplateItemForm({
           {state.error}
         </p>
       )}
-
-      <label htmlFor={`description-${idSuffix}`}>설명</label>
-      <textarea
-        id={`description-${idSuffix}`}
-        name="description"
-        defaultValue={item?.description ?? ""}
-        className="input"
-        rows={3}
-        placeholder="이 단계에서 해야 할 일을 설명하세요"
-      />
 
       <div className="template-item-form__conditions">
         <label className="template-item-form__checkbox">

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import * as hallRepo from "@/lib/db/repositories/hall";
 import { listTemplateItems } from "@/lib/services/template";
+import { listChecklistItemsByTemplateItems } from "@/lib/services/checklist-item";
 import { listDemoVideosByItems } from "@/lib/services/demo-video";
 import { isBlobStorageConfigured } from "@/lib/storage/video-storage";
 import { isValidUuid } from "@/lib/uuid";
@@ -27,11 +28,26 @@ export default async function TemplatePage({
   }
 
   const items = await listTemplateItems(hallId);
+  const templateItemIds = items.map((item) => item.id);
+  // Story 5.5: 단계마다 개별 조회하는 N+1을 피하기 위해 모든 단계의 체크리스트 항목을
+  // 한 번에 배치 조회(listDemoVideosByItems가 이미 쓰던 것과 동일한 패턴)한다.
+  const checklistItems = await listChecklistItemsByTemplateItems(hallId, templateItemIds);
+  const checklistItemsByTemplateItemId = new Map<
+    string,
+    { id: string; title: string; description: string | null }[]
+  >();
+  for (const templateItemId of templateItemIds) {
+    checklistItemsByTemplateItemId.set(templateItemId, []);
+  }
+  for (const checklistItem of checklistItems) {
+    checklistItemsByTemplateItemId.get(checklistItem.templateItemId)?.push(checklistItem);
+  }
+
   const demoVideos = await listDemoVideosByItems(
     hallId,
-    items.map((item) => item.id),
+    checklistItems.map((checklistItem) => checklistItem.id),
   );
-  const videoByItemId = new Map(demoVideos.map((video) => [video.templateItemId, video]));
+  const videoByChecklistItemId = new Map(demoVideos.map((video) => [video.checklistItemId, video]));
   // 토큰 값 자체는 클라이언트로 넘기지 않고 boolean 결과만 prop으로 전달한다.
   const blobEnabled = isBlobStorageConfigured();
 
@@ -48,7 +64,7 @@ export default async function TemplatePage({
 
       {items.length === 0 ? (
         <p className="templates-page__empty">
-          아직 등록된 체크리스트 항목이 없어요. 위에서 첫 항목을 등록해보세요.
+          아직 등록된 단계가 없어요. 위에서 첫 단계를 등록해보세요.
         </p>
       ) : (
         <ul className="template-item-list">
@@ -59,7 +75,8 @@ export default async function TemplatePage({
               item={item}
               isFirst={index === 0}
               isLast={index === items.length - 1}
-              demoVideo={videoByItemId.get(item.id)}
+              checklistItems={checklistItemsByTemplateItemId.get(item.id) ?? []}
+              demoVideosByChecklistItemId={videoByChecklistItemId}
               blobEnabled={blobEnabled}
             />
           ))}

@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { APIError } from "better-auth";
 import * as memberRepo from "../db/repositories/member";
 import type { Member } from "../db/repositories/member";
 import { auth } from "../auth";
@@ -18,11 +19,14 @@ export async function createMember(input: {
   password: string;
 }): Promise<Member> {
   const name = input.name.trim();
-  const password = input.password.trim();
+  // 코덱스 리뷰 P2: 빈 값 여부만 trim으로 확인하고, 실제 저장되는 비밀번호는 원본
+  // 그대로 둔다 — trim된 값을 저장하면 관리자가 실제로 입력한 값과 달라져 앞뒤 공백이
+  // 있는 비밀번호를 발급했을 때 그대로 로그인이 안 되는 문제가 생긴다.
+  const password = input.password;
   if (!name) {
     throw new MemberValidationError("이름은 필수입니다");
   }
-  if (!password) {
+  if (!password.trim()) {
     throw new MemberValidationError("초기 비밀번호는 필수입니다");
   }
   const phoneNumber = normalizePhoneNumber(input.phoneNumber);
@@ -47,20 +51,38 @@ export async function createMember(input: {
   // 체크를 스킵하고 신뢰된 내부 호출로 취급한다(routes.mjs 확인 완료). 이 함수 자체의
   // 권한 검증은 호출부(Server Action의 requireAdminSession())가 이미 수행했으므로
   // 이중 체크가 불필요하다.
-  const { user: created } = await auth.api.createUser({
-    body: {
-      email,
-      password,
-      name,
-      role: "operator",
-      data: {
-        phoneNumber,
-        phoneNumberVerified: true,
+  try {
+    const { user: created } = await auth.api.createUser({
+      body: {
+        email,
+        password,
+        name,
+        role: "operator",
+        data: {
+          phoneNumber,
+          phoneNumberVerified: true,
+        },
       },
-    },
-  });
-
-  return created as Member;
+    });
+    return created as Member;
+  } catch (err) {
+    // 코덱스 리뷰 P2: (1) 위의 findByPhoneNumber 사전 검증과 실제 생성 사이에 동시
+    // 요청이 끼어들면 이메일(전화번호 기반 합성값)이 여전히 중복될 수 있어 better-auth가
+    // 직접 USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL을 던진다. (2) 비밀번호가 better-auth
+    // 정책(길이 등)에 안 맞으면 PASSWORD_TOO_SHORT/PASSWORD_TOO_LONG을 던진다. 둘 다
+    // 그대로 흘려보내면 Server Action이 처리 안 된 일반 오류로 실패하므로, 여기서
+    // MemberValidationError로 번역해 폼에 구체적 오류가 표시되게 한다(AC 3).
+    if (err instanceof APIError) {
+      if (err.body?.code === "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL") {
+        throw new MemberValidationError("이미 등록된 전화번호입니다");
+      }
+      if (err.body?.code === "PASSWORD_TOO_SHORT" || err.body?.code === "PASSWORD_TOO_LONG") {
+        throw new MemberValidationError("비밀번호 길이가 올바르지 않습니다");
+      }
+      throw new MemberValidationError(err.body?.message ?? "계정 생성에 실패했습니다");
+    }
+    throw err;
+  }
 }
 
 // AC 4: 비활성화 — better-auth admin 플러그인의 banUser가 세션 무효화까지 처리한다.

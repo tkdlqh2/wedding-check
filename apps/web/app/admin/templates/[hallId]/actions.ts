@@ -10,6 +10,7 @@ import {
 } from "@/lib/services/template";
 import { requireAdminSession } from "@/lib/auth-guard";
 import { isValidUuid } from "@/lib/uuid";
+import { readContractConditions } from "./contract-conditions";
 
 export type TemplateItemFormState = { error?: string };
 
@@ -30,7 +31,11 @@ export async function createTemplateItemAction(
   const description = String(formData.get("description") ?? "");
   if (isMalformedId(hallId)) return { error: "잘못된 요청입니다" };
   try {
-    await createTemplateItem(hallId, { stepName, description: description || null });
+    await createTemplateItem(hallId, {
+      stepName,
+      description: description || null,
+      applicableContractConditions: readContractConditions(formData),
+    });
   } catch (err) {
     if (err instanceof TemplateItemValidationError) return { error: err.message };
     throw err;
@@ -50,7 +55,11 @@ export async function updateTemplateItemAction(
   const description = String(formData.get("description") ?? "");
   if (isMalformedId(hallId, id)) return { error: "잘못된 요청입니다" };
   try {
-    await updateTemplateItem(hallId, id, { stepName, description: description || null });
+    await updateTemplateItem(hallId, id, {
+      stepName,
+      description: description || null,
+      applicableContractConditions: readContractConditions(formData),
+    });
   } catch (err) {
     if (err instanceof TemplateItemValidationError) return { error: err.message };
     throw err;

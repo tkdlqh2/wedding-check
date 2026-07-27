@@ -37,6 +37,60 @@ describe("ceremonyRepo.create — 원자적 생성(ceremony+instance+instance_it
     expect(items.every((i) => i.hallId === hall.id)).toBe(true);
   });
 
+  it("AD-9 부분집합 매칭: 예식 조건에 맞지 않는 항목은 제외된다 (AC 1)", async () => {
+    const hall = await createTestHall();
+    await createTestTemplateItem(hall.id, {
+      stepName: "주례 소개",
+      sortOrder: 1,
+      applicableContractConditions: { requiresOfficiant: true },
+    });
+    await createTestTemplateItem(hall.id, { stepName: "사회자 멘트", sortOrder: 2 });
+
+    const { instanceId } = await ceremonyRepo.create(hall.id, {
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: { requiresOfficiant: false, hasAdditionalEvent: false },
+    });
+
+    const items = await db.query.checklistInstanceItems.findMany({
+      where: eq(checklistInstanceItems.instanceId, instanceId),
+    });
+    expect(items.map((i) => i.stepName)).toEqual(["사회자 멘트"]);
+  });
+
+  it("AD-9 부분집합 매칭: 예식 조건이 맞으면 포함된다", async () => {
+    const hall = await createTestHall();
+    await createTestTemplateItem(hall.id, {
+      stepName: "주례 소개",
+      sortOrder: 1,
+      applicableContractConditions: { requiresOfficiant: true },
+    });
+
+    const { instanceId } = await ceremonyRepo.create(hall.id, {
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: { requiresOfficiant: true, hasAdditionalEvent: false },
+    });
+
+    const items = await db.query.checklistInstanceItems.findMany({
+      where: eq(checklistInstanceItems.instanceId, instanceId),
+    });
+    expect(items.map((i) => i.stepName)).toEqual(["주례 소개"]);
+  });
+
+  it("조건 없는 항목({})은 예식 조건과 무관하게 항상 포함된다", async () => {
+    const hall = await createTestHall();
+    await createTestTemplateItem(hall.id, { stepName: "무조건 포함", sortOrder: 1 });
+
+    const { instanceId } = await ceremonyRepo.create(hall.id, {
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: { requiresOfficiant: false, hasAdditionalEvent: false },
+    });
+
+    const items = await db.query.checklistInstanceItems.findMany({
+      where: eq(checklistInstanceItems.instanceId, instanceId),
+    });
+    expect(items.map((i) => i.stepName)).toEqual(["무조건 포함"]);
+  });
+
   it("템플릿 항목이 없는 홀도 실패 없이 빈 인스턴스를 만든다", async () => {
     const hall = await createTestHall();
 

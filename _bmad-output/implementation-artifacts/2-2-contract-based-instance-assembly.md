@@ -1,6 +1,10 @@
+---
+baseline_commit: 1d1f0b5e48d454acdfa1aab7809ca8628209f694
+---
+
 # Story 2.2: 계약 형태 기반 인스턴스 자동 조합
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -19,47 +23,47 @@ so that 불필요한 단계가 인스턴스에 섞이지 않는다.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: 템플릿 항목에 계약 형태 조건 태깅 UI 추가 (AC: 1)
-  - [ ] `lib/db/repositories/template-item.ts`의 `create`/`update`에 `applicableContractConditions?: Record<string, boolean>` 입력 추가(컬럼은 Story 1.3에서 이미 존재 — `default({})`, 마이그레이션 불필요). 미지정 시 `{}` 유지.
-  - [ ] `lib/services/template.ts`의 `createTemplateItem`/`updateTemplateItem`에 같은 필드 전달
-  - [ ] `app/admin/templates/[hallId]/actions.ts`의 `createTemplateItemAction`/`updateTemplateItemAction`에서 `requiresOfficiant`/`hasAdditionalEvent` 체크박스 값을 읽어 전달(ceremony-form.tsx와 동일한 두 키, Dev Notes "계약 형태 키 대칭" 참고)
-  - [ ] `template-item-form.tsx`에 체크박스 2개 추가("주례 관련", "이벤트 추가 관련")
-  - [ ] `template-item-row.tsx`에 태깅된 조건을 작은 배지로 표시(선택 안 됨=배지 없음)
+- [x] Task 1: 템플릿 항목에 계약 형태 조건 태깅 UI 추가 (AC: 1)
+  - [x] `lib/db/repositories/template-item.ts`의 `create`/`update`에 `applicableContractConditions?: Record<string, boolean>` 입력 추가(컬럼은 Story 1.3에서 이미 존재 — `default({})`, 마이그레이션 불필요). 미지정 시 `{}` 유지.
+  - [x] `lib/services/template.ts`의 `createTemplateItem`/`updateTemplateItem`에 같은 필드 전달
+  - [x] `app/admin/templates/[hallId]/actions.ts`의 `createTemplateItemAction`/`updateTemplateItemAction`에서 `requiresOfficiant`/`hasAdditionalEvent` 체크박스 값을 읽어 전달(ceremony-form.tsx와 동일한 두 키, Dev Notes "계약 형태 키 대칭" 참고)
+  - [x] `template-item-form.tsx`에 체크박스 2개 추가("주례 관련", "이벤트 추가 관련")
+  - [x] `template-item-row.tsx`에 태깅된 조건을 작은 배지로 표시(선택 안 됨=배지 없음)
 
-- [ ] Task 2: 인스턴스 생성 시 부분집합 매칭 적용 (AC: 1)
-  - [ ] `lib/db/repositories/ceremony.ts`의 `create()` CTE를 정확히 Dev Notes "CTE 수정" 섹션대로 수정 — **재작성 금지, JOIN 조건 추가만**(이미 해결된 raw SQL 타임존 처리를 건드리지 않는다)
+- [x] Task 2: 인스턴스 생성 시 부분집합 매칭 적용 (AC: 1)
+  - [x] `lib/db/repositories/ceremony.ts`의 `create()` CTE를 정확히 Dev Notes "CTE 수정" 섹션대로 수정 — **재작성 금지, JOIN 조건 추가만**(이미 해결된 raw SQL 타임존 처리를 건드리지 않는다)
 
-- [ ] Task 3: 체크리스트 인스턴스 리포지토리 — `lib/db/repositories/checklist-instance.ts` (AC: 2, 3, 4)
-  - [ ] `findByCeremony(hallId, ceremonyId)`: 홀 스코프 인스턴스 단건 조회
-  - [ ] `listItems(hallId, instanceId)`: 인스턴스에 포함된 항목 목록(sortOrder 순)
-  - [ ] `addItem(hallId, instanceId, templateItem)`: 스냅샷 복사로 항목 추가(Story 2.1의 "실행용 사본" 원칙과 동일 — stepName/description/sortOrder를 그 시점 값으로 복사)
-  - [ ] `removeItem(hallId, instanceId, itemId)`: 항목 하드 삭제(Story 1.3 템플릿 항목 삭제 정책과 동일)
-  - [ ] `listCandidateTemplateItems(hallId, instanceId)`: 그 홀의 템플릿 항목 중 아직 인스턴스에 없는 것만(AC 4 — 다른 홀 항목 노출 금지)
+- [x] Task 3: 체크리스트 인스턴스 리포지토리 — `lib/db/repositories/checklist-instance.ts` (AC: 2, 3, 4)
+  - [x] `findByCeremony(hallId, ceremonyId)`: 홀 스코프 인스턴스 단건 조회
+  - [x] `listItems(hallId, instanceId)`: 인스턴스에 포함된 항목 목록(sortOrder 순)
+  - [x] `addItem(hallId, instanceId, templateItem)`: 스냅샷 복사로 항목 추가(Story 2.1의 "실행용 사본" 원칙과 동일 — stepName/description/sortOrder를 그 시점 값으로 복사)
+  - [x] `removeItem(hallId, instanceId, itemId)`: 항목 하드 삭제(Story 1.3 템플릿 항목 삭제 정책과 동일)
+  - [x] `listCandidateTemplateItems(hallId, instanceId)`: 그 홀의 템플릿 항목 중 아직 인스턴스에 없는 것만(AC 4 — 다른 홀 항목 노출 금지)
 
-- [ ] Task 4: 서비스 — `lib/services/checklist-instance.ts` (AC: 2, 3, 4)
-  - [ ] `ChecklistInstanceValidationError` 클래스
-  - [ ] `getCeremonyDetail(hallId, ceremonyId)`: 예식+인스턴스+항목+후보 목록을 한 번에 반환(상세 페이지용)
-  - [ ] `addInstanceItem(hallId, ceremonyId, templateItemId)`: **AD-2 2-hop 재검증** — 인스턴스와 템플릿 항목을 각각 `hallId`로 스코프 조회해 둘 다 통과해야 추가(Dev Notes "2-hop 재검증 구현" 참고, Story 1.4 `assertTemplateItemOwnedByHall`과 동일 원리)
-  - [ ] `removeInstanceItem(hallId, ceremonyId, itemId)`: 인스턴스를 `hallId`로 스코프 조회 후 삭제
+- [x] Task 4: 서비스 — `lib/services/checklist-instance.ts` (AC: 2, 3, 4)
+  - [x] `ChecklistInstanceValidationError` 클래스
+  - [x] `getCeremonyDetail(hallId, ceremonyId)`: 예식+인스턴스+항목+후보 목록을 한 번에 반환(상세 페이지용)
+  - [x] `addInstanceItem(hallId, ceremonyId, templateItemId)`: **AD-2 2-hop 재검증** — 인스턴스와 템플릿 항목을 각각 `hallId`로 스코프 조회해 둘 다 통과해야 추가(Dev Notes "2-hop 재검증 구현" 참고, Story 1.4 `assertTemplateItemOwnedByHall`과 동일 원리)
+  - [x] `removeInstanceItem(hallId, ceremonyId, itemId)`: 인스턴스를 `hallId`로 스코프 조회 후 삭제
 
-- [ ] Task 5: Server Actions — `app/admin/ceremonies/[hallId]/[ceremonyId]/actions.ts` (AC: 2, 3)
-  - [ ] `addInstanceItemAction`/`removeInstanceItemAction`: 첫 줄 `requireAdminSession()`(AD-3), `hallId`/`ceremonyId`/`templateItemId`(or `itemId`) 전부 `isValidUuid()` 검증(Story 1.3 코덱스 6차 P2 패턴) 후 서비스 호출, 성공 시 `revalidatePath`
+- [x] Task 5: Server Actions — `app/admin/ceremonies/[hallId]/[ceremonyId]/actions.ts` (AC: 2, 3)
+  - [x] `addInstanceItemAction`/`removeInstanceItemAction`: 첫 줄 `requireAdminSession()`(AD-3), `hallId`/`ceremonyId`/`templateItemId`(or `itemId`) 전부 `isValidUuid()` 검증(Story 1.3 코덱스 6차 P2 패턴) 후 서비스 호출, 성공 시 `revalidatePath`
 
-- [ ] Task 6: 예식 상세 페이지 UI — `app/admin/ceremonies/[hallId]/[ceremonyId]/page.tsx` (AC: 2, 3, 4)
-  - [ ] 현재 인스턴스 항목 목록(각 항목에 "제외" 버튼)
-  - [ ] 후보 항목 목록(그 홀의 미포함 템플릿 항목, 각각 "추가" 버튼) — `templates/[hallId]/page.tsx`의 `isValidUuid` + `notFound()` 가드 패턴 그대로 따름
-  - [ ] `app/admin/ceremonies/ceremony-row.tsx`를 `/admin/ceremonies/${hallId}/${ceremony.id}`로 링크(현재는 링크 없음)
+- [x] Task 6: 예식 상세 페이지 UI — `app/admin/ceremonies/[hallId]/[ceremonyId]/page.tsx` (AC: 2, 3, 4)
+  - [x] 현재 인스턴스 항목 목록(각 항목에 "제외" 버튼)
+  - [x] 후보 항목 목록(그 홀의 미포함 템플릿 항목, 각각 "추가" 버튼) — `templates/[hallId]/page.tsx`의 `isValidUuid` + `notFound()` 가드 패턴 그대로 따름
+  - [x] `app/admin/ceremonies/ceremony-row.tsx`를 `/admin/ceremonies/${hallId}/${ceremony.id}`로 링크(현재는 링크 없음)
 
-- [ ] Task 7: 테스트 (AC: 1, 2, 3, 4)
-  - [ ] `tests/repositories/ceremony.test.ts`(기존 파일에 추가): 계약 형태에 안 맞는 항목이 생성 시 실제로 제외되는지, 조건 없는 항목(`{}`)은 항상 포함되는지
-  - [ ] `tests/repositories/checklist-instance.test.ts`(신규): addItem/removeItem/listCandidateTemplateItems 홀 스코프 격리(다른 홀 항목이 후보로 새지 않는지, AC 4)
-  - [ ] `tests/services/checklist-instance.test.ts`(신규): 다른 홀의 templateItemId로 추가 시도 시 거부(AC 3, 2-hop 재검증 핵심 케이스), 존재하지 않는 ceremonyId 거부
-  - [ ] `npm run test`, `npx tsc --noEmit`, `npm run lint`, `npm run build` 전부 클린 확인
+- [x] Task 7: 테스트 (AC: 1, 2, 3, 4)
+  - [x] `tests/repositories/ceremony.test.ts`(기존 파일에 추가): 계약 형태에 안 맞는 항목이 생성 시 실제로 제외되는지, 조건 없는 항목(`{}`)은 항상 포함되는지
+  - [x] `tests/repositories/checklist-instance.test.ts`(신규): addItem/removeItem/listCandidateTemplateItems 홀 스코프 격리(다른 홀 항목이 후보로 새지 않는지, AC 4)
+  - [x] `tests/services/checklist-instance.test.ts`(신규): 다른 홀의 templateItemId로 추가 시도 시 거부(AC 3, 2-hop 재검증 핵심 케이스), 존재하지 않는 ceremonyId 거부
+  - [x] `npm run test`, `npx tsc --noEmit`, `npm run lint`, `npm run build` 전부 클린 확인
 
-- [ ] Task 8: 수동 검증
-  - [ ] 템플릿 항목 하나를 "주례 관련"으로 태깅 → "주례 없음"으로 예식 등록 → 인스턴스에서 그 항목이 빠졌는지 실제 확인(AC 1)
-  - [ ] 상세 페이지에서 후보 항목 추가/기존 항목 제외 실제 확인(AC 2)
-  - [ ] 다른 홀의 templateItemId를 직접 조작해 추가 시도 → 거부되는지 확인(AC 3, node fetch 스크립트로 폼 필드 조작)
+- [x] Task 8: 수동 검증
+  - [x] 템플릿 항목 하나를 "주례 관련"으로 태깅 → "주례 없음"으로 예식 등록 → 인스턴스에서 그 항목이 빠졌는지 실제 확인(AC 1)
+  - [x] 상세 페이지에서 후보 항목 추가/기존 항목 제외 실제 확인(AC 2)
+  - [x] 다른 홀의 templateItemId를 직접 조작해 추가 시도 → 거부되는지 확인(AC 3, node fetch 스크립트로 폼 필드 조작)
 
 ## Dev Notes
 
@@ -207,8 +211,49 @@ apps/web/
 
 ### Agent Model Used
 
+Amelia (claude-sonnet-5)
+
 ### Debug Log References
+
+- **jsonb 컬럼 타입 갭:** `schema.ts`의 `applicableContractConditions`/`contractConditions`는 `.$type<...>()` 없이 선언돼 있어 drizzle이 `unknown`으로 추론했다(Story 2.1 시점엔 단순 pass-through라 안 드러남). 이번 스토리에서 `item.applicableContractConditions?.requiresOfficiant`처럼 실제로 값을 읽는 코드를 추가하자마자 tsc가 "Object is of type 'unknown'"으로 잡아냄 — 두 컬럼 모두 `.$type<Record<string, boolean>>()`를 추가해 해결(마이그레이션 불필요, 타입 전용 변경).
+- **부분집합 매칭 테스트로 실제 매칭 방향을 검증함:** `ceremony.contract_conditions @> template_item.applicable_contract_conditions` 방향을 실제 DB에 태깅된 항목 3가지 케이스(제외/포함/무조건포함)로 검증 — 전부 스토리 Dev Notes의 표대로 동작함을 확인.
+- **수동 검증 중 발견한 검증 스크립트 자체의 함정(앱 버그 아님):** (1) 상세 페이지의 "제외" 버튼은 `useActionState` 없는 plain Server Action이라 `$ACTION_ID_<hash>` 히든 필드가 필요한데, 처음엔 이 필드 없이 POST해서 500을 봤다 — Story 1.4에서 이미 기록된 인코딩 차이(useActionState 액션은 `$ACTION_REF_N`, plain 액션은 `$ACTION_ID_<hash>`)를 재확인. (2) "제외" 후 해당 항목명이 페이지에서 완전히 사라질 거라 잘못 가정해 검증 스크립트가 실패로 보였음 — 실제로는 인스턴스에서만 빠지고 원본 템플릿 항목은 그대로라 "추가 가능한 항목" 섹션에 다시 나타나는 게 맞는 동작(DB 직접 조회로 삭제 자체는 확인됨). 둘 다 애플리케이션 코드가 아니라 검증 스크립트의 실수였다.
+
+**코덱스 리뷰 1차(PR #9) — 2건 실결함, 둘 다 수정·회귀 테스트 추가 후 확인:**
+- **[P1] `readContractConditions`가 체크 안 한 조건도 `false`로 채우고 있었음.** 부분집합 매칭은 "요구 조건 없음"(키 없음)과 "false를 요구함"(키 있음+false)을 구분하는데, 태깅 안 한 템플릿 항목이 매번 `{requiresOfficiant:false, hasAdditionalEvent:false}`가 되어 해당 조건이 `true`인 예식에서 잘못 제외되는 실제 버그였다. 체크한 키만 넣도록 수정(`{}` = 무조건 포함). 순수 함수라 `"use server"` 파일 밖(`contract-conditions.ts`)으로 분리해 단위 테스트 가능하게 만듦.
+- **[P2] `addItem`에 (instance_id, template_item_id) 유일성이 보장되지 않아, 재전송·두 탭 동시 제출로 같은 항목이 중복 추가될 수 있었음.** DB에 UNIQUE 제약 추가(`0009_curly_fallen_one.sql`) + `onConflictDoNothing`으로 멱등하게 처리하도록 수정.
 
 ### Completion Notes List
 
+- AC 1~4 전부 로컬 서버에 실제 로그인 후 HTTP 요청으로 검증: (1) "주례 관련"으로 태깅한 템플릿 항목이 "주례 없음" 예식 등록 시 인스턴스에서 실제로 빠지고, "주례 있음"이면 포함됨을 DB 직접 조회로 확인, (2) 상세 페이지에서 후보 항목 추가 → "포함된 항목"으로 이동, 제외 → "추가 가능한 항목"으로 복귀함을 확인, (3) 다른 홀의 templateItemId를 폼 필드에서 직접 조작해 추가를 시도 → `ChecklistInstanceValidationError`로 거부되고 DB에도 실제로 추가되지 않음을 확인(2-hop 재검증의 핵심 시나리오), (4) 조합 후보 목록에 다른 홀의 템플릿 항목이 한 번도 노출되지 않음을 확인.
+- Story 2.1의 원자적 생성 CTE는 재작성하지 않고 Dev Notes에 명시된 최소 diff만 적용 — 기존 raw SQL 타임존 처리는 그대로 유지.
+- "당일" 제약, 최소 항목 수 제약, 예식 자체의 계약 형태 수정 UI는 스토리 Dev Notes "스코프 경계"에 따라 구현하지 않음.
+
 ### File List
+
+- `apps/web/lib/db/schema.ts` (MODIFY) — `applicableContractConditions`/`contractConditions`에 `.$type<Record<string, boolean>>()` 추가
+- `apps/web/lib/db/repositories/template-item.ts` (MODIFY) — `create`/`update`에 `applicableContractConditions` 입력 추가
+- `apps/web/lib/db/repositories/ceremony.ts` (MODIFY) — `create()` CTE에 부분집합 매칭 JOIN 조건 추가
+- `apps/web/lib/db/repositories/checklist-instance.ts` (NEW)
+- `apps/web/lib/services/template.ts` (MODIFY)
+- `apps/web/lib/services/checklist-instance.ts` (NEW)
+- `apps/web/app/admin/templates/[hallId]/actions.ts` (MODIFY) — 조건 체크박스 값 읽기
+- `apps/web/app/admin/templates/[hallId]/template-item-form.tsx` (MODIFY) — 조건 체크박스 2개
+- `apps/web/app/admin/templates/[hallId]/template-item-row.tsx` (MODIFY) — 조건 배지 표시
+- `apps/web/app/admin/templates/[hallId]/templates.css` (MODIFY)
+- `apps/web/app/admin/ceremonies/ceremony-row.tsx` (MODIFY) — 상세 페이지 링크
+- `apps/web/app/admin/ceremonies/[hallId]/[ceremonyId]/actions.ts` (NEW)
+- `apps/web/app/admin/ceremonies/[hallId]/[ceremonyId]/page.tsx` (NEW)
+- `apps/web/app/admin/ceremonies/[hallId]/[ceremonyId]/add-item-button.tsx` (NEW)
+- `apps/web/app/admin/ceremonies/[hallId]/[ceremonyId]/ceremony-detail.css` (NEW)
+- `apps/web/tests/helpers/db.ts` (MODIFY) — `createTestTemplateItem`에 `applicableContractConditions` 오버라이드 추가
+- `apps/web/tests/repositories/ceremony.test.ts` (MODIFY) — 부분집합 매칭 테스트 3건 추가
+- `apps/web/tests/repositories/checklist-instance.test.ts` (NEW, 코덱스 1차 이후 중복 방지 테스트 추가)
+- `apps/web/tests/services/checklist-instance.test.ts` (NEW)
+- `apps/web/app/admin/templates/[hallId]/contract-conditions.ts` (NEW, 코덱스 1차 P1 수정)
+- `apps/web/tests/lib/template-item-conditions.test.ts` (NEW, 코덱스 1차 P1 회귀 테스트)
+- `apps/web/drizzle/0009_curly_fallen_one.sql` (NEW, 코덱스 1차 P2 — instance_id/template_item_id UNIQUE)
+
+## Change Log
+
+- 2026-07-27: Story 구현 완료. AC 1~4 전부 자동화 테스트(vitest, 신규 16건) + 실제 로컬 서버 수동 검증(HTTP 요청 + DB 직접 조회)으로 확인. 구현 중 jsonb 컬럼의 TS 타입 갭(`unknown`)을 실제 사용 코드 작성 중 tsc가 잡아내 `.$type<>()` 추가로 해결.

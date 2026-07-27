@@ -11,8 +11,10 @@ export type CeremonyWithItemCount = Ceremony & { itemCount: number };
 
 // db.transaction()은 프로덕션 드라이버(neon-http)에서 무조건 throw하므로(Story 1.3 P1)
 // ceremony + instance + N개의 instance_items를 하나의 요청 안에서 원자적으로 만들려면
-// 여러 INSERT를 체이닝한 단일 SQL 문(CTE)을 쓴다. AD-9 부분집합 매칭(계약 형태에 안 맞는
-// 항목 제외)은 Story 2.2 범위 — 아래 JOIN은 그 홀의 템플릿 항목을 조건 없이 전부 복사한다.
+// 여러 INSERT를 체이닝한 단일 SQL 문(CTE)을 쓴다. AD-9 부분집합 매칭: 아래 JOIN은
+// ceremony.contract_conditions가 template_item.applicable_contract_conditions를
+// JSONB `@>`(포함)하는 항목만 복사한다 — 항목의 모든 조건 key-value가 예식 쪽에도
+// 있어야 포함된다(반대 방향으로 쓰면 의미가 뒤집힌다, Story 2.2 Dev Notes 참고).
 export async function create(
   hallId: string,
   input: { ceremonyAt: Date; contractConditions: Record<string, boolean> },
@@ -30,19 +32,22 @@ export async function create(
     with new_ceremony as (
       insert into ceremonies (hall_id, ceremony_at, contract_conditions)
       values (${hallId}, ${ceremonyAtLiteral}::timestamp, ${JSON.stringify(input.contractConditions)}::jsonb)
-      returning id, hall_id
+      returning id, hall_id, contract_conditions
     ),
     new_instance as (
       insert into checklist_instances (hall_id, ceremony_id)
       select hall_id, id from new_ceremony
-      returning id, hall_id
+      returning id, hall_id, ceremony_id
     ),
     new_items as (
       insert into checklist_instance_items
         (hall_id, instance_id, template_item_id, step_name, description, sort_order)
       select ni.hall_id, ni.id, ti.id, ti.step_name, ti.description, ti.sort_order
       from new_instance ni
-      join checklist_template_items ti on ti.hall_id = ni.hall_id
+      join new_ceremony nc on nc.id = ni.ceremony_id
+      join checklist_template_items ti
+        on ti.hall_id = ni.hall_id
+        and nc.contract_conditions @> ti.applicable_contract_conditions
       returning id
     )
     select

@@ -162,6 +162,9 @@ Amelia (claude-sonnet-5)
 - **`vi.advanceTimersByTimeAsync` + fake timers + React 상태 업데이트 조합에서 `findByRole`이 타임아웃:** 컴포넌트 테스트에서 `setInterval` 콜백이 비동기로 state를 갱신하는데, 이 갱신을 `act(async () => { await vi.advanceTimersByTimeAsync(60_000); })`로 감싸지 않으면 "not wrapped in act" 경고와 함께 `findByRole`의 내부 폴링(실제 타이머 기반)이 가짜 타이머에 걸려 5초 실제 타임아웃이 났다 — `act()`로 감싸고 이후 동기 `getByRole`을 쓰는 것으로 해결(Story 1.4의 폴링 테스트는 컴포넌트가 아니라 순수 함수를 테스트해 이 문제를 겪지 않았다는 차이를 확인).
 - **AD-5 "mount 시 재검증 fetch" 문구를 문자 그대로 구현하지 않은 설계 결정:** Server Component(SSR)가 이미 최신 데이터를 가져오므로 클라이언트 mount 시 중복 fetch를 보내지 않고, 대신 SSR 데이터를 즉시 localStorage에 write-through한 뒤 60초 인터벌부터 폴링을 시작하도록 구현(스토리 Dev Notes에 이 설계 판단과 그 근거를 미리 기록해둠).
 
+**코덱스 리뷰 1차(PR #10) — 1건 실결함, 수정·확인 완료:**
+- **[P2] tablet 768~1024px 레이아웃에서 하단 내비가 뷰포트 밖으로 밀림.** `.operator-content`에 `height: 100dvh`를 직접 주면, 부모 `.operator-shell`(operator-nav.css, `min-height: 100dvh` 플렉스 컨테이너)의 실제 높이가 `.operator-content`의 100dvh + sibling `.operator-nav`의 높이만큼 뷰포트를 넘쳐버려, "항상 보이는" 하단 내비가 화면 밖으로 밀리고 페이지 전체가 스크롤되는 문제였다(AC 4 "고정 레이아웃" 의도와 정반대). `.operator-shell`을 이 breakpoint에서 `height: 100dvh`로 고정하고, `.operator-content`는 기존에 이미 상속받던 `flex: 1`로 남은 공간만 차지하도록 수정(불필요한 `height` 재선언 제거).
+
 ### Completion Notes List
 
 - AC 1: POS Tile 마크업(`checklist-tile`/`checklist-tile-grid`)이 실제 SSR HTML에 렌더링됨을 로컬 서버 HTTP 응답으로 확인. 탭 시 0ms 즉시 선택 상태 반영(트랜지션 없는 CSS)은 컴포넌트 테스트로 자동화 검증.

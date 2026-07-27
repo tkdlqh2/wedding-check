@@ -1,0 +1,165 @@
+import { describe, it, expect, beforeEach } from "vitest";
+import { resetDb } from "../helpers/db";
+import { createMember, MemberValidationError } from "@/lib/services/member";
+import { auth } from "@/lib/auth";
+
+// deactivateMember/reactivateMember(lib/services/member.ts)는 next/headers()의 headers()를
+// 내부에서 호출한다 — Next.js 요청 스코프 밖(순수 vitest node 테스트)에서 호출하면
+// "headers was called outside a request scope"로 즉시 실패한다. 이 프로젝트의 기존
+// lib/auth-guard.ts(requireAdminSession/requireSession)도 동일한 이유로 vitest 커버리지가
+// 없고 수동 HTTP 검증으로 대체돼왔다(회귀 확인 시 grep으로 확인). 그래서 여기서는 그 얇은
+// headers() 배선을 우회하고, 서비스가 실제로 위임하는 better-auth 메커니즘
+// (auth.api.banUser/unbanUser + 로그인 시 자동 차단 훅)을 관리자 세션 헤더를 직접 구성해
+// 검증한다 — AC 4의 핵심인 "실제 로그인 차단"을 컬럼 값이 아니라 signInPhoneNumber 호출
+// 성공/실패로 검증한다(스토리 Dev Notes 요구사항).
+async function signInAsAdmin(): Promise<Headers> {
+  const phoneNumber = `010${Date.now()}`.slice(0, 11);
+  await auth.api.createUser({
+    body: {
+      email: `${phoneNumber}@internal.wedding-check.local`,
+      password: "admin-test-password-1234",
+      name: "테스트 관리자",
+      role: "admin",
+      data: { phoneNumber, phoneNumberVerified: true },
+    },
+  });
+  const signInResult = await auth.api.signInPhoneNumber({
+    body: { phoneNumber, password: "admin-test-password-1234" },
+    returnHeaders: true,
+  });
+  const cookie = signInResult.headers.get("set-cookie")?.split(";")[0];
+  const headers = new Headers();
+  if (cookie) headers.set("cookie", cookie);
+  return headers;
+}
+
+describe("createMember (Story 5.4 AC 2, 3)", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("이름/전화번호/비밀번호가 유효하면 오퍼레이터 계정을 생성하고, 그 전화번호+비밀번호로 실제 로그인이 가능하다", async () => {
+    const member = await createMember({
+      name: "신입 오퍼레이터",
+      phoneNumber: "01044441111",
+      password: "operator-pw-1234",
+    });
+
+    expect(member.name).toBe("신입 오퍼레이터");
+    expect(member.role).toBe("operator");
+    expect(member.phoneNumber).toBe("01044441111");
+
+    const signInResult = await auth.api.signInPhoneNumber({
+      body: { phoneNumber: "01044441111", password: "operator-pw-1234" },
+    });
+    expect(signInResult.user.id).toBe(member.id);
+  });
+
+  it("하이픈이 섞인 전화번호도 정규화되어 저장된다", async () => {
+    const member = await createMember({
+      name: "정규화 테스트",
+      phoneNumber: "010-4444-2222",
+      password: "operator-pw-1234",
+    });
+    expect(member.phoneNumber).toBe("01044442222");
+  });
+
+  it("이미 등록된 전화번호로 생성을 시도하면 거부된다 (AC 3)", async () => {
+    await createMember({
+      name: "먼저 등록됨",
+      phoneNumber: "01044443333",
+      password: "operator-pw-1234",
+    });
+
+    await expect(
+      createMember({ name: "나중에 등록", phoneNumber: "01044443333", password: "pw-5678" }),
+    ).rejects.toThrow("이미 등록된 전화번호입니다");
+    await expect(
+      createMember({ name: "나중에 등록", phoneNumber: "010-4444-3333", password: "pw-5678" }),
+    ).rejects.toThrow(MemberValidationError);
+  });
+
+  it("이름이 비어있으면 거부된다", async () => {
+    await expect(
+      createMember({ name: "  ", phoneNumber: "01044444444", password: "pw-1234" }),
+    ).rejects.toThrow(MemberValidationError);
+  });
+
+  it("전화번호가 비어있으면 거부된다", async () => {
+    await expect(
+      createMember({ name: "이름만있음", phoneNumber: "", password: "pw-1234" }),
+    ).rejects.toThrow(MemberValidationError);
+  });
+
+  it("비밀번호가 비어있으면 거부된다", async () => {
+    await expect(
+      createMember({ name: "이름만있음", phoneNumber: "01044445555", password: "  " }),
+    ).rejects.toThrow(MemberValidationError);
+  });
+});
+
+describe("계정 비활성화/재활성화 — better-auth admin 플러그인 위임 (Story 5.4 AC 4)", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("계정을 비활성화하면 그 계정으로 로그인이 차단된다", async () => {
+    const adminHeaders = await signInAsAdmin();
+    const member = await createMember({
+      name: "비활성화 대상",
+      phoneNumber: "01055556666",
+      password: "operator-pw-1234",
+    });
+
+    await auth.api.banUser({ body: { userId: member.id }, headers: adminHeaders });
+
+    await expect(
+      auth.api.signInPhoneNumber({
+        body: { phoneNumber: "01055556666", password: "operator-pw-1234" },
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("비활성화된 계정을 재활성화하면 다시 로그인할 수 있다", async () => {
+    const adminHeaders = await signInAsAdmin();
+    const member = await createMember({
+      name: "재활성화 대상",
+      phoneNumber: "01055557777",
+      password: "operator-pw-1234",
+    });
+
+    await auth.api.banUser({ body: { userId: member.id }, headers: adminHeaders });
+    await auth.api.unbanUser({ body: { userId: member.id }, headers: adminHeaders });
+
+    const signInResult = await auth.api.signInPhoneNumber({
+      body: { phoneNumber: "01055557777", password: "operator-pw-1234" },
+    });
+    expect(signInResult.user.id).toBe(member.id);
+  });
+
+  it("오퍼레이터 세션으로는 다른 계정을 비활성화할 수 없다 (admin 플러그인 권한 모델 확인)", async () => {
+    const operator = await createMember({
+      name: "권한없는오퍼레이터",
+      phoneNumber: "01055558888",
+      password: "operator-pw-1234",
+    });
+    const target = await createMember({
+      name: "대상계정",
+      phoneNumber: "01055559999",
+      password: "operator-pw-1234",
+    });
+
+    const signInResult = await auth.api.signInPhoneNumber({
+      body: { phoneNumber: "01055558888", password: "operator-pw-1234" },
+      returnHeaders: true,
+    });
+    const cookie = signInResult.headers.get("set-cookie")?.split(";")[0];
+    const operatorHeaders = new Headers();
+    if (cookie) operatorHeaders.set("cookie", cookie);
+    void operator;
+
+    await expect(
+      auth.api.banUser({ body: { userId: target.id }, headers: operatorHeaders }),
+    ).rejects.toThrow();
+  });
+});

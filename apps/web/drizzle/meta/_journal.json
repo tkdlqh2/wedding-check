@@ -85,6 +85,13 @@
       "when": 1785126282581,
       "tag": "0011_checklist-instance-items-step-id",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1785127314934,
+      "tag": "0012_checklist-instance-items-sort-order-unique",
+      "breakpoints": true
     }
   ]
 }

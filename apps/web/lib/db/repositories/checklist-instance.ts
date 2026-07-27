@@ -18,6 +18,37 @@ export type CandidateChecklistItem = typeof checklistTemplateItemChecks.$inferSe
 // AD-2: checklist_instances/checklist_instance_items는 홀 종속 엔티티다 — hallId를
 // 모든 함수의 첫 인자로 받고, 모든 조회/수정 쿼리는 WHERE hall_id = $hallId를 포함한다.
 
+// template-item.ts::withConcurrencyRetry와 동일한 판별/재시도 로직 — addItem()이
+// (instance_id, sort_order) UNIQUE 위반(코덱스 리뷰 4차 P2, 동시에 서로 다른 두 항목을
+// 추가하면 둘 다 같은 max(sort_order)+1을 계산할 수 있음)을 겪는 것과 동일한 종류의
+// 문제라 로직을 그대로 복제한다.
+function isRetryableConcurrencyError(err: unknown): boolean {
+  for (let e = err; e; e = (e as { cause?: unknown }).cause) {
+    if (typeof e !== "object" || e === null) continue;
+    const code = (e as { code?: unknown }).code;
+    if (code === "23505" || code === "40P01") return true;
+    const message = (e as { message?: unknown }).message;
+    if (typeof message === "string" && /duplicate key|unique constraint|deadlock detected/i.test(message)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const CONCURRENCY_MAX_ATTEMPTS = 5;
+
+async function withConcurrencyRetry<T>(run: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; attempt <= CONCURRENCY_MAX_ATTEMPTS; attempt++) {
+    try {
+      return await run();
+    } catch (err) {
+      if (isRetryableConcurrencyError(err) && attempt < CONCURRENCY_MAX_ATTEMPTS) continue;
+      throw err;
+    }
+  }
+  throw new Error("unreachable");
+}
+
 export async function findByCeremony(
   hallId: string,
   ceremonyId: string,
@@ -72,22 +103,24 @@ export async function addItem(
     stepName: string;
   },
 ): Promise<ChecklistInstanceItem> {
-  const [inserted] = await db
-    .insert(checklistInstanceItems)
-    .values({
-      hallId,
-      instanceId,
-      templateItemId: checklistItem.stepId,
-      templateItemCheckId: checklistItem.id,
-      stepName: checklistItem.stepName,
-      title: checklistItem.title,
-      description: checklistItem.description,
-      sortOrder: sql<number>`coalesce((select max(${checklistInstanceItems.sortOrder}) from ${checklistInstanceItems} where ${checklistInstanceItems.instanceId} = ${instanceId}), -1) + 1`,
-    })
-    .onConflictDoNothing({
-      target: [checklistInstanceItems.instanceId, checklistInstanceItems.templateItemCheckId],
-    })
-    .returning();
+  const [inserted] = await withConcurrencyRetry(() =>
+    db
+      .insert(checklistInstanceItems)
+      .values({
+        hallId,
+        instanceId,
+        templateItemId: checklistItem.stepId,
+        templateItemCheckId: checklistItem.id,
+        stepName: checklistItem.stepName,
+        title: checklistItem.title,
+        description: checklistItem.description,
+        sortOrder: sql<number>`coalesce((select max(${checklistInstanceItems.sortOrder}) from ${checklistInstanceItems} where ${checklistInstanceItems.instanceId} = ${instanceId}), -1) + 1`,
+      })
+      .onConflictDoNothing({
+        target: [checklistInstanceItems.instanceId, checklistInstanceItems.templateItemCheckId],
+      })
+      .returning(),
+  );
   if (inserted) return inserted;
 
   const existing = await db.query.checklistInstanceItems.findFirst({

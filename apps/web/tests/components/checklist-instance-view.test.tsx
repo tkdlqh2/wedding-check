@@ -15,8 +15,8 @@ const initialCeremony = {
   contractConditions: {},
 };
 const initialItems = [
-  { id: "item-1", stepId: "step-1", stepName: "신랑입장", title: "조명 전환", description: null, sortOrder: 1 },
-  { id: "item-2", stepId: "step-2", stepName: "축가", title: "음향 준비", description: null, sortOrder: 2 },
+  { id: "item-1", templateItemId: "step-1", stepName: "신랑입장", title: "조명 전환", description: null, sortOrder: 1 },
+  { id: "item-2", templateItemId: "step-2", stepName: "축가", title: "음향 준비", description: null, sortOrder: 2 },
 ];
 
 function renderView() {
@@ -71,8 +71,8 @@ describe("ChecklistInstanceView", () => {
         hallName="1층 홀"
         initialCeremony={initialCeremony}
         initialItems={[
-          { id: "item-1", stepId: "step-1", stepName: "개식사", title: "조명 준비", description: null, sortOrder: 1 },
-          { id: "item-2", stepId: "step-1", stepName: "개식사", title: "사전 안내", description: null, sortOrder: 2 },
+          { id: "item-1", templateItemId: "step-1", stepName: "개식사", title: "조명 준비", description: null, sortOrder: 1 },
+          { id: "item-2", templateItemId: "step-1", stepName: "개식사", title: "사전 안내", description: null, sortOrder: 2 },
         ]}
       />,
     );
@@ -93,8 +93,8 @@ describe("ChecklistInstanceView", () => {
         hallName="1층 홀"
         initialCeremony={initialCeremony}
         initialItems={[
-          { id: "item-1", stepId: "step-1", stepName: "준비", title: "첫 준비", description: null, sortOrder: 1 },
-          { id: "item-2", stepId: "step-2", stepName: "준비", title: "둘째 준비", description: null, sortOrder: 2 },
+          { id: "item-1", templateItemId: "step-1", stepName: "준비", title: "첫 준비", description: null, sortOrder: 1 },
+          { id: "item-2", templateItemId: "step-2", stepName: "준비", title: "둘째 준비", description: null, sortOrder: 2 },
         ]}
       />,
     );

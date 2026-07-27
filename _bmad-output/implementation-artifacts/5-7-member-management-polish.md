@@ -167,15 +167,19 @@ Claude Sonnet 5
   2. 비활성화/다시 활성화 버튼을 `prototype/js/screens/MemberScreen.js` 76~80행처럼 흰 배경 + 상태색(error/success) 보더·텍스트로 재스타일링(기존 `btn-secondary` 중립 스타일 대체).
   3. 로그인 중인 본인 행 표시를 "현재 로그인한 계정" 문구에서 "Me" 배지로 축약, 비활성화/다시 활성화 버튼과 동일한 `min-width: 96px` + `height: 32px`로 통일해 행 높이/정렬이 흔들리지 않게 함.
   4. `<Link>` 기반 버튼(페이지네이션, 비활성 토글)에 브라우저 기본 밑줄이 그대로 노출되던 문제 — 전역 `a { text-decoration: none; }` 리셋 추가(이 앱의 모든 `<Link>`는 자체 스타일을 가진 버튼/필이라 안전).
-  5. 이름 검색 추가(AC에는 없던 요청) — `listMembersPaginated`에 `search` 옵션 추가(대소문자 무시 부분 일치), GET 폼 기반 URL 쿼리 파라미터(`q`)로 구현해 이 프로젝트의 기존 필터 패턴(showInactive, ceremonies의 date/year/month)과 일관되게 유지. 요약 카운트(전체/활성/비활성)는 검색 결과 기준으로 좁혀지지만 `activeAdminCount`(마지막 관리자 보호용 안전 계산값)는 검색과 무관하게 항상 전체 목록 기준 — 페이지네이션/비활성 토글 둘 다 `q`를 유지하도록 배선.
-- `npm run test`(149 passed, 신규 20건: 역할 파라미터 2건 + setMemberRole 7건 + listMembersPaginated 8건 + phone 포맷 6건 — 일부 describe 재사용으로 실제 신규 assertion은 그 이상), `npx tsc --noEmit`(clean), `npm run lint`(clean), `npm run build`(clean) 전부 확인.
+  5. 이름 검색 추가(AC에는 없던 요청) — `listMembersPaginated`에 `search` 옵션 추가(대소문자 무시 부분 일치), GET 폼 기반 URL 쿼리 파라미터(`q`)로 구현해 이 프로젝트의 기존 필터 패턴(showInactive, ceremonies의 date/year/month)과 일관되게 유지. 페이지네이션/비활성 토글 둘 다 `q`를 유지하도록 배선.
+- `npm run test`(155 passed), `npx tsc --noEmit`(clean), `npm run lint`(clean), `npm run build`(clean) 전부 확인.
 - 로컬 서버(포트 3000, 대표가 직접 구동 중)에서 대표가 실시간으로 화면을 보며 회원 등록/역할 토글/세그먼트 변경/전화번호 포맷/페이지네이션/비활성 토글/검색을 직접 확인 — 4건의 UI 수정 요청이 모두 이 실시간 검증 과정에서 나왔고 즉시 반영/재확인함.
-- 코덱스 CLI 리뷰는 아직 실행 전 — PR 오픈 후 `codex review --base main`으로 진행 예정(git_pipeline 참고).
+- **코덱스 리뷰 4라운드(1~3차 전부 실결함 발견 후 수정, 4차 클린)**:
+  1. (1차 P2) `setMemberRole`의 마지막 활성 관리자 보호가 "카운트 확인 → setRole 호출" 두 단계로 나뉘어 있어, 두 관리자가 동시에 자기 자신을 강등하면 TOCTOU 경합으로 활성 관리자가 0명이 될 수 있었음 — `memberRepo.demoteIfNotLastActiveAdmin()`을 추가해 `FOR UPDATE`로 모든 활성 관리자 행을 잠그고 재확인한 카운트 기준으로만 UPDATE하는 단일 SQL 문으로 교체(`db.transaction()`은 프로덕션 드라이버에서 throw하므로 Story 1.3과 동일한 "단일 문으로 원자성 확보" 패턴). 동시 자기 강등 경합 재현 테스트 추가(반복 실행으로 비결정성 없음 확인).
+  2. (1차 P2) `createMemberAction`이 `role=owner` 같은 조작된 값을 검증 없이 `operator`로 조용히 흡수했음 — `admin`/`operator` 외 값은 명시적으로 거부하도록 수정.
+  3. (2차 P2) `formatPhoneNumberDisplay`가 서울(02, 2자리 지역번호) 번호에 일반 3자리 지역번호 규칙(3-3-4)을 그대로 적용해 `0212345678` → `"021-234-5678"`(틀림)로 표시됨 — `02` 프리픽스를 먼저 감지해 9자리(2-3-4)/10자리(2-4-4)로 별도 처리.
+  4. (3차 P2) 이름 검색이 활성화되면 `listMembersPaginated`의 요약 카운트(전체/활성/비활성)가 검색 결과 기준으로 좁혀져 AC 4가 요구하는 "전체 회원 현황" 의미와 어긋났음 — 카운트를 검색 필터 이전(`all`) 기준으로 계산하도록 수정, 검색은 목록/페이지네이션에만 적용.
 
 ### File List
 
 - `apps/web/lib/phone.ts` (MODIFY) — `formatPhoneNumberDisplay` 추가
-- `apps/web/lib/db/repositories/member.ts` (MODIFY) — `findById` 추가
+- `apps/web/lib/db/repositories/member.ts` (MODIFY) — `findById`, `demoteIfNotLastActiveAdmin`(원자적 강등) 추가
 - `apps/web/lib/services/member.ts` (MODIFY) — `createMember`에 `role` 파라미터, `setMemberRole`, `listMembersPaginated`(+ `search` 옵션) 추가
 - `apps/web/app/admin/members/actions.ts` (MODIFY) — `setMemberRoleAction` 추가, `createMemberAction`에 role 처리
 - `apps/web/app/admin/members/member-form.tsx` (MODIFY) — 역할 선택 pill 토글
@@ -184,11 +188,11 @@ Claude Sonnet 5
 - `apps/web/app/admin/members/page.tsx` (MODIFY) — 페이지네이션/요약/이름 검색 배선
 - `apps/web/app/admin/members/members.css` (MODIFY) — pill/세그먼트/요약/검색/페이지네이션 스타일
 - `apps/web/app/design-tokens.css` (MODIFY) — 전역 `box-sizing: border-box`, `a { text-decoration: none }` 리셋
-- `apps/web/tests/repositories/member.test.ts` (MODIFY) — `findById` 테스트
+- `apps/web/tests/repositories/member.test.ts` (MODIFY) — `findById`, `demoteIfNotLastActiveAdmin` 테스트
 - `apps/web/tests/services/member.test.ts` (MODIFY) — role/setMemberRole/listMembersPaginated(+search) 테스트, `signInAsAdmin` 헬퍼가 `userId`도 반환하도록 확장
 - `apps/web/tests/lib/phone.test.ts` (NEW) — `formatPhoneNumberDisplay` 테스트
 
 ## Change Log
 
 - 2026-07-27: 스토리 최초 작성 (create-story, Epic 5 2차 후속 3건 중 3번째, Story 5.4 확장).
-- 2026-07-27: 구현 완료 (dev) — AC 1~6 전부 구현. 대표가 로컬 서버로 실시간 확인하며 준 4건의 UI 피드백(입력창 오버플로, 비활성화 버튼 스타일, Me 배지, 링크 밑줄) + 이름 검색 추가 요청까지 모두 반영. vitest 149건 통과, tsc/lint/build 클린. Status → review.
+- 2026-07-27: 구현 완료 (dev) — AC 1~6 전부 구현. 대표가 로컬 서버로 실시간 확인하며 준 4건의 UI 피드백(입력창 오버플로, 비활성화 버튼 스타일, Me 배지, 링크 밑줄) + 이름 검색 추가 요청까지 모두 반영. 코덱스 리뷰 4라운드(1~3차 실결함 3건 발견/수정 — 역할 강등 TOCTOU 경합, 잘못된 role 값 흡수, 서울 지역번호 포맷 오류, 검색 시 요약 카운트 왜곡; 4차 클린). vitest 155건 통과, tsc/lint/build 클린. Status → review.

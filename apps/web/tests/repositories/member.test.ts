@@ -61,3 +61,22 @@ describe("memberRepo.findByPhoneNumber", () => {
     expect(result?.name).toBe("회원C");
   });
 });
+
+describe("memberRepo.findById (Story 5.7)", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("존재하지 않는 id면 undefined를 반환한다", async () => {
+    const result = await memberRepo.findById("00000000-0000-0000-0000-000000000000");
+    expect(result).toBeUndefined();
+  });
+
+  it("해당 id의 계정을 반환한다", async () => {
+    const created = await createTestMember({ phoneNumber: "01044441234", name: "회원D" });
+
+    const result = await memberRepo.findById(created.id);
+
+    expect(result?.name).toBe("회원D");
+  });
+});

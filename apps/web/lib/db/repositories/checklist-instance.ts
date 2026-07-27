@@ -201,21 +201,23 @@ export async function addAdHocItem(
           ${
             input.stepId
               ? sql`(select max(sort_order) from ${checklistInstanceItems}
-                  where instance_id = ${instanceId} and template_item_id = ${input.stepId})`
+                  where instance_id = ${instanceId} and hall_id = ${hallId}
+                    and template_item_id = ${input.stepId})`
               : input.groupRootId
                 ? sql`(select max(sort_order) from ${checklistInstanceItems}
-                    where instance_id = ${instanceId} and ad_hoc_group_root_id = ${input.groupRootId})`
+                    where instance_id = ${instanceId} and hall_id = ${hallId}
+                      and ad_hoc_group_root_id = ${input.groupRootId})`
                 : sql`null`
           },
           (select max(sort_order) from ${checklistInstanceItems}
-            where instance_id = ${instanceId}),
+            where instance_id = ${instanceId} and hall_id = ${hallId}),
           -1
         ) as base
       ),
       shifted as (
         update ${checklistInstanceItems}
         set sort_order = sort_order + 1
-        where instance_id = ${instanceId}
+        where instance_id = ${instanceId} and hall_id = ${hallId}
           and sort_order > (select base from target)
         returning id
       )

@@ -9,6 +9,7 @@ import {
   integer,
   jsonb,
   unique,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 
 // FR-1: 홀(예식 진행 공간). 홀 종속 엔티티(checklist_template_items 등)와 달리
@@ -162,20 +163,34 @@ export const ceremonies = pgTable("ceremonies", {
     .$type<Record<string, boolean>>()
     .notNull()
     .default({}),
-  // Story 5.8(FR-18): 담당 오퍼레이터 단일 배정(복수 아님 — epics.md AC가 단수로 명시,
-  // 프로토타입의 배열 기반 다중 배정과 의도적으로 다름). user.id는 uuid가 아니라 text다
-  // (better-auth가 자체 id 포맷을 생성) — 다른 FK처럼 uuid()를 쓰면 안 된다. 계정이
-  // 비활성화(banned)돼도 실제 삭제는 없어 onDelete는 실질적으로 발동하지 않지만
-  // 방어적으로 set null을 둔다.
-  assignedOperatorId: text("assigned_operator_id").references(() => user.id, {
-    onDelete: "set null",
-  }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 });
+
+// FR-18(2026-07-27 대표 지시로 다중 배정으로 확장): 예식 1건에 담당 오퍼레이터 여러 명 —
+// 프로토타입(WeddingScreen.js)의 assignees 배열과 동일 모델. Story 5.8의 단일 컬럼
+// (ceremonies.assigned_operator_id)을 이 조인 테이블이 대체한다(마이그레이션 0019에서
+// 기존 배정 데이터 이관). operator_id는 better-auth user.id라 uuid가 아닌 text.
+// AD-2 홀 종속 엔티티 — hall_id를 ceremony JOIN 없이 직접 저장한다.
+export const ceremonyAssignees = pgTable(
+  "ceremony_assignees",
+  {
+    ceremonyId: uuid("ceremony_id")
+      .notNull()
+      .references(() => ceremonies.id, { onDelete: "cascade" }),
+    operatorId: text("operator_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    hallId: uuid("hall_id")
+      .notNull()
+      .references(() => halls.id),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.ceremonyId, table.operatorId] })],
+);
 
 // FR-4: 예식 1건의 실행용 체크리스트 인스턴스. ERD상 CEREMONY 1:1 CHECKLIST_INSTANCE.
 // AD-2(2026-07-24 adversarial review로 확정된 최종 룰) — ceremony→hall JOIN으로

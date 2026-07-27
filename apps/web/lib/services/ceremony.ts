@@ -7,9 +7,9 @@ export type { Ceremony, CeremonyWithItemCount };
 
 export class CeremonyValidationError extends Error {}
 
-// Story 5.8 AC 8: 목록 카드에 담당 오퍼레이터 이름을 읽기 전용으로 표시하기 위한 병합용
-// id→name 맵. hallName 병합과 동일한 스타일(리포지토리에 조인을 넣지 않고 서비스에서
-// 메모리 병합) — memberRepo.findAll()을 목록 조회당 한 번만 호출한다(N+1 방지).
+// FR-18 다중 배정: 목록 카드의 담당 오퍼레이터 pill 표시/토글에 필요한 병합용 id→name
+// 맵. hallName 병합과 동일한 스타일(리포지토리에 조인을 넣지 않고 서비스에서 메모리
+// 병합) — memberRepo.findAll()을 목록 조회당 한 번만 호출한다(N+1 방지).
 async function buildOperatorNameMap(): Promise<Map<string, string>> {
   const members = await memberRepo.findAll();
   return new Map(members.map((m) => [m.id, m.name]));
@@ -93,42 +93,69 @@ export async function createCeremony(input: {
   return ceremony;
 }
 
-// Story 5.8 AC 7: 담당 오퍼레이터 배정/해제(operatorId === null이면 해제).
-// [ASSUMPTION] 담당자는 활성 오퍼레이터 역할 회원만 가능 — 관리자나 비활성 계정은
-// 배정 대상에서 제외한다(epics.md AC 7 명시).
-export async function assignOperator(
+// FR-18 다중 배정(2026-07-27, 프로토타입 WeddingScreen.js의 assignees 토글과 동일):
+// 이미 배정돼 있으면 해제, 아니면 배정. 배정 추가는 활성 오퍼레이터 역할 회원만 가능 —
+// 해제는 그 담당자가 이후 비활성화/역할 변경됐어도 항상 허용한다(정리 수단 보존,
+// Story 5.8 코덱스 리뷰의 stale 담당자 해제 불가 지적과 동일 원칙).
+export async function toggleAssignee(
   hallId: string,
   ceremonyId: string,
-  operatorId: string | null,
+  operatorId: string,
 ): Promise<void> {
   const ceremony = await ceremonyRepo.findById(hallId, ceremonyId);
   if (!ceremony) {
     throw new CeremonyValidationError("존재하지 않는 예식입니다");
   }
-  if (operatorId !== null) {
-    const operator = await memberRepo.findById(operatorId);
-    if (!operator || operator.role !== "operator" || operator.banned) {
-      throw new CeremonyValidationError("배정할 수 없는 담당자입니다");
-    }
+  const current = await ceremonyRepo.findAssigneesByCeremony(hallId, ceremonyId);
+  if (current.some((a) => a.operatorId === operatorId)) {
+    await ceremonyRepo.removeAssignee(hallId, ceremonyId, operatorId);
+    return;
   }
-  await ceremonyRepo.assignOperator(hallId, ceremonyId, operatorId);
+  const operator = await memberRepo.findById(operatorId);
+  if (!operator || operator.role !== "operator" || operator.banned) {
+    throw new CeremonyValidationError("배정할 수 없는 담당자입니다");
+  }
+  await ceremonyRepo.addAssignee(hallId, ceremonyId, operatorId);
+}
+
+export type CeremonyAssigneeInfo = { id: string; name: string };
+
+// 예식 상세 메타 줄("담당 김민지, 박서준") 표시용 — 프로토타입 WeddingDetailScreen.js
+// 22행과 동일하게 상세에서는 읽기 전용, 배정 조작은 목록 카드의 pill 토글에서만 한다.
+export async function listCeremonyAssignees(
+  hallId: string,
+  ceremonyId: string,
+): Promise<CeremonyAssigneeInfo[]> {
+  const [rows, operatorNames] = await Promise.all([
+    ceremonyRepo.findAssigneesByCeremony(hallId, ceremonyId),
+    buildOperatorNameMap(),
+  ]);
+  return rows.map((row) => ({
+    id: row.operatorId,
+    name: operatorNames.get(row.operatorId) ?? "이름 미확인",
+  }));
 }
 
 export type CeremonyWithHallName = CeremonyWithItemCount & {
   hallName: string;
-  assignedOperatorName: string | null;
+  assignees: CeremonyAssigneeInfo[];
 };
 
-function withAssignedOperatorName<T extends { assignedOperatorId: string | null }>(
-  ceremony: T,
+// 홀 1개의 배정 행 전체를 ceremonyId별 {id, name}[] 맵으로 묶는다 — 이름이 없는(이론상
+// 삭제된) 계정은 표시할 수 없으므로 제외하지 않고 id를 이름 대신 쓰지도 않고, "이름
+// 미확인"으로 표기해 배정 자체가 화면에서 사라지지 않게 한다.
+async function buildAssigneeMap(
+  hallId: string,
   operatorNames: Map<string, string>,
-): T & { assignedOperatorName: string | null } {
-  return {
-    ...ceremony,
-    assignedOperatorName: ceremony.assignedOperatorId
-      ? (operatorNames.get(ceremony.assignedOperatorId) ?? null)
-      : null,
-  };
+): Promise<Map<string, CeremonyAssigneeInfo[]>> {
+  const rows = await ceremonyRepo.findAssigneesByHall(hallId);
+  const map = new Map<string, CeremonyAssigneeInfo[]>();
+  for (const row of rows) {
+    const list = map.get(row.ceremonyId) ?? [];
+    list.push({ id: row.operatorId, name: operatorNames.get(row.operatorId) ?? "이름 미확인" });
+    map.set(row.ceremonyId, list);
+  }
+  return map;
 }
 
 // AD-2는 리포지토리 함수가 hallId를 필수 첫 인자로 받으라는 규칙이다. 관리자 예식
@@ -143,8 +170,15 @@ export async function listTodaysCeremonies(): Promise<CeremonyWithHallName[]> {
   const { start, end } = todayRangeKST();
   const results = await Promise.all(
     halls.map(async (hall) => {
-      const hallCeremonies = await ceremonyRepo.findByHallForDateRange(hall.id, start, end);
-      return hallCeremonies.map((c) => withAssignedOperatorName({ ...c, hallName: hall.name }, operatorNames));
+      const [hallCeremonies, assigneeMap] = await Promise.all([
+        ceremonyRepo.findByHallForDateRange(hall.id, start, end),
+        buildAssigneeMap(hall.id, operatorNames),
+      ]);
+      return hallCeremonies.map((c) => ({
+        ...c,
+        hallName: hall.name,
+        assignees: assigneeMap.get(c.id) ?? [],
+      }));
     }),
   );
   return results.flat().sort((a, b) => a.ceremonyAt.getTime() - b.ceremonyAt.getTime());
@@ -159,8 +193,15 @@ export async function listCeremoniesForDate(dateIso: string): Promise<CeremonyWi
   const { start, end } = dayRangeKST(dateIso);
   const results = await Promise.all(
     halls.map(async (hall) => {
-      const hallCeremonies = await ceremonyRepo.findByHallForDateRange(hall.id, start, end);
-      return hallCeremonies.map((c) => withAssignedOperatorName({ ...c, hallName: hall.name }, operatorNames));
+      const [hallCeremonies, assigneeMap] = await Promise.all([
+        ceremonyRepo.findByHallForDateRange(hall.id, start, end),
+        buildAssigneeMap(hall.id, operatorNames),
+      ]);
+      return hallCeremonies.map((c) => ({
+        ...c,
+        hallName: hall.name,
+        assignees: assigneeMap.get(c.id) ?? [],
+      }));
     }),
   );
   return results.flat().sort((a, b) => a.ceremonyAt.getTime() - b.ceremonyAt.getTime());
@@ -184,8 +225,15 @@ export async function listCeremoniesPaginated(input: {
   const [halls, operatorNames] = await Promise.all([hallRepo.findAll(), buildOperatorNameMap()]);
   const results = await Promise.all(
     halls.map(async (hall) => {
-      const hallCeremonies = await ceremonyRepo.findAllByHall(hall.id);
-      return hallCeremonies.map((c) => withAssignedOperatorName({ ...c, hallName: hall.name }, operatorNames));
+      const [hallCeremonies, assigneeMap] = await Promise.all([
+        ceremonyRepo.findAllByHall(hall.id),
+        buildAssigneeMap(hall.id, operatorNames),
+      ]);
+      return hallCeremonies.map((c) => ({
+        ...c,
+        hallName: hall.name,
+        assignees: assigneeMap.get(c.id) ?? [],
+      }));
     }),
   );
   const all = results.flat().sort((a, b) => b.ceremonyAt.getTime() - a.ceremonyAt.getTime());

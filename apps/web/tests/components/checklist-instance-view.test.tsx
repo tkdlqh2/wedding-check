@@ -5,6 +5,9 @@ import { ChecklistInstanceView } from "@/app/operator/ceremonies/[hallId]/[cerem
 // Story 1.4의 폴링 테스트 패턴(vi.useFakeTimers + vi.stubGlobal("fetch", ...))을 재사용.
 // 60초 setInterval은 waitForVideoUpdate의 유한 재시도 루프와 달리 끝나지 않으므로
 // vi.runAllTimersAsync() 대신 vi.advanceTimersByTimeAsync(60_000)로 정확히 한 틱만 진행한다.
+//
+// Story 5.5: POS Tile 라벨이 stepName에서 title로 바뀌었다 — 버튼 조회는 이제 title
+// 기준. stepName은 그룹 헤더로만 쓰인다(별도 group 테스트에서 확인).
 
 const initialCeremony = {
   id: "ceremony-1",
@@ -12,8 +15,8 @@ const initialCeremony = {
   contractConditions: {},
 };
 const initialItems = [
-  { id: "item-1", stepName: "신랑입장", description: null, sortOrder: 1 },
-  { id: "item-2", stepName: "축가", description: null, sortOrder: 2 },
+  { id: "item-1", stepName: "신랑입장", title: "조명 전환", description: null, sortOrder: 1 },
+  { id: "item-2", stepName: "축가", title: "음향 준비", description: null, sortOrder: 2 },
 ];
 
 function renderView() {
@@ -42,13 +45,41 @@ describe("ChecklistInstanceView", () => {
   it("항목 탭 시 즉시 선택 상태 클래스가 반영된다 (AC 1)", () => {
     renderView();
 
-    const tile = screen.getByRole("button", { name: "신랑입장" });
+    const tile = screen.getByRole("button", { name: "조명 전환" });
     expect(tile.className).not.toMatch(/checklist-tile--selected/);
 
     fireEvent.click(tile);
 
     expect(tile.className).toMatch(/checklist-tile--selected/);
     expect(tile.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("단계명이 그룹 헤더로, 체크리스트 항목이 그 아래 개별 타일로 표시된다 (AC 6)", () => {
+    renderView();
+
+    expect(screen.getByRole("heading", { name: "신랑입장" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "축가" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "조명 전환" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "음향 준비" })).toBeInTheDocument();
+  });
+
+  it("같은 단계에 속한 여러 항목은 하나의 그룹 헤더 아래 함께 묶인다 (AC 6)", () => {
+    render(
+      <ChecklistInstanceView
+        hallId="hall-1"
+        ceremonyId="ceremony-1"
+        hallName="1층 홀"
+        initialCeremony={initialCeremony}
+        initialItems={[
+          { id: "item-1", stepName: "개식사", title: "조명 준비", description: null, sortOrder: 1 },
+          { id: "item-2", stepName: "개식사", title: "사전 안내", description: null, sortOrder: 2 },
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByRole("heading", { name: "개식사" })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "조명 준비" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "사전 안내" })).toBeInTheDocument();
   });
 
   it("60초 재검증이 성공하면 항목 목록이 갱신된다 (AC 3)", async () => {
@@ -59,7 +90,9 @@ describe("ChecklistInstanceView", () => {
         ok: true,
         json: async () => ({
           ceremony: initialCeremony,
-          items: [{ id: "item-3", stepName: "새 항목", description: null, sortOrder: 1 }],
+          items: [
+            { id: "item-3", stepName: "새 단계", title: "새 항목", description: null, sortOrder: 1 },
+          ],
         }),
       }),
     );
@@ -81,8 +114,8 @@ describe("ChecklistInstanceView", () => {
       await vi.advanceTimersByTimeAsync(60_000);
     });
 
-    expect(screen.getByRole("button", { name: "신랑입장" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "축가" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "조명 전환" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "음향 준비" })).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("오프라인");
   });
 
@@ -114,7 +147,7 @@ describe("ChecklistInstanceView", () => {
     });
 
     // 기존 항목은 그대로 — HTTP 오류가 캐시/기존 화면을 건드리지 않는다.
-    expect(screen.getByRole("button", { name: "신랑입장" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "조명 전환" })).toBeInTheDocument();
     expect(screen.getByText(/새로고침에 실패했습니다/)).toBeInTheDocument();
     expect(screen.queryByText(/오프라인 상태입니다/)).not.toBeInTheDocument();
   });
@@ -176,7 +209,9 @@ describe("ChecklistInstanceView", () => {
         ok: true,
         json: async () => ({
           ceremony: initialCeremony,
-          items: [{ id: "item-new", stepName: "최신 항목", description: null, sortOrder: 1 }],
+          items: [
+            { id: "item-new", stepName: "단계", title: "최신 항목", description: null, sortOrder: 1 },
+          ],
         }),
       });
     });
@@ -187,7 +222,9 @@ describe("ChecklistInstanceView", () => {
         ok: true,
         json: async () => ({
           ceremony: initialCeremony,
-          items: [{ id: "item-old", stepName: "오래된 항목", description: null, sortOrder: 1 }],
+          items: [
+            { id: "item-old", stepName: "단계", title: "오래된 항목", description: null, sortOrder: 1 },
+          ],
         }),
       });
     });

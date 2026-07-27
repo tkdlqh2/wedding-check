@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: "07-26-2026 16:19"
-last_updated: "07-27-2026 17:10"
+last_updated: "07-27-2026 17:35"
 project: wedding-check
 project_key: WEDCHK
 tracking_system: file-system
@@ -80,7 +80,7 @@ development_status:
   5-4-member-management: done
   5-5-checklist-two-level-structure: done
   5-6-admin-account-menu: done
-  5-7-member-management-polish: review
+  5-7-member-management-polish: done
   5-8-ceremony-screens-polish: backlog
   epic-5-retrospective: optional
 
@@ -88,11 +88,12 @@ development_status:
 # 번호가 매겨진 스토리가 아닌 개별 수정(fix/*)도 동일한 파이프라인으로 추적한다.
 git_pipeline:
   5-7-member-management-polish:
-    stage: pr-open
+    stage: merged
     branch: story/5-7-member-management-polish
     pr_url: "https://github.com/tkdlqh2/wedding-check/pull/20"
-    notes: "main(82daf96) 기준 분기(worktree 아님, primary 체크아웃에서 착수). Epic 5 2차 후속 3건 중 3번째(FR-14, FR-17), Story 5.4 확장. 회원 등록 폼에 역할(오퍼레이터/관리자) pill 토글, 목록에 역할 세그먼트 컨트롤(마지막 활성 관리자 본인 역할 변경은 setMemberRole 서비스 레이어 가드로 차단 — better-auth setRole은 banUser의 YOU_CANNOT_BAN_YOURSELF와 달리 자기 보호가 없음을 소스 확인), 전화번호 3-4-4/3-3-4 표시 포맷, 활성 우선 정렬 + 전체/활성/비활성 요약 + 비활성 보기 토글, 예식 목록과 동일한 페이지네이션. 대표가 로컬 서버(포트 3000)로 실시간으로 화면을 보며 4건의 UI 피드백을 추가로 반영: (1) 전역 box-sizing:border-box 리셋 부재로 .input(width:100%+padding)이 카드 밖으로 밀려나오던 문제 수정 — halls/ceremonies 등 전체 폼에 공통 적용되는 회귀 없는 개선. (2) 비활성화/다시 활성화 버튼을 prototype/js/screens/MemberScreen.js처럼 상태색(error/success) 보더·텍스트로 재스타일링. (3) 본인 행 표시를 'Me' 배지로 축약, 다른 액션 버튼과 동일한 min-width/height로 정렬 고정. (4) 전역 a{text-decoration:none} 리셋으로 Link 기반 버튼(페이지네이션/토글)의 브라우저 기본 밑줄 제거. 대표 요청으로 이름 검색 기능도 추가(AC 범위 밖, GET 폼 + q 쿼리 파라미터, showInactive/페이지네이션과 상태 유지, 요약 카운트는 검색 결과 기준으로 좁혀지되 activeAdminCount는 항상 전체 기준). vitest 신규 20건(역할 파라미터, setMemberRole 가드, listMembersPaginated 정렬/필터/검색/clamp, phone 포맷) 포함 전체 149건 통과, tsc/lint/build 전부 클린. 코덱스 리뷰는 PR 오픈 직후 진행 예정."
-    last_updated: "07-27-2026 17:10"
+    merge_commit: "8715ab1"
+    notes: "main(82daf96) 기준 분기(worktree 아님, primary 체크아웃에서 착수). Epic 5 2차 후속 3건 중 3번째(FR-14, FR-17), Story 5.4 확장. 회원 등록 폼에 역할(오퍼레이터/관리자) pill 토글, 목록에 역할 세그먼트 컨트롤(마지막 활성 관리자 본인 역할 변경은 setMemberRole 서비스 레이어 가드로 차단 — better-auth setRole은 banUser의 YOU_CANNOT_BAN_YOURSELF와 달리 자기 보호가 없음을 소스 확인), 전화번호 3-4-4/3-3-4 표시 포맷, 활성 우선 정렬 + 전체/활성/비활성 요약 + 비활성 보기 토글, 예식 목록과 동일한 페이지네이션. 대표가 로컬 서버(포트 3000)로 실시간으로 화면을 보며 4건의 UI 피드백을 추가로 반영: (1) 전역 box-sizing:border-box 리셋 부재로 .input(width:100%+padding)이 카드 밖으로 밀려나오던 문제 수정 — halls/ceremonies 등 전체 폼에 공통 적용되는 회귀 없는 개선. (2) 비활성화/다시 활성화 버튼을 prototype/js/screens/MemberScreen.js처럼 상태색(error/success) 보더·텍스트로 재스타일링. (3) 본인 행 표시를 'Me' 배지로 축약, 다른 액션 버튼과 동일한 min-width/height로 정렬 고정. (4) 전역 a{text-decoration:none} 리셋으로 Link 기반 버튼(페이지네이션/토글)의 브라우저 기본 밑줄 제거. 대표 요청으로 이름 검색 기능도 추가(AC 범위 밖, GET 폼 + q 쿼리 파라미터, showInactive/페이지네이션과 상태 유지). 코덱스 리뷰 4라운드(1~3차 전부 실결함 발견 후 수정, 4차 클린) — 코덱스 발견 3건: (1차 P2) setMemberRole의 마지막 활성 관리자 보호가 '카운트 확인 → setRole' 두 단계라 두 관리자가 동시에 자기 자신을 강등하면 TOCTOU 경합으로 활성 관리자가 0명이 될 수 있었음 — memberRepo.demoteIfNotLastActiveAdmin() 추가(FOR UPDATE로 활성 관리자 행 전체를 잠그고 재확인한 카운트 기준으로만 UPDATE하는 단일 SQL 문, db.transaction()은 프로덕션 드라이버에서 throw하므로 Story 1.3과 동일한 패턴). (1차 P2) createMemberAction이 role=owner 같은 조작된 값을 검증 없이 operator로 흡수 — 명시적 거부로 수정. (2차 P2) formatPhoneNumberDisplay가 서울(02) 2자리 지역번호에 일반 3자리 규칙을 적용해 0212345678이 '021-234-5678'로 잘못 표시됨 — 02 프리픽스 별도 처리(2-3-4/2-4-4). (3차 P2, 셀프 발견 아님) 이름 검색 활성화 시 요약 카운트(전체/활성/비활성)가 검색 결과 기준으로 좁혀져 AC 4 위반 — 카운트를 검색 필터 이전 전체 기준으로 수정. vitest 신규 24건(역할 파라미터, setMemberRole 가드 + 동시성 경합 재현, demoteIfNotLastActiveAdmin, listMembersPaginated 정렬/필터/검색/clamp, phone 포맷 8건) 포함 전체 155건 통과, tsc/lint/build 전부 클린. CI 그린 확인 후 gh pr merge --merge --delete-branch로 fast-forward 병합."
+    last_updated: "07-27-2026 17:35"
 
   5-6-admin-account-menu:
     stage: merged

@@ -25,16 +25,29 @@ export class VoyageEmbeddingAdapter implements EmbeddingPort {
       throw new Error(`Voyage 임베딩 API 실패: ${res.status} ${await res.text()}`);
     }
 
-    const body = (await res.json()) as { data?: Array<{ embedding: number[]; index: number }> };
+    const body = (await res.json()) as { data?: Array<{ embedding?: unknown; index?: unknown }> };
     // 코덱스 리뷰: res.ok=true라도 응답 shape가 기대와 다를 수 있다(부분 실패 응답 등) —
     // 검증 없이 body.data를 바로 쓰면 undefined 임베딩이 조용히 흘러가 이후
     // ::vector 캐스팅에서야 불명확한 DB 에러로 드러난다. 여기서 명확한 에러로 막는다.
-    if (!Array.isArray(body.data) || body.data.length !== texts.length) {
-      throw new Error(
-        `Voyage 임베딩 API 응답 형식이 올바르지 않습니다(요청 ${texts.length}건, 응답 ${body.data?.length ?? 0}건)`,
+    // 코덱스 리뷰 2라운드: 배열 길이만 보고 통과시키면 각 항목의 embedding이 빠진
+    // 응답(길이는 맞지만 shape가 틀린 경우)이 여전히 통과했다 — 항목별로도 검증한다.
+    function isValidItem(
+      d: { embedding?: unknown; index?: unknown },
+    ): d is { embedding: number[]; index: number } {
+      return (
+        Array.isArray(d.embedding) &&
+        d.embedding.every((n) => typeof n === "number") &&
+        typeof d.index === "number"
       );
     }
-    return body.data
+
+    const data = body.data;
+    if (!Array.isArray(data) || data.length !== texts.length || !data.every(isValidItem)) {
+      throw new Error(
+        `Voyage 임베딩 API 응답 형식이 올바르지 않습니다(요청 ${texts.length}건, 응답 ${data?.length ?? 0}건)`,
+      );
+    }
+    return data
       .slice()
       .sort((a, b) => a.index - b.index)
       .map((d) => d.embedding);

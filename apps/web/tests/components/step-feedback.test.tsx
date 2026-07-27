@@ -305,4 +305,56 @@ describe("StepFeedback — 구조화/확정 (Story 3.2 AC 1, 2, 3, 4)", () => {
 
     expect(await screen.findByText(/확정하지 못했습니다/)).toBeInTheDocument();
   });
+
+  // 코덱스 리뷰 2라운드: disabled={confirmState==="confirming"}만으로는 클릭과 리렌더
+  // 사이의 짧은 창에서 더블클릭이 fetch를 두 번 보낼 수 있다 — ref 기반 가드가
+  // 실제로 두 번째 호출을 막는지 확인한다.
+  it("확정 버튼을 연속으로 두 번 눌러도 확정 요청은 한 번만 보낸다", async () => {
+    let resolveConfirm!: (value: { ok: boolean; json: () => Promise<unknown> }) => void;
+    const confirmPromise = new Promise<{ ok: boolean; json: () => Promise<unknown> }>((resolve) => {
+      resolveConfirm = resolve;
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          feedback: {
+            content: "내용",
+            status: "draft",
+            situation: "상황",
+            outcome: "well_handled",
+            rationale: "판단",
+            tags: ["태그"],
+          },
+        }),
+      })
+      .mockReturnValueOnce(confirmPromise);
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<StepFeedback {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "피드백 남기기" }));
+    const confirmBtn = await screen.findByRole("button", { name: "확정" });
+
+    fireEvent.click(confirmBtn);
+    fireEvent.click(confirmBtn);
+
+    resolveConfirm({
+      ok: true,
+      json: async () => ({
+        feedback: {
+          content: "내용",
+          status: "confirmed",
+          situation: "상황",
+          outcome: "well_handled",
+          rationale: "판단",
+          tags: ["태그"],
+        },
+      }),
+    });
+    await screen.findByText("확정됨");
+
+    const confirmCalls = fetchMock.mock.calls.filter(([url]) => url.endsWith("/confirm"));
+    expect(confirmCalls).toHaveLength(1);
+  });
 });

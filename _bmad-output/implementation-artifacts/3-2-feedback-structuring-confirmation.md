@@ -231,6 +231,5 @@ claude-sonnet-5
 
 - 2026-07-27: 스토리 최초 작성 (create-story, Epic 3 두 번째 스토리 — 이 프로젝트 최초로 실제 AI(LLM+임베딩) 벤더를 연동하는 스토리).
 - 2026-07-27: 구현 완료 (dev) — AC 1~4 전부 구현. AI 포트를 스파인 확정 시그니처로 승격하고 Anthropic/Voyage 어댑터 실장, `feedback` 구조화 필드 + `variable_cases`(pgvector) 마이그레이션, 구조화/확정 서비스+Route Handler, 오퍼레이터 화면 구조화 확인/수정/확정 UI. 설계 편차 2건(변수 케이스 생성 경로 단일화, db.transaction() 대신 단일 CTE)을 Dev Notes/Task에 기록. vitest 200건 통과, tsc/lint/build 클린, 실서버+실DB로 AD-8 원자성 실증(임베딩 실패 시에도 draft 유지·variable_cases 미생성).
-- 2026-07-27: 코덱스 리뷰 1라운드(Blind Hunter + Edge Case Hunter + Acceptance Auditor 병렬) — 실결함 12건 발견 후 전부 수정(핵심: tags 완결성 검증 누락, 구조화 후 content 재저장 시 결과 무효화 안 됨), 7건 defer. vitest 214건 재확인, tsc/lint/build 클린, 실서버+실DB로 수정 사항 재검증. Status → review.
-
-- 2026-07-27: 스토리 최초 작성 (create-story, Epic 3 두 번째 스토리 — 이 프로젝트 최초로 실제 AI(LLM+임베딩) 벤더를 연동하는 스토리).
+- 2026-07-27: 코덱스 리뷰 1라운드(Blind Hunter + Edge Case Hunter + Acceptance Auditor 병렬) — 실결함 12건 발견 후 전부 수정(핵심: tags 완결성 검증 누락, 구조화 후 content 재저장 시 결과 무효화 안 됨), 7건 defer. vitest 214건 재확인, tsc/lint/build 클린, 실서버+실DB로 수정 사항 재검증.
+- 2026-07-27: 코덱스 리뷰 2라운드(1라운드 수정분만 재검토) — 실결함 3건 추가 발견 후 수정: (1) handleSave가 content 재저장 성공 후 status만 갱신하고 situation/outcome/rationale/tagsText 로컬 상태를 그대로 둬, 서버가 구조화 필드를 무효화(null)해도 화면은 낡은 값을 계속 보여주다가 "필드 저장"을 누르면 그 낡은 값을 새 content 위에 그대로 덮어쓸 수 있었음(AD-8 위반 재발 경로) — applyFeedback(data.feedback)으로 교체해 서버 응답을 그대로 반영. (2) confirmFeedback의 tags 완결성 체크가 빈 배열만 막고 5개 초과는 막지 않아 outcome과 달리 비대칭이었음 — normalizeTags 재사용으로 통일. (3) Voyage 응답 검증이 배열 길이만 확인하고 개별 항목의 embedding 형태는 확인하지 않아 여전히 malformed 응답이 통과할 수 있었음 — 항목별 embedding 배열 여부까지 검증 추가. 부가로 확정 버튼 더블클릭 가드에 대한 테스트가 없던 것과 Change Log 하단에 남아있던 "스토리 최초 작성" 중복 줄을 정리. vitest 215건 재확인, tsc/lint/build 클린. Status → review.

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { StepFeedback } from "@/app/operator/ceremonies/[hallId]/[ceremonyId]/step-feedback";
 
 const props = {
@@ -336,8 +336,19 @@ describe("StepFeedback — 구조화/확정 (Story 3.2 AC 1, 2, 3, 4)", () => {
     fireEvent.click(screen.getByRole("button", { name: "피드백 남기기" }));
     const confirmBtn = await screen.findByRole("button", { name: "확정" });
 
-    fireEvent.click(confirmBtn);
-    fireEvent.click(confirmBtn);
+    // 코덱스 리뷰 3라운드: 두 fireEvent.click을 각각 따로 호출하면 RTL이 클릭마다
+    // act()로 감싸 그 사이에 리렌더가 끝나버려, disabled 속성이 이미 갱신된 뒤에
+    // 두 번째 클릭이 발생한다 — 이러면 ref 가드가 아니라 "비활성화된 버튼은
+    // 클릭 이벤트를 못 받는다"는 jsdom의 기본 동작만으로도 테스트가 통과해,
+    // ref 가드 자체를 검증하지 못하는 위양성 테스트가 된다. 하나의 act() 안에
+    // 두 클릭을 함께 넣어 그 사이에 리렌더/커밋이 끼어들지 못하게 하면(React가
+    // act 콜백이 끝날 때까지 커밋을 미룸) 두 클릭 모두 "아직 비활성화되지 않은"
+    // 버튼에 도달한 상태로 handleConfirm이 호출돼, 실제로 confirmingRef가
+    // 두 번째 호출을 막는지를 검증한다.
+    act(() => {
+      fireEvent.click(confirmBtn);
+      fireEvent.click(confirmBtn);
+    });
 
     resolveConfirm({
       ok: true,

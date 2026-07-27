@@ -59,6 +59,18 @@
   color: var(--color-brand);
 }
 
+/* 코덱스 리뷰 P2: 배정된 담당자가 이후 비활성화/역할 변경으로 활성 오퍼레이터
+   목록에서 빠졌을 때도 배정을 해제할 수 있는 별도 컨트롤 — 경고색(warning)으로
+   "정리가 필요한 상태"임을 표시한다(실패가 아니라 주의, DESIGN.md §2 상태색 원칙). */
+.ceremony-detail-page__assignee-pill--stale {
+  /* DESIGN.md 토큰 세트에 warning의 옅은 틴트 변수가 없어, brand-tint처럼 별도 hex를
+     새로 정의하는 대신 승인된 --color-warning 토큰에서 직접 파생한다(임의 색 추가 금지
+     원칙 준수). */
+  background: color-mix(in srgb, var(--color-warning) 12%, white);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
 .ceremony-detail-page__assignee-unassigned {
   font-size: 12px;
   font-weight: 600;
@@ -139,4 +151,117 @@
   display: flex;
   align-items: center;
   gap: var(--space-xs);
+}
+
+.ceremony-detail-page__hint {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: var(--space-xs) 0 0;
+}
+
+/* Story 5.8: "이 예식에만" 체크 항목 추가/수정 — 템플릿의 checklist-item-form* 패턴을
+   그대로 재사용(apps/web/app/admin/templates/[hallId]/templates.css 186~324행 참고). */
+.instance-item-card--editing {
+  display: block;
+}
+
+.instance-item-card__actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.instance-item-form-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  background: var(--color-surface-soft);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.instance-item-form-panel__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+.instance-item-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  align-items: stretch;
+}
+
+.instance-item-form label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.instance-item-form textarea {
+  resize: vertical;
+  font-family: inherit;
+}
+
+/* 각 단계 안의 빠른 추가(요약만 필수, 점선 인풋 — DESIGN.md §10 "정해진 형식 없이"
+   톤과 동일 원칙). */
+.instance-candidate-group__quick-add {
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+}
+
+.instance-item-form--quick {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.instance-item-form--quick .input {
+  border-style: dashed;
+}
+
+.instance-item-form--quick button[type="submit"] {
+  flex-shrink: 0;
+  background: var(--color-surface);
+  color: var(--color-brand);
+  border: 1px solid var(--color-brand);
+  border-radius: var(--radius-md);
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.instance-item-form--quick button[type="submit"]:hover:not(:disabled) {
+  background: var(--color-brand-tint);
+}
+
+.instance-item-form--quick button[type="submit"]:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* 새 단계 추가 — prototype/js/screens/WeddingDetailScreen.js 82~101행과 동일하게
+   목록 맨 아래 점선 카드. */
+.ceremony-detail-page__new-step {
+  margin-top: var(--space-md);
+}
+
+.instance-item-form--new-step {
+  display: flex;
+  gap: var(--space-sm);
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border-mid);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md) var(--space-lg);
+  flex-wrap: wrap;
+}
+
+.instance-item-form--new-step .input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.instance-item-form--new-step button[type="submit"] {
+  flex: none;
 }

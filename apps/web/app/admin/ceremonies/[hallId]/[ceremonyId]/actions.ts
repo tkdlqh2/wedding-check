@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import {
   addInstanceItem,
   removeInstanceItem,
+  addAdHocInstanceItem,
+  updateInstanceItem,
   ChecklistInstanceValidationError,
 } from "@/lib/services/checklist-instance";
 import { assignOperator, CeremonyValidationError } from "@/lib/services/ceremony";
@@ -41,6 +43,68 @@ export async function removeInstanceItemAction(formData: FormData): Promise<void
   if (!isValidUuid(hallId) || !isValidUuid(ceremonyId) || !isValidUuid(itemId)) return;
   await removeInstanceItem(hallId, ceremonyId, itemId);
   revalidatePath(`/admin/ceremonies/${hallId}/${ceremonyId}`);
+}
+
+// Story 5.8: "이 예식에만" 자유 서술 항목 추가 — 기존 단계(템플릿 단계 또는 이미 만든
+// ad-hoc 단계)에 추가할 때는 templateItemId 또는 groupRootId 중 하나만 채워 넘긴다.
+// 완전히 새 단계를 만들 때는 둘 다 비워서 넘긴다(stepName만 사용).
+export async function addAdHocItemAction(
+  _prevState: InstanceItemFormState,
+  formData: FormData,
+): Promise<InstanceItemFormState> {
+  await requireAdminSession();
+  const hallId = String(formData.get("hallId") ?? "");
+  const ceremonyId = String(formData.get("ceremonyId") ?? "");
+  const templateItemIdRaw = String(formData.get("templateItemId") ?? "");
+  const groupRootIdRaw = String(formData.get("groupRootId") ?? "");
+  if (
+    !isValidUuid(hallId) ||
+    !isValidUuid(ceremonyId) ||
+    (templateItemIdRaw && !isValidUuid(templateItemIdRaw)) ||
+    (groupRootIdRaw && !isValidUuid(groupRootIdRaw))
+  ) {
+    return { error: "잘못된 요청입니다" };
+  }
+  const title = String(formData.get("title") ?? "");
+  const description = String(formData.get("description") ?? "");
+  const stepName = String(formData.get("stepName") ?? "");
+  try {
+    await addAdHocInstanceItem(hallId, ceremonyId, {
+      title,
+      description: description || null,
+      stepName,
+      templateItemId: templateItemIdRaw || null,
+      groupRootId: groupRootIdRaw || null,
+    });
+  } catch (err) {
+    if (err instanceof ChecklistInstanceValidationError) return { error: err.message };
+    throw err;
+  }
+  revalidatePath(`/admin/ceremonies/${hallId}/${ceremonyId}`);
+  return {};
+}
+
+export async function updateInstanceItemAction(
+  _prevState: InstanceItemFormState,
+  formData: FormData,
+): Promise<InstanceItemFormState> {
+  await requireAdminSession();
+  const hallId = String(formData.get("hallId") ?? "");
+  const ceremonyId = String(formData.get("ceremonyId") ?? "");
+  const itemId = String(formData.get("itemId") ?? "");
+  if (!isValidUuid(hallId) || !isValidUuid(ceremonyId) || !isValidUuid(itemId)) {
+    return { error: "잘못된 요청입니다" };
+  }
+  const title = String(formData.get("title") ?? "");
+  const description = String(formData.get("description") ?? "");
+  try {
+    await updateInstanceItem(hallId, ceremonyId, itemId, { title, description: description || null });
+  } catch (err) {
+    if (err instanceof ChecklistInstanceValidationError) return { error: err.message };
+    throw err;
+  }
+  revalidatePath(`/admin/ceremonies/${hallId}/${ceremonyId}`);
+  return {};
 }
 
 // Story 5.8 AC 7: operatorId는 better-auth user.id(uuid 형식이 아닌 text)라

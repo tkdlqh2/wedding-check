@@ -241,7 +241,10 @@ export function ChecklistInstanceView({
         setStatusError(body?.error?.message ?? "상태 변경에 실패했습니다 — 다시 시도해주세요.");
         return;
       }
-      const updated = { ...ceremony, status: next };
+      // 코덱스 리뷰 P2: 동시에 다른 오퍼레이터가 상태를 더 진행시켰을 수 있다 —
+      // 요청 값(next)이 아니라 서버가 확정해 돌려준 상태를 반영/캐시한다.
+      const body = (await res.json().catch(() => null)) as { status?: string } | null;
+      const updated = { ...ceremony, status: body?.status ?? next };
       setCeremony(updated);
       writeCache(ceremonyId, { ceremony: updated, items });
     } catch {

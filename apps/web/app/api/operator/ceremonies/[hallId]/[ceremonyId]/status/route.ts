@@ -1,4 +1,5 @@
 import * as hallRepo from "@/lib/db/repositories/hall";
+import * as ceremonyRepo from "@/lib/db/repositories/ceremony";
 import { requireSession } from "@/lib/auth-guard";
 import { isValidUuid } from "@/lib/uuid";
 import { setCeremonyStatus, CeremonyValidationError } from "@/lib/services/ceremony";
@@ -69,5 +70,9 @@ export async function POST(
     throw err;
   }
 
-  return Response.json({ ok: true, status });
+  // 코덱스 리뷰 P2: 이 요청의 전환이 성공한 직후에도 다른 오퍼레이터가 상태를 더
+  // 진행시켰을 수 있다 — 요청 값이 아니라 DB에 실제로 저장된 상태를 응답해, 클라이언트가
+  // 낡은 상태를 성공으로 믿고 캐시하지 않게 한다.
+  const persisted = await ceremonyRepo.findById(hallId, ceremonyId);
+  return Response.json({ ok: true, status: persisted?.status ?? status });
 }

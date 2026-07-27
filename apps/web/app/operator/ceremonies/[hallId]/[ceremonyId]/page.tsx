@@ -38,7 +38,7 @@ export default async function OperatorCeremonyPage({
   return (
     <section className="operator-instance-page">
       <Link href="/operator" className="operator-instance-page__back">
-        ← 오늘 예식
+        ← 담당 예식 일정
       </Link>
       <ChecklistInstanceView
         hallId={hallId}

@@ -194,55 +194,15 @@
   overflow-wrap: anywhere;
 }
 
-/* FR-18 다중 배정 — prototype/js/screens/WeddingScreen.js 121~130행의 카드 내 담당
-   오퍼레이터 pill 토글(선택 = 브랜드 틴트/보더/텍스트, 미선택 = 흰 배경 + muted). */
-.ceremony-card__assignees {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-top: var(--space-xs);
-}
-
-.ceremony-card__assignees-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--color-text-muted);
-}
-
-.assignee-pill {
-  cursor: pointer;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-mid);
-  border-radius: var(--radius-full);
-  padding: 5px 12px;
-  font-size: 12px;
+/* 목록 카드의 담당 표시는 읽기 전용(대표 피드백 2026-07-27) — 배정/해제는 상세
+   화면의 담당자 지정 대화상자에서만 한다. */
+.ceremony-card__assignee-line {
+  font-size: 13px;
   font-weight: 600;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
 }
 
-.assignee-pill--active {
-  background: var(--color-brand-tint);
-  border-color: var(--color-brand);
-  color: var(--color-brand);
-}
-
-/* 배정 후 비활성화/역할 변경된 담당자 — 경고 톤으로 "정리 필요" 상태를 표시하되
-   클릭으로 해제는 계속 가능(임의 hex 대신 승인된 warning 토큰에서 파생). */
-.assignee-pill--stale {
-  background: color-mix(in srgb, var(--color-warning) 12%, white);
-  border-color: var(--color-warning);
-  color: var(--color-warning);
-}
-
-.assignee-pill:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.ceremony-card__assignees-unassigned {
-  font-size: 12px;
-  font-weight: 600;
+.ceremony-card__assignee-line--unassigned {
   color: var(--color-error);
 }
 

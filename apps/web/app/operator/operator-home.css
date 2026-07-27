@@ -1,7 +1,31 @@
-/* DESIGN.md §4 예식/체크리스트 인스턴스 카드(UX-DR7), §14 Empty state — 오퍼레이터 홈 */
-.operator-home__empty {
-  color: var(--color-text-muted);
+/* prototype/js/screens/ScheduleScreen.js — "담당 예식 일정": 캘린더(공용
+   .ceremony-calendar 재사용) + 선택한 날짜의 예식 카드(시간+신랑신부 큰 제목,
+   홀·계약·담당 메타, 상태 배지 + "체크리스트 열기" 주요 CTA, 좌측 상태색 보더). */
+.operator-home {
+  max-width: 1024px;
+  margin: 0 auto;
+}
+
+.operator-home__subtitle {
   font-size: 14px;
+  color: var(--color-text-secondary);
+  margin: 4px 0 var(--space-base);
+}
+
+.operator-home__list-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: var(--space-lg) 0 var(--space-md);
+}
+
+.operator-home__empty {
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border-mid);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl) var(--space-lg);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 15px;
 }
 
 .operator-ceremony-list {
@@ -10,45 +34,84 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--space-md);
 }
 
 .operator-ceremony-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-base);
+  flex-wrap: wrap;
   background: var(--color-surface);
   border: 1px solid var(--color-border-light);
   border-left: 4px solid var(--color-border-mid);
   border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: 18px 22px;
 }
 
-.operator-ceremony-card__link {
+.operator-ceremony-card--done {
+  border-left-color: var(--color-success);
+}
+
+.operator-ceremony-card__body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  padding: var(--space-md);
-  min-height: 44px;
-  color: inherit;
-  text-decoration: none;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
 }
 
-/* 예식 목록 카드(admin ceremony-card)와 동일 위계 — 시간+신랑신부가 제일 크게. */
 .operator-ceremony-card__title {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--color-text-primary);
 }
 
 .operator-ceremony-card__couple {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
 }
 
 .operator-ceremony-card__meta {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--color-text-muted);
 }
 
-.operator-ceremony-card__assignees {
+.operator-ceremony-card__unassigned {
+  color: var(--color-error);
+  font-weight: 600;
+}
+
+.operator-ceremony-card__side {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-base);
+  flex: none;
+}
+
+.operator-ceremony-card__status-badge {
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border-light);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 3px 10px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-text-secondary);
+}
+
+.operator-ceremony-card__status-badge--done {
+  background: var(--color-success);
+  border-color: transparent;
+  color: #ffffff;
+}
+
+/* ≥44px 탭 타깃(태블릿, DESIGN.md §5) */
+.operator-ceremony-card__open {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: var(--space-md) 20px;
+  font-size: 15px;
 }

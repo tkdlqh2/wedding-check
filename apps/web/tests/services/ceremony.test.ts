@@ -483,3 +483,27 @@ describe("toggleAssignee — 담당 오퍼레이터 다중 배정 (FR-18)", () =
     expect(unassignedRow?.assignees).toEqual([]);
   });
 });
+
+describe("toggleAssignee — 종료된 예식 수정 금지 (2026-07-27 대표 지시)", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("종료된(예식 일시가 지난) 예식에는 담당자를 배정/해제할 수 없다", async () => {
+    const hall = await createTestHall();
+    const operator = await createMember({
+      name: "오퍼레이터H",
+      phoneNumber: "01098880008",
+      password: "pw-91234",
+    });
+    const ceremony = await createCeremony({
+      hallId: hall.id,
+      ceremonyAt: new Date("2020-01-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+
+    await expect(toggleAssignee(hall.id, ceremony.id, operator.id)).rejects.toThrow(
+      "종료된 예식은 수정할 수 없습니다",
+    );
+  });
+});

@@ -40,9 +40,12 @@ export const checklistTemplateItems = pgTable(
     stepName: text("step_name").notNull(),
     description: text("description"),
     sortOrder: integer("sort_order").notNull(),
-    // AD-9: 계약 형태 조건부 포함 여부의 데이터 표현. 이 스토리는 컬럼만 확정하고 기본값
-    // {}(모든 계약 형태에 포함)만 쓴다 — 편집 UI는 Epic 2까지 미룬다.
+    // AD-9: 계약 형태 조건부 포함 여부의 데이터 표현. Story 1.3은 컬럼만 확정하고 기본값
+    // {}(모든 계약 형태에 포함)만 썼다 — 편집 UI와 실제 매칭은 Story 2.2에서 구현.
+    // ceremonies.contractConditions와 동일한 키 셰이프(Record<string, boolean>)를
+    // 가정한다(부분집합 매칭 @> 연산에 필요) — $type으로 명시해 unknown 캐스팅 없이 쓴다.
     applicableContractConditions: jsonb("applicable_contract_conditions")
+      .$type<Record<string, boolean>>()
       .notNull()
       .default({}),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -109,7 +112,10 @@ export const ceremonies = pgTable("ceremonies", {
   // AD-9 rationale 그대로). [ASSUMPTION] 키는 PRD §4.1 예시 그대로 두 개만 정의:
   // { requiresOfficiant?: boolean; hasAdditionalEvent?: boolean } — 부분집합 매칭
   // 알고리즘 자체는 Story 2.2(FR-5) 범위. 이 스토리는 값을 받아 저장만 한다.
-  contractConditions: jsonb("contract_conditions").notNull().default({}),
+  contractConditions: jsonb("contract_conditions")
+    .$type<Record<string, boolean>>()
+    .notNull()
+    .default({}),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
@@ -142,23 +148,35 @@ export const checklistInstances = pgTable(
 // 라이브 참조로 남겨 매번 JOIN하면 이후 관리자가 템플릿 항목을 수정/삭제할 때 이미 만들어진
 // 예식의 체크리스트가 조용히 바뀌거나(Story 1.4의 FK 삭제 차단 버그와 같은 클래스로) 삭제가
 // 막힌다. templateItemId는 onDelete: "set null"인 소프트 참조로만 남긴다.
-export const checklistInstanceItems = pgTable("checklist_instance_items", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  hallId: uuid("hall_id")
-    .notNull()
-    .references(() => halls.id),
-  instanceId: uuid("instance_id")
-    .notNull()
-    .references(() => checklistInstances.id, { onDelete: "cascade" }),
-  templateItemId: uuid("template_item_id").references(
-    () => checklistTemplateItems.id,
-    { onDelete: "set null" },
-  ),
-  stepName: text("step_name").notNull(),
-  description: text("description"),
-  sortOrder: integer("sort_order").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const checklistInstanceItems = pgTable(
+  "checklist_instance_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    hallId: uuid("hall_id")
+      .notNull()
+      .references(() => halls.id),
+    instanceId: uuid("instance_id")
+      .notNull()
+      .references(() => checklistInstances.id, { onDelete: "cascade" }),
+    templateItemId: uuid("template_item_id").references(
+      () => checklistTemplateItems.id,
+      { onDelete: "set null" },
+    ),
+    stepName: text("step_name").notNull(),
+    description: text("description"),
+    sortOrder: integer("sort_order").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    // Story 2.2 코덱스 리뷰 P2: 재전송/두 탭 동시 제출로 같은 항목이 인스턴스에 중복
+    // 추가되는 것을 막는다. templateItemId가 NULL인 행(원본 삭제됨)끼리는 Postgres가
+    // NULL을 서로 다른 값으로 취급해 이 제약에 걸리지 않는다 — 의도된 동작.
+    unique("checklist_instance_items_instance_id_template_item_id_unique").on(
+      table.instanceId,
+      table.templateItemId,
+    ),
+  ],
+);
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),

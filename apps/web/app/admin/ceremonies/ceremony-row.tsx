@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { CeremonyWithHallName } from "@/lib/services/ceremony";
 
 // KST 고정 표시 — 이 제품은 국내 단일 웨딩홀 대상이라 서버/브라우저 로컬 타임존과
@@ -21,6 +22,9 @@ export function CeremonyRow({ ceremony }: { ceremony: CeremonyWithHallName }) {
         </span>
       </div>
       <span className="ceremony-card__item-count">체크리스트 항목 {ceremony.itemCount}개</span>
+      <Link href={`/admin/ceremonies/${ceremony.hallId}/${ceremony.id}`} className="btn-secondary">
+        관리
+      </Link>
     </li>
   );
 }

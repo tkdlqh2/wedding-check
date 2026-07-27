@@ -1,6 +1,11 @@
 import { eq, and, gte, lt, sql } from "drizzle-orm";
 import { db } from "../index";
-import { ceremonies, checklistInstances, checklistInstanceItems } from "../schema";
+import {
+  ceremonies,
+  ceremonyAssignees,
+  checklistInstances,
+  checklistInstanceItems,
+} from "../schema";
 
 export type Ceremony = typeof ceremonies.$inferSelect;
 export type CeremonyWithItemCount = Ceremony & { itemCount: number };
@@ -111,17 +116,60 @@ export async function findById(hallId: string, id: string): Promise<Ceremony | u
   });
 }
 
-// Story 5.8 AC 7: 담당 오퍼레이터 단일 배정/해제(operatorId === null이면 해제).
-// AD-2: hallId 스코프 WHERE 필수.
-export async function assignOperator(
+// FR-18 다중 배정(2026-07-27): ceremony_assignees 조인 테이블 기반. AD-2 — 모든
+// 쿼리에 hall_id 스코프.
+
+export type CeremonyAssignee = typeof ceremonyAssignees.$inferSelect;
+
+// 목록 화면 병합용 — 홀 1개의 전체 배정 행을 한 번에 가져와 서비스가 ceremonyId별로
+// 묶는다(예식별 N+1 쿼리 방지, hallName 병합과 동일 스타일).
+export async function findAssigneesByHall(hallId: string): Promise<CeremonyAssignee[]> {
+  return db.query.ceremonyAssignees.findMany({
+    where: eq(ceremonyAssignees.hallId, hallId),
+    orderBy: ceremonyAssignees.createdAt,
+  });
+}
+
+export async function findAssigneesByCeremony(
   hallId: string,
-  id: string,
-  operatorId: string | null,
+  ceremonyId: string,
+): Promise<CeremonyAssignee[]> {
+  return db.query.ceremonyAssignees.findMany({
+    where: and(
+      eq(ceremonyAssignees.ceremonyId, ceremonyId),
+      eq(ceremonyAssignees.hallId, hallId),
+    ),
+    orderBy: ceremonyAssignees.createdAt,
+  });
+}
+
+// 동시 클릭으로 같은 배정이 두 번 들어와도 PK(ceremony_id, operator_id) 충돌을
+// onConflictDoNothing으로 흡수해 멱등하게 처리한다.
+export async function addAssignee(
+  hallId: string,
+  ceremonyId: string,
+  operatorId: string,
 ): Promise<void> {
   await db
-    .update(ceremonies)
-    .set({ assignedOperatorId: operatorId })
-    .where(and(eq(ceremonies.id, id), eq(ceremonies.hallId, hallId)));
+    .insert(ceremonyAssignees)
+    .values({ hallId, ceremonyId, operatorId })
+    .onConflictDoNothing();
+}
+
+export async function removeAssignee(
+  hallId: string,
+  ceremonyId: string,
+  operatorId: string,
+): Promise<void> {
+  await db
+    .delete(ceremonyAssignees)
+    .where(
+      and(
+        eq(ceremonyAssignees.ceremonyId, ceremonyId),
+        eq(ceremonyAssignees.operatorId, operatorId),
+        eq(ceremonyAssignees.hallId, hallId),
+      ),
+    );
 }
 
 // Story 5.2: 날짜 필터 없는 전체 목록(페이지네이션용). findByHallForDateRange와 동일한

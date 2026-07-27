@@ -62,7 +62,7 @@ development_status:
   epic-2-retrospective: optional
 
   epic-3: in-progress
-  3-1-natural-language-feedback: ready-for-dev
+  3-1-natural-language-feedback: in-progress
   3-2-feedback-structuring-confirmation: backlog
   3-3-natural-language-query: backlog
   3-4-evidence-based-response: backlog

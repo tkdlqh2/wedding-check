@@ -19,7 +19,7 @@ function assertUsingTestDatabase() {
 export async function resetDb() {
   assertUsingTestDatabase();
   await db.execute(
-    sql`TRUNCATE TABLE checklist_instance_items, checklist_instances, ceremonies, demo_videos, checklist_template_items, halls, session, account, verification, "user" RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE TABLE feedback, checklist_instance_items, checklist_instances, ceremonies, demo_videos, checklist_template_items, halls, session, account, verification, "user" RESTART IDENTITY CASCADE`,
   );
 }
 

@@ -170,6 +170,10 @@ Amelia (claude-sonnet-5)
 - **[P2] `readCache`가 문법적으로 유효하지만 셰이프가 다른 JSON을 그대로 반환.** 예: 이전 앱 버전이 남긴 `{}` — `ceremony`/`items`가 `undefined`인 채로 다음 렌더에서 크래시할 수 있었다. `isValidCachedShape()`로 `ceremony.id`/`ceremony.ceremonyAt`가 문자열인지, `items`가 배열인지 런타임 검증 후 셰이프가 안 맞으면 `null`을 반환하도록 수정.
 - **테스트 작성 중 발견한 부수 문제(둘 다 검증 스크립트 자체의 버그, 코드 버그 아님):** `vi.spyOn(window.navigator, "onLine", "get")`로 만든 스파이가 `vi.unstubAllGlobals()`로는 정리되지 않아 다음 테스트로 값이 새어나갔다(이전 테스트가 `onLine=false`로 남겨두면 이후 테스트가 전부 오프라인 분기로 잘못 빠짐) — `afterEach`에 `vi.restoreAllMocks()`를 추가해 해결.
 
+**코덱스 리뷰 3차(PR #10) — 2건 실결함, 수정·로컬 서버 실제 확인 후 확인:**
+- **[P2] 세션 만료가 401이 아니라 500으로 응답됨.** 2차 수정에서 클라이언트에 `res.status === 401` 리다이렉트 분기를 추가했지만, Route Handler의 `requireSession()`은 그냥 throw하고 있어 Next.js 기본 에러 핸들링이 이를 500으로 바꿔버렸다 — 그 결과 401 분기가 실행될 수 없는 죽은 코드였고, 세션이 끊긴 오퍼레이터는 "새로고침 실패" 오류만 보며 로그인 화면으로 가지 못했다. `requireSession()` 호출을 try/catch로 감싸 인증 실패를 명시적으로 401 JSON 응답으로 반환하도록 수정. 로컬 서버에 실제 미인증 요청을 보내 401을 반환함을 확인.
+- **[P2] 폴링 라우트가 비활성 홀 검증을 건너뜀.** `page.tsx`(최초 로드)는 `hall.isActive`를 확인해 `notFound()`로 막는데, 폴링 라우트는 이 검증이 없어 홀이 비활성화된 뒤에도 계속 데이터를 내려주거나 다른 비활성 홀의 예식을 직접 조회당할 수 있었다. `hallRepo.findById` + `isActive` 검증을 라우트에도 동일하게 추가(404 반환). 로컬 서버에서 홀을 실제로 비활성화한 뒤 폴링 라우트가 404를 반환함을 확인, 원상복구 후 재확인.
+
 ### Completion Notes List
 
 - AC 1: POS Tile 마크업(`checklist-tile`/`checklist-tile-grid`)이 실제 SSR HTML에 렌더링됨을 로컬 서버 HTTP 응답으로 확인. 탭 시 0ms 즉시 선택 상태 반영(트랜지션 없는 CSS)은 컴포넌트 테스트로 자동화 검증.

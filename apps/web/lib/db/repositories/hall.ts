@@ -18,6 +18,15 @@ export async function findAllActive(): Promise<Hall[]> {
   });
 }
 
+// Story 5.2: 비활성화된 홀도 연결 데이터(과거/예정 예식)는 보존된다(AC 3, deactivate()
+// 참고 — 하드 삭제 없음). 예식 등록 폼의 홀 선택지처럼 "지금 예식을 걸 수 있는 홀"이
+// 필요한 곳은 findAllActive()를 쓰고, 과거 이력을 조회/집계하는 화면은 이 함수로 비활성
+// 홀의 예식도 함께 봐야 한다(코덱스 리뷰 P2 — findAllActive()만 쓰면 홀을 비활성화하는
+// 순간 그 홀의 모든 과거 예식이 목록/캘린더에서 사라짐).
+export async function findAll(): Promise<Hall[]> {
+  return db.query.halls.findMany({ orderBy: desc(halls.createdAt) });
+}
+
 export async function findById(id: string): Promise<Hall | undefined> {
   return db.query.halls.findFirst({ where: eq(halls.id, id) });
 }

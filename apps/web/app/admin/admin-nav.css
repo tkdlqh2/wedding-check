@@ -1,4 +1,5 @@
-/* DESIGN.md §4 Navigation — 관리자: 흰색 스티키 헤더, 로고 좌측, 내비 중앙, 오렌지-레드 CTA 우측 */
+/* DESIGN.md §4 Navigation — 관리자: 흰색 스티키 헤더, 로고 좌측, 내비 중앙, 오렌지-레드 CTA 우측.
+   Story 5.2: prototype/js/screens/AdminScreen.js와 폭(max-width 1200px)·탭 강조 스타일을 정렬. */
 .admin-shell {
   min-height: 100dvh;
   background: var(--color-surface-soft);
@@ -8,11 +9,16 @@
   position: sticky;
   top: 0;
   z-index: 10;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-header);
+}
+
+.admin-nav__inner {
+  max-width: 1200px;
+  margin: 0 auto;
   display: flex;
   align-items: center;
   gap: var(--space-lg);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-header);
   padding: var(--space-md) var(--space-xl);
 }
 
@@ -24,7 +30,8 @@
 
 .admin-nav__links {
   display: flex;
-  gap: var(--space-lg);
+  align-items: center;
+  gap: var(--space-xs);
   flex: 1;
 }
 
@@ -32,6 +39,13 @@
   font-weight: 600;
   font-size: 16px;
   color: var(--color-text-secondary);
+  padding: 10px var(--space-md);
+  border-radius: var(--radius-md);
+}
+
+.admin-nav__link--active {
+  background: var(--color-brand-tint);
+  color: var(--color-brand);
 }
 
 .admin-nav__link--placeholder {
@@ -39,5 +53,11 @@
 }
 
 .admin-content {
+  min-height: 0;
+}
+
+.admin-content__inner {
+  max-width: 1200px;
+  margin: 0 auto;
   padding: var(--space-xl);
 }

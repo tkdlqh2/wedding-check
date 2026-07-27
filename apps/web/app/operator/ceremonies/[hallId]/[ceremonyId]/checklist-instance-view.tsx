@@ -198,7 +198,10 @@ export function ChecklistInstanceView({
         <p className="checklist-instance-view__empty">포함된 항목이 없습니다.</p>
       ) : (
         groupItemsByStep(items).map(([stepName, stepItems]) => (
-          <section key={stepName} className="checklist-step-group">
+          // 코덱스 리뷰 P2: stepName은 스키마상 유일함이 보장되지 않는다(관리자가 같은
+          // 이름의 단계를 두 번 만들 수 있음) — 그룹의 첫 항목 id(전역 유일)를 React
+          // key로 써서 두 그룹이 같은 stepName을 가져도 안정적으로 구분되게 한다.
+          <section key={stepItems[0].id} className="checklist-step-group">
             <h2 className="checklist-step-group__name">{stepName}</h2>
             <ul className="checklist-tile-grid">
               {stepItems.map((item) => (

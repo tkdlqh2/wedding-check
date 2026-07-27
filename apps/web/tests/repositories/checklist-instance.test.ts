@@ -33,7 +33,6 @@ describe("checklistInstanceRepo — addItem/removeItem", () => {
       id: checklistItem.id,
       title: checklistItem.title,
       description: checklistItem.description,
-      sortOrder: checklistItem.sortOrder,
       stepName: step.stepName,
     });
 
@@ -53,7 +52,6 @@ describe("checklistInstanceRepo — addItem/removeItem", () => {
       id: checklistItem.id,
       title: checklistItem.title,
       description: checklistItem.description,
-      sortOrder: checklistItem.sortOrder,
       stepName: step.stepName,
     };
 
@@ -74,7 +72,6 @@ describe("checklistInstanceRepo — addItem/removeItem", () => {
       id: checklistItem.id,
       title: checklistItem.title,
       description: checklistItem.description,
-      sortOrder: checklistItem.sortOrder,
       stepName: step.stepName,
     });
 
@@ -82,6 +79,37 @@ describe("checklistInstanceRepo — addItem/removeItem", () => {
 
     const items = await instanceRepo.listItems(hall.id, instanceId);
     expect(items).toHaveLength(0);
+  });
+
+  // 코덱스 리뷰 P1: sortOrder에 체크리스트 항목의 "단계 안" sortOrder를 그대로 쓰면
+  // 여러 단계가 각자 0부터 시작해 인스턴스 전체 순서와 동률·충돌이 났다 — 수동 추가는
+  // 항상 인스턴스의 현재 최댓값 다음(맨 뒤)에 배치되어야 한다.
+  it("수동 추가된 항목은 항상 인스턴스의 현재 최댓값 다음 sortOrder를 받는다", async () => {
+    const hall = await createTestHall();
+    const { instanceId } = await createCeremonyWithNoItems(hall.id);
+    const stepA = await createTestTemplateItem(hall.id, { stepName: "단계A", sortOrder: 1 });
+    const stepB = await createTestTemplateItem(hall.id, { stepName: "단계B", sortOrder: 2 });
+    // 두 단계 모두 체크리스트 항목의 단계-내 sortOrder가 0부터 시작 — 이 값을 그대로
+    // 인스턴스 sortOrder로 쓰면 충돌/동률이 난다는 것이 이 테스트의 핵심 전제.
+    const itemA1 = await createTestChecklistItem(hall.id, stepA.id, { title: "A-1", sortOrder: 0 });
+    const itemB1 = await createTestChecklistItem(hall.id, stepB.id, { title: "B-1", sortOrder: 0 });
+
+    const addedA = await instanceRepo.addItem(hall.id, instanceId, {
+      id: itemA1.id,
+      title: itemA1.title,
+      description: itemA1.description,
+      stepName: stepA.stepName,
+    });
+    const addedB = await instanceRepo.addItem(hall.id, instanceId, {
+      id: itemB1.id,
+      title: itemB1.title,
+      description: itemB1.description,
+      stepName: stepB.stepName,
+    });
+
+    expect(addedB.sortOrder).toBeGreaterThan(addedA.sortOrder);
+    const items = await instanceRepo.listItems(hall.id, instanceId);
+    expect(items.map((i) => i.title)).toEqual(["A-1", "B-1"]);
   });
 
   it("다른 홀의 instanceId/itemId로는 제거되지 않는다 (홀 스코프 격리)", async () => {
@@ -94,7 +122,6 @@ describe("checklistInstanceRepo — addItem/removeItem", () => {
       id: checklistItem.id,
       title: checklistItem.title,
       description: checklistItem.description,
-      sortOrder: checklistItem.sortOrder,
       stepName: step.stepName,
     });
 
@@ -127,7 +154,6 @@ describe("checklistInstanceRepo.listCandidateChecklistItems — 홀 스코프 �
       id: included.id,
       title: included.title,
       description: included.description,
-      sortOrder: included.sortOrder,
       stepName: step.stepName,
     });
 

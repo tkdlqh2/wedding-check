@@ -90,7 +90,6 @@ export async function addInstanceItem(
     id: checklistItem.id,
     title: checklistItem.title,
     description: checklistItem.description,
-    sortOrder: checklistItem.sortOrder,
     stepName: step.stepName,
   });
 }

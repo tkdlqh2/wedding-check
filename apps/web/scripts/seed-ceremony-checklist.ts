@@ -103,9 +103,14 @@ async function seedHall(hallId: string, hallName: string) {
     const targetSortOrder = currentMax + 1 + index;
     const match = existingByStepName.get(step.stepName);
     if (match) {
+      // applicableContractConditions를 생략하면 repository update()가 {}로 덮어쓴다
+      // — 관리자가 이 단계에 걸어둔 계약 형태 조건(AD-9, 예: "주례 관련")이 재실행할
+      // 때마다 조용히 초기화될 수 있었다(코덱스 리뷰 3차 P2). 기존 값을 그대로 넘겨
+      // 보존한다 — 이 스크립트는 stepName/description 콘텐츠만 갱신하는 것이 목적이다.
       await templateItemRepo.update(hallId, match.id, {
         stepName: step.stepName,
         description: step.description,
+        applicableContractConditions: match.applicableContractConditions,
       });
       await templateItemRepo.setSortOrder(hallId, match.id, targetSortOrder);
       console.log(`  갱신됨 (${targetSortOrder}): ${step.stepName}`);

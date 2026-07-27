@@ -35,16 +35,16 @@ so that 정해진 폼을 채우는 부담 없이 겪은 변수 상황을 기록�
   - [x] `npx drizzle-kit generate`로 마이그레이션 생성 시도 — 예상대로 인터랙티브 프롬프트(`promptColumnsConflicts`)가 떠서 비대화형 환경에서 실패(Story 5.4와 동일한 알려진 이슈). `0015_snapshot.json`을 베이스로 `feedback` 테이블 CREATE만 추가한 `0016_snapshot.json`을 직접 구성하고 대응하는 `0016_natural-language-feedback.sql`을 손으로 작성, `drizzle/meta/_journal.json`에 엔트리 추가. `npx drizzle-kit check`로 스냅샷 체인 정합성 확인(`Everything's fine`).
   - [x] `db:test:migrate` 스크립트는 "빈 DB만 대상"(증분 미지원, 스크립트 주석에 명시)이라 이미 0000~0015가 적용된 공유 테스트 DB에는 쓸 수 없었다 — `docker exec wedding-check-db psql`로 `0016_natural-language-feedback.sql` 단독 적용(테스트 DB `wedding_check_test`, 로컬 개발 DB `wedding_check` 둘 다) 후 `\dt`로 `feedback` 테이블 생성 확인.
 
-- [ ] Task 2: 리포지토리 레이어 (AC: 1, 2)
-  - [ ] `apps/web/lib/db/repositories/feedback.ts`(NEW):
+- [x] Task 2: 리포지토리 레이어 (AC: 1, 2)
+  - [x] `apps/web/lib/db/repositories/feedback.ts`(NEW):
     - `export type Feedback = typeof feedback.$inferSelect;`
     - `findByCeremonyAndStep(ceremonyId: string, templateItemId: string): Promise<Feedback | undefined>` — `db.query.feedback.findFirst({ where: and(eq(feedback.ceremonyId, ceremonyId), eq(feedback.templateItemId, templateItemId)) })` (member.ts::`findByPhoneNumber`와 동일한 단순 조회 패턴).
     - `create(input: { hallId, ceremonyId, templateItemId, stepName, content }): Promise<Feedback>` — `db.insert(feedback).values({ ...input, status: "draft" }).returning()`.
     - `updateContent(id: string, content: string): Promise<Feedback>` — `db.update(feedback).set({ content }).where(eq(feedback.id, id)).returning()` (updatedAt은 `$onUpdate`가 자동 처리).
     - 이 리포지토리에는 hallId 스코프 격리를 넣지 않는다(AD-2가 명시하는 홀 종속 엔티티 목록에 `feedback`은 없음 — AD-6에 따라 hallId는 표시 태그일 뿐). 대신 서비스 레이어가 `ceremonyRepo.findById(hallId, ceremonyId)`로 예식이 실제로 그 홀 소속인지 검증한다(아래 Task 3).
 
-- [ ] Task 3: 서비스 레이어 (AC: 1, 2, 4)
-  - [ ] `apps/web/lib/services/feedback.ts`(NEW):
+- [x] Task 3: 서비스 레이어 (AC: 1, 2, 4)
+  - [x] `apps/web/lib/services/feedback.ts`(NEW):
     - `export class FeedbackValidationError extends Error {}`
     - `saveDraftFeedback(hallId: string, ceremonyId: string, templateItemId: string, content: string): Promise<Feedback>`:
       1. `ceremonyRepo.findById(hallId, ceremonyId)` — 없으면 `FeedbackValidationError("존재하지 않는 예식입니다")`.
@@ -58,8 +58,8 @@ so that 정해진 폼을 채우는 부담 없이 겪은 변수 상황을 기록�
       1. `ceremonyRepo.findById(hallId, ceremonyId)` 없으면 `FeedbackValidationError`.
       2. `feedbackRepo.findByCeremonyAndStep(ceremonyId, templateItemId)` 반환(있으면 이어 쓰기용 프리필, 없으면 `undefined`).
 
-- [ ] Task 4: Route Handler (AC: 1, 2)
-  - [ ] `apps/web/app/api/feedback/[hallId]/[ceremonyId]/route.ts`(NEW) — 스파인 Structural Seed `api/feedback/` + Capability Map "FR-8/9 피드백·구조화 → api/feedback/route.ts"를 따른다. **주의:** FR-8(이 스토리)은 AI를 호출하지 않지만, 스파인이 FR-8/9를 같은 Route Handler 트리로 명시했으므로 Server Action이 아니라 Route Handler로 구현한다(관리자 CRUD와 다른 패턴 — Consistency Conventions 표 참고).
+- [x] Task 4: Route Handler (AC: 1, 2)
+  - [x] `apps/web/app/api/feedback/[hallId]/[ceremonyId]/route.ts`(NEW) — 스파인 Structural Seed `api/feedback/` + Capability Map "FR-8/9 피드백·구조화 → api/feedback/route.ts"를 따른다. **주의:** FR-8(이 스토리)은 AI를 호출하지 않지만, 스파인이 FR-8/9를 같은 Route Handler 트리로 명시했으므로 Server Action이 아니라 Route Handler로 구현한다(관리자 CRUD와 다른 패턴 — Consistency Conventions 표 참고).
     - `GET`: 쿼리 파라미터 `templateItemId` 필수. `requireSession()`(operator/admin 둘 다 허용, AD-3 — 피드백 입력은 오퍼레이터 화면 기능). 세션 없으면 401(`app/api/operator/ceremonies/[hallId]/[ceremonyId]/route.ts`와 동일하게 명시적 401 JSON, throw로 500 새게 하지 않는다). hallId/ceremonyId `isValidUuid` 검증(400). `getDraftFeedback` 호출 → `{ feedback: result ?? null }`. `FeedbackValidationError`는 404(`{ error: { code: "not_found", message } }`).
     - `POST`: body `{ templateItemId: string, content: string }`. 나머지 가드는 GET과 동일. `saveDraftFeedback` 호출 → `{ feedback: result }`. `FeedbackValidationError`는 400(`{ error: { code: "invalid_input", message } }`) — 존재하지 않는 예식/단계는 404가 더 정확하지만, 이 라우트는 URL의 hallId/ceremonyId가 이미 페이지 진입 시점에 검증된 값이라 실무상 거의 항상 "빈 내용" 케이스만 발생한다. 코드 값으로 구분하고 싶으면 에러 메시지 매칭 대신 `FeedbackValidationError`에 `code` 필드를 추가해도 되지만 과설계이므로 하지 않는다 — 메시지를 그대로 노출해 400 하나로 통일.
     - API 오류 응답 형식은 스파인 Consistency Conventions의 `{ error: { code, message } }` 단일 봉투를 그대로 따른다.

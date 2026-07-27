@@ -111,6 +111,33 @@ describe("feedback 리포지토리", () => {
       expect(second?.content).toBe("2차");
     });
 
+    // 코덱스 리뷰 2차 P2: onConflictDoUpdate의 set에 updatedAt을 명시하지 않으면
+    // $onUpdate가 자동 적용되지 않아(일반 db.update()에만 적용됨) 재저장해도 갱신
+    // 시각이 최초 생성 시각에 머문다 — "언제 마지막으로 이어 썼는지"가 부정확해짐.
+    it("재저장하면 updatedAt이 최초 생성 시각보다 갱신된다(코덱스 2차 P2)", async () => {
+      const hall = await createTestHall();
+      const { ceremonyId } = await createCeremony(hall.id);
+      const step = await createTestTemplateItem(hall.id);
+
+      const first = await feedbackRepo.upsertDraft({
+        hallId: hall.id,
+        ceremonyId,
+        templateItemId: step.id,
+        stepName: step.stepName,
+        content: "1차",
+      });
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      const second = await feedbackRepo.upsertDraft({
+        hallId: hall.id,
+        ceremonyId,
+        templateItemId: step.id,
+        stepName: step.stepName,
+        content: "2차",
+      });
+
+      expect(second!.updatedAt.getTime()).toBeGreaterThan(first!.updatedAt.getTime());
+    });
+
     it("기존 행이 confirmed면 갱신하지 않고 undefined를 반환한다(AD-8 방어)", async () => {
       const hall = await createTestHall();
       const { ceremonyId } = await createCeremony(hall.id);

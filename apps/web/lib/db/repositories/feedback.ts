@@ -69,7 +69,10 @@ export async function upsertDraft(input: {
     })
     .onConflictDoUpdate({
       target: [feedback.ceremonyId, feedback.templateItemId],
-      set: { content: input.content },
+      // 코덱스 리뷰 2차 P2: $onUpdate는 일반 db.update()에만 적용되고 onConflictDoUpdate의
+      // 명시적 set에는 자동 반영되지 않는다 — updatedAt을 직접 넣지 않으면 재저장해도
+      // 최초 생성 시각에 머물러 "언제 마지막으로 이어 썼는지"가 부정확해진다.
+      set: { content: input.content, updatedAt: new Date() },
       setWhere: eq(feedback.status, "draft"),
     })
     .returning();

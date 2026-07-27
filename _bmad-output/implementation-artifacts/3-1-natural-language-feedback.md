@@ -173,9 +173,10 @@ Claude Sonnet 5
 - vitest 174건 통과(신규 15건: 리포지토리 3건, 서비스 9건, 컴포넌트 6건 — 숫자 합은 describe 내 개별 assertion 기준과 다를 수 있음, 실제 파일 3개 신규), `npx tsc --noEmit`/`npm run lint`/`npm run build` 전부 클린.
 - 로컬 서버(포트 3101, 이 워크트리 전용)를 실제로 띄워 시드 오퍼레이터/관리자 계정으로 로그인 후 curl/Node fetch로 GET/POST 왕복, 401 가드, AD-8 confirmed 방어, 기존 admin/operator 화면 회귀 없음을 실제 HTTP로 검증. 그 과정에서 curl(Git Bash) 셸 로케일 문제로 한글 페이로드가 깨지는 현상을 발견했으나 Node `fetch`(UTF-8 보장)로 재현해 애플리케이션 결함이 아님을 확인(브라우저의 실제 fetch는 항상 UTF-8이라 실사용에 영향 없음).
 - 이 세션에 브라우저 조작 도구가 없어 "피드백 남기기" 토글의 실제 클릭 인터랙션과 주황 톤의 시각적 확인은 컴포넌트 테스트(`tests/components/step-feedback.test.tsx`)로 대체 검증(Story 2.3과 동일한 명시적 한계).
-- **코덱스 리뷰(1라운드, 실결함 2건 발견 후 수정, 2라운드 클린)**:
+- **코덱스 리뷰(2라운드, 1~2차 전부 실결함 발견 후 수정, 3차 클린)**:
   1. (1차 P1) `saveDraftFeedback`이 "조회 → 없으면 생성" 두 단계였음 — 같은 예식+단계에 두 탭/재시도가 동시에 최초 저장하면 둘 다 미존재를 확인한 뒤 INSERT를 시도해 한쪽이 `(ceremony_id, template_item_id)` UNIQUE 위반으로 500이 될 수 있었다. `feedbackRepo.upsertDraft()`(`INSERT ... ON CONFLICT DO UPDATE ... setWhere: status='draft'`, `demo-video.ts::upsertForChecklistItem`과 동일 패턴)로 단일 SQL 문 원자성 확보 — `db.transaction()`은 프로덕션 드라이버(neon-http)에서 throw하므로 이 프로젝트의 표준 해법. `setWhere` 조건이 매치되지 않으면(기존 행이 confirmed) 0행 반환 → 서비스가 이를 "이미 확정됨"으로 해석(AD-8 방어와 자연스럽게 합쳐짐). 동시 저장 경합 재현 테스트 추가.
   2. (1차 P2) `templateItemId` 검증이 "같은 홀 소속인지"만 확인해, 계약 형태 조건(AD-9)으로 이 예식의 실제 체크리스트(`checklist_instance_items`)에서 제외된 단계(또는 체크리스트 항목이 하나도 없는 단계)를 조작된 요청으로 지정해도 피드백이 만들어지던 실결함 — `checklistInstanceRepo.existsForTemplateItem()`(신규)으로 "이 예식의 인스턴스에 실제로 조합된 단계인지"까지 검증하도록 `requireCeremonyAndStep`을 강화. 리포지토리/서비스 양쪽에 회귀 테스트 추가.
+  3. (2차 P2) 1차 수정에서 도입한 `upsertDraft()`의 `onConflictDoUpdate` `set`에 `content`만 넣어, 재저장(이어 쓰기)해도 `updatedAt`이 최초 생성 시각에 머물던 결함 — `$onUpdate`는 일반 `db.update()`에만 자동 적용되고 명시적 conflict `set`에는 반영되지 않는다(`demo-video.ts::upsertForChecklistItem`도 동일한 잠재 결함을 갖고 있으나 이 스토리 범위 밖이라 손대지 않음, 기존 코드). `set`에 `updatedAt: new Date()`를 직접 추가하고 재저장 시 갱신 시각이 실제로 늘어나는지 회귀 테스트로 고정.
 
 ### File List
 
@@ -191,7 +192,7 @@ Claude Sonnet 5
 - `apps/web/app/operator/ceremonies/[hallId]/[ceremonyId]/step-feedback.tsx` (NEW) — 피드백 입력 패널 컴포넌트
 - `apps/web/app/operator/ceremonies/[hallId]/[ceremonyId]/checklist-instance-view.css` (MODIFY) — `.step-feedback*` 스타일
 - `apps/web/tests/helpers/db.ts` (MODIFY) — `resetDb()` TRUNCATE 목록에 `feedback` 추가
-- `apps/web/tests/repositories/feedback.test.ts` (NEW, MODIFY) — CRUD + `upsertDraft` 원자성/AD-8 방어
+- `apps/web/tests/repositories/feedback.test.ts` (NEW, MODIFY) — CRUD + `upsertDraft` 원자성/AD-8 방어/updatedAt 갱신
 - `apps/web/tests/repositories/checklist-instance.test.ts` (MODIFY) — `existsForTemplateItem` 테스트 추가
 - `apps/web/tests/services/feedback.test.ts` (NEW, MODIFY) — 동시 저장 경합, 체크리스트 미포함 단계 거부 테스트 추가
 - `apps/web/tests/components/step-feedback.test.tsx` (NEW)
@@ -199,4 +200,4 @@ Claude Sonnet 5
 ## Change Log
 
 - 2026-07-27: 스토리 최초 작성 (create-story, Epic 3 착수 — 1번째 스토리).
-- 2026-07-27: 구현 완료 (dev) — AC 1~4 전부 구현. `feedback` 테이블(AD-8 안전 경계) + 리포지토리/서비스/Route Handler + 오퍼레이터 화면 단계별 인라인 피드백 UI. `drizzle-kit generate`의 알려진 비TTY 이슈(Story 5.4와 동일)를 동일 절차로 우회. vitest 174건 통과, tsc/lint/build 클린, 실제 서버+로그인+HTTP로 저장/이어쓰기/AD-8 방어/401/회귀 없음까지 수동 검증. 코덱스 리뷰 1라운드에서 실결함 2건(동시 저장 경합, 체크리스트 미포함 단계 검증 누락) 발견 후 수정 — vitest 181건 통과, tsc/lint/build 재확인. Status → review.
+- 2026-07-27: 구현 완료 (dev) — AC 1~4 전부 구현. `feedback` 테이블(AD-8 안전 경계) + 리포지토리/서비스/Route Handler + 오퍼레이터 화면 단계별 인라인 피드백 UI. `drizzle-kit generate`의 알려진 비TTY 이슈(Story 5.4와 동일)를 동일 절차로 우회. vitest 174건 통과, tsc/lint/build 클린, 실제 서버+로그인+HTTP로 저장/이어쓰기/AD-8 방어/401/회귀 없음까지 수동 검증. 코덱스 리뷰 2라운드에서 실결함 3건(동시 저장 경합, 체크리스트 미포함 단계 검증 누락, upsert 시 updatedAt 미갱신) 발견 후 수정 — vitest 182건 통과, tsc/lint/build 재확인. Status → review.

@@ -12,3 +12,13 @@ export async function requireAdminSession() {
   }
   return session;
 }
+
+// operator/admin 둘 다 통과 — 역할 무관, 로그인 여부만 확인한다(AD-3, 체크리스트
+// 인스턴스 열람은 두 역할 모두에게 열려 있는 화면).
+export async function requireSession() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) {
+    throw new Error("로그인이 필요합니다.");
+  }
+  return session;
+}

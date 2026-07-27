@@ -4,7 +4,7 @@ baseline_commit: 03e3c84
 
 # Story 5.2: 예식 목록 날짜 필터 캘린더 및 페이지네이션
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -180,3 +180,4 @@ claude-sonnet-5
 
 - 2026-07-27: 스토리 최초 작성 (create-story). 착수 중 대표 요청으로 어드민 내비게이션+예식 화면의 프로토타입 디자인 정렬 범위 추가(AC 5~7, 사용자 확인: 이 스토리가 만지는 화면으로만 한정).
 - 2026-07-27: 구현 완료 (dev) — AC 1~7 전부 구현, vitest 77건/tsc/lint/build 전부 클린, 로컬 서버 curl 수동 검증 완료. Status → review.
+- 2026-07-27: PR #15 생성 → 코덱스 리뷰 4라운드(1~3차 실결함 8건 발견/수정, 4차 클린) → main으로 fast-forward merge(249e5b5), 브랜치 삭제, main CI 그린 확인. 발견된 결함(내비 중복 탭 재도입, 페이지네이션 clamp 미반영, 캘린더 월 이동 시 날짜 필터 잔존, 쿼리 파라미터 미검증, 비활성 홀 예식 누락, 캘린더/필터 달 불일치, 페이지네이션이 캘린더 달 초기화, 빈 날짜 오탐 마커) 상세는 sprint-status.yaml git_pipeline 참고. Status → done.

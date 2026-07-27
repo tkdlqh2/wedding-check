@@ -148,6 +148,11 @@ export const ceremonies = pgTable("ceremonies", {
     .notNull()
     .references(() => halls.id),
   ceremonyAt: timestamp("ceremony_at").notNull(),
+  // Story 5.3(FR-12): nullable — 폼은 필수 입력으로 처리하지만(action 레이어 검증),
+  // 이 마이그레이션 이전에 생성된 기존 예식 데이터와의 하위 호환을 위해 컬럼 자체는
+  // nullable로 둔다.
+  groomName: text("groom_name"),
+  brideName: text("bride_name"),
   // AD-9: 부분집합 매칭이 checklist_template_items.applicable_contract_conditions와
   // 대칭되는 셰이프를 요구하므로 동일하게 JSONB로 저장한다(정규화 규칙 테이블 대신,
   // AD-9 rationale 그대로). [ASSUMPTION] 키는 PRD §4.1 예시 그대로 두 개만 정의:

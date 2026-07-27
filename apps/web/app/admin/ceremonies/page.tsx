@@ -60,8 +60,15 @@ export default async function CeremoniesPage({
   searchParams: Promise<{ date?: string; year?: string; month?: string; page?: string }>;
 }) {
   const params = await searchParams;
-  const { year, month } = parseYearMonthParams(params.year, params.month, currentKstYearMonth());
   const selectedDate = parseDateParam(params.date);
+  // 코덱스 리뷰(P2): year/month와 date가 서로 다른 달을 가리키는 URL(예: 정상적인
+  // 링크 흐름에서는 안 나오지만 즐겨찾기·수동 수정된 URL)이 오면, 캘린더에 표시되는
+  // 달과 실제 필터링된 목록의 달이 어긋나 선택된 셀도 안 보이는 상태가 될 수 있다 —
+  // 유효한 date가 있으면 그 date의 연/월을 그대로 신뢰하고, year/month 파라미터는
+  // date가 없을 때만 쓴다.
+  const { year, month } = selectedDate
+    ? { year: Number(selectedDate.slice(0, 4)), month: Number(selectedDate.slice(5, 7)) }
+    : parseYearMonthParams(params.year, params.month, currentKstYearMonth());
   const page = parsePageParam(params.page);
 
   const [halls, markedDates, listResult] = await Promise.all([

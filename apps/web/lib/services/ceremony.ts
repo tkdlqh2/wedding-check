@@ -99,8 +99,11 @@ export async function listTodaysCeremonies(): Promise<CeremonyWithHallName[]> {
 }
 
 // Story 5.2 AC 2: 캘린더에서 선택한 날짜(KST)의 예식만 홀 교차로 병합해 반환.
+// hallRepo.findAll()을 쓴다(findAllActive() 아님) — 비활성화된 홀도 과거 예식은
+// 보존되므로(§AC 3), 그 홀이 비활성화됐다는 이유만으로 조회 결과에서 사라지면 안 된다
+// (코덱스 리뷰 P2).
 export async function listCeremoniesForDate(dateIso: string): Promise<CeremonyWithHallName[]> {
-  const halls = await hallRepo.findAllActive();
+  const halls = await hallRepo.findAll();
   const { start, end } = dayRangeKST(dateIso);
   const results = await Promise.all(
     halls.map(async (hall) => {
@@ -126,7 +129,7 @@ export async function listCeremoniesPaginated(input: {
   page: number;
   pageSize: number;
 }): Promise<PaginatedCeremonies> {
-  const halls = await hallRepo.findAllActive();
+  const halls = await hallRepo.findAll();
   const results = await Promise.all(
     halls.map(async (hall) => {
       const hallCeremonies = await ceremonyRepo.findAllByHall(hall.id);
@@ -158,7 +161,7 @@ export async function listCeremonyDatesForMonth(
   year: number,
   month: number,
 ): Promise<Set<string>> {
-  const halls = await hallRepo.findAllActive();
+  const halls = await hallRepo.findAll();
   const { start, end } = monthRangeKST(year, month);
   const results = await Promise.all(
     halls.map((hall) => ceremonyRepo.findByHallForDateRange(hall.id, start, end)),

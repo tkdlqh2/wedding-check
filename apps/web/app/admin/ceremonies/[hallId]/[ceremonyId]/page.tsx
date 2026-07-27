@@ -128,16 +128,23 @@ export default async function CeremonyDetailPage({
                   <InstanceItemRow key={item.id} hallId={hallId} ceremonyId={ceremonyId} item={item} />
                 ))}
               </ul>
-              <div className="instance-step-card__quick-add">
-                <InstanceItemForm
-                  hallId={hallId}
-                  ceremonyId={ceremonyId}
-                  stepContext={{
-                    templateItemId: stepItems[0].templateItemId,
-                    groupRootId: stepItems[0].adHocGroupRootId,
-                  }}
-                />
-              </div>
+              {/* 코덱스 리뷰 P2: 원본 템플릿 단계가 삭제된 항목(templateItemId/
+                  adHocGroupRootId 둘 다 null)은 그룹 자체가 orphan:id 기준 단일 항목
+                  그룹이라 "같은 단계에 추가"할 대상이 없다 — 이 폼을 보여주면 항상
+                  "단계 이름을 입력해주세요" 오류로 실패한다. 새 단계로 다시 만들도록
+                  안내하고 이 컨트롤은 숨긴다. */}
+              {(stepItems[0].templateItemId || stepItems[0].adHocGroupRootId) && (
+                <div className="instance-step-card__quick-add">
+                  <InstanceItemForm
+                    hallId={hallId}
+                    ceremonyId={ceremonyId}
+                    stepContext={{
+                      templateItemId: stepItems[0].templateItemId,
+                      groupRootId: stepItems[0].adHocGroupRootId,
+                    }}
+                  />
+                </div>
+              )}
             </div>
           ))}
         </div>

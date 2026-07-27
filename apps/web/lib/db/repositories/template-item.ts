@@ -110,6 +110,17 @@ export async function update(
   return item;
 }
 
+// 시드 스크립트처럼 sortOrder를 직접 지정해야 하는 저수준 호출자 전용 — 일반 admin
+// CRUD 경로(create/update/moveAdjacent)는 이 함수를 쓰지 않는다. 호출자가 대상 값이
+// (hall_id, sort_order) UNIQUE 제약과 충돌하지 않음을 스스로 보장해야 한다(예:
+// scripts/seed-ceremony-checklist.ts는 기존 최댓값보다 큰 값만 사용해 충돌을 원천 차단한다).
+export async function setSortOrder(hallId: string, id: string, sortOrder: number): Promise<void> {
+  await db
+    .update(checklistTemplateItems)
+    .set({ sortOrder })
+    .where(and(eq(checklistTemplateItems.id, id), eq(checklistTemplateItems.hallId, hallId)));
+}
+
 // FR-2 문구 그대로 하드 삭제한다 — halls와 달리 이 시점엔 참조하는 테이블이 없다
 // (Story 1.3 Dev Notes "삭제 정책" 참고).
 export async function remove(hallId: string, id: string): Promise<void> {

@@ -4,7 +4,7 @@ baseline_commit: cba03ddabace1e08d8775302ebb6c13bfb8dadc5
 
 # Story 2.3: 오퍼레이터의 체크리스트 인스턴스 열람 (오프라인 캐시)
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -23,48 +23,48 @@ so that 예식 진행 중 각 단계를 놓치지 않고 확인할 수 있다.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: 인증 가드 보강 — `lib/auth-guard.ts` (선행 작업, 신규 Route Handler가 필요)
-  - [ ] `requireSession()` 추가: 세션 없으면 throw(패턴은 `requireAdminSession`과 동일하되 role 체크 없음 — operator/admin 둘 다 통과). `app/api/templates/.../video/status/route.ts`가 `requireAdminSession()`을 가드 없이 호출하고 Next.js 기본 에러 핸들링에 맡기는 기존 패턴을 그대로 따른다.
+- [x] Task 1: 인증 가드 보강 — `lib/auth-guard.ts` (선행 작업, 신규 Route Handler가 필요)
+  - [x] `requireSession()` 추가: 세션 없으면 throw(패턴은 `requireAdminSession`과 동일하되 role 체크 없음 — operator/admin 둘 다 통과). `app/api/templates/.../video/status/route.ts`가 `requireAdminSession()`을 가드 없이 호출하고 Next.js 기본 에러 핸들링에 맡기는 기존 패턴을 그대로 따른다.
 
-- [ ] Task 2: 오퍼레이터 전용 조회 서비스 — `lib/services/checklist-instance.ts` (MODIFY, AC: 1, 2, 3)
-  - [ ] `getOperatorInstanceView(hallId, ceremonyId)` 추가: `ceremonyRepo.findById` + `instanceRepo.findByCeremony` + `instanceRepo.listItems`만 호출(기존 `getCeremonyDetail`과 달리 `listCandidateTemplateItems` 호출 안 함 — 오퍼레이터는 후보 목록이 필요 없고, 이 함수가 60초마다 폴링되므로 불필요한 쿼리를 추가하지 않는다). 반환 타입 `{ ceremony: Ceremony; items: ChecklistInstanceItem[] }`. 예식/인스턴스 미존재 시 기존 `ChecklistInstanceValidationError` 그대로 재사용.
+- [x] Task 2: 오퍼레이터 전용 조회 서비스 — `lib/services/checklist-instance.ts` (MODIFY, AC: 1, 2, 3)
+  - [x] `getOperatorInstanceView(hallId, ceremonyId)` 추가: `ceremonyRepo.findById` + `instanceRepo.findByCeremony` + `instanceRepo.listItems`만 호출(기존 `getCeremonyDetail`과 달리 `listCandidateTemplateItems` 호출 안 함 — 오퍼레이터는 후보 목록이 필요 없고, 이 함수가 60초마다 폴링되므로 불필요한 쿼리를 추가하지 않는다). 반환 타입 `{ ceremony: Ceremony; items: ChecklistInstanceItem[] }`. 예식/인스턴스 미존재 시 기존 `ChecklistInstanceValidationError` 그대로 재사용.
 
-- [ ] Task 3: 재검증용 Route Handler — `app/api/operator/ceremonies/[hallId]/[ceremonyId]/route.ts` (NEW, AC: 3)
-  - [ ] `GET`: `requireSession()` → `isValidUuid(hallId)`/`isValidUuid(ceremonyId)` 검증 실패 시 `{ error: { code: "invalid_id", message } }` 400 → `getOperatorInstanceView` 호출 → `ChecklistInstanceValidationError`면 `{ error: { code: "not_found", message } }` 404 → 성공 시 `{ ceremony, items }` JSON 200.
-  - [ ] 이 라우트는 클라이언트의 60초 폴링 전용이다 — 최초 로드는 Task 5의 Server Component가 서비스 함수를 직접 호출한다(같은 요청을 두 번 만들지 않는다).
+- [x] Task 3: 재검증용 Route Handler — `app/api/operator/ceremonies/[hallId]/[ceremonyId]/route.ts` (NEW, AC: 3)
+  - [x] `GET`: `requireSession()` → `isValidUuid(hallId)`/`isValidUuid(ceremonyId)` 검증 실패 시 `{ error: { code: "invalid_id", message } }` 400 → `getOperatorInstanceView` 호출 → `ChecklistInstanceValidationError`면 `{ error: { code: "not_found", message } }` 404 → 성공 시 `{ ceremony, items }` JSON 200.
+  - [x] 이 라우트는 클라이언트의 60초 폴링 전용이다 — 최초 로드는 Task 5의 Server Component가 서비스 함수를 직접 호출한다(같은 요청을 두 번 만들지 않는다).
 
-- [ ] Task 4: 오프라인 캐시 순수 함수 — `lib/operator/checklist-cache.ts` (NEW, AC: 2)
-  - [ ] `readCache(ceremonyId)` / `writeCache(ceremonyId, data)`: `window.localStorage` 키 `wedding-check:operator-checklist:${ceremonyId}`. `JSON.parse` 실패, `localStorage` 접근 불가(시크릿 모드 등)는 전부 `try/catch`로 조용히 무시하고 `null` 반환 또는 아무 것도 하지 않음 — 캐시 실패가 화면 자체를 깨뜨려서는 안 된다(DESIGN.md §14 오프라인 배너 계약과 동일한 원칙).
-  - [ ] 순수 함수로 분리해 jsdom 없이도(또는 jsdom `localStorage` mock으로) 단위 테스트 가능하게 만든다.
+- [x] Task 4: 오프라인 캐시 순수 함수 — `lib/operator/checklist-cache.ts` (NEW, AC: 2)
+  - [x] `readCache(ceremonyId)` / `writeCache(ceremonyId, data)`: `window.localStorage` 키 `wedding-check:operator-checklist:${ceremonyId}`. `JSON.parse` 실패, `localStorage` 접근 불가(시크릿 모드 등)는 전부 `try/catch`로 조용히 무시하고 `null` 반환 또는 아무 것도 하지 않음 — 캐시 실패가 화면 자체를 깨뜨려서는 안 된다(DESIGN.md §14 오프라인 배너 계약과 동일한 원칙).
+  - [x] 순수 함수로 분리해 jsdom 없이도(또는 jsdom `localStorage` mock으로) 단위 테스트 가능하게 만든다.
 
-- [ ] Task 5: 오퍼레이터 홈 — 오늘 예식 목록 — `app/operator/page.tsx` (MODIFY, AC 없음 — 2번 AC들의 진입점)
-  - [ ] 현재 플레이스홀더 텍스트를 `listTodaysCeremonies()`(Story 2.1에서 이미 구현된 홀 전체 교차 조회, 그대로 재사용) 결과로 교체. 각 예식을 `/operator/ceremonies/${hallId}/${ceremonyId}`로 링크.
-  - [ ] 빈 상태: 오늘 예식이 없으면 `#888888` 톤 안내 문구만(DESIGN.md §14 "Empty (오늘 등록된 예식 없음)" — 오퍼레이터는 예식을 등록할 수 없으므로 CTA 없음, 관리자 화면과 다름).
+- [x] Task 5: 오퍼레이터 홈 — 오늘 예식 목록 — `app/operator/page.tsx` (MODIFY, AC 없음 — 2번 AC들의 진입점)
+  - [x] 현재 플레이스홀더 텍스트를 `listTodaysCeremonies()`(Story 2.1에서 이미 구현된 홀 전체 교차 조회, 그대로 재사용) 결과로 교체. 각 예식을 `/operator/ceremonies/${hallId}/${ceremonyId}`로 링크.
+  - [x] 빈 상태: 오늘 예식이 없으면 `#888888` 톤 안내 문구만(DESIGN.md §14 "Empty (오늘 등록된 예식 없음)" — 오퍼레이터는 예식을 등록할 수 없으므로 CTA 없음, 관리자 화면과 다름).
 
-- [ ] Task 6: 체크리스트 인스턴스 조회 화면 — `app/operator/ceremonies/[hallId]/[ceremonyId]/` (NEW, AC: 1, 2, 3, 4)
-  - [ ] `page.tsx`: Server Component. `isValidUuid` 실패 시 `notFound()`(admin 상세 페이지와 동일 패턴). `getOperatorInstanceView` 직접 호출해 초기 데이터를 서버에서 가져온 뒤 Client Component에 props로 전달(중복 요청 없음 — Task 3 라우트는 이후 60초 폴링 전용).
-  - [ ] `checklist-instance-view.tsx`: Client Component(`"use client"`).
+- [x] Task 6: 체크리스트 인스턴스 조회 화면 — `app/operator/ceremonies/[hallId]/[ceremonyId]/` (NEW, AC: 1, 2, 3, 4)
+  - [x] `page.tsx`: Server Component. `isValidUuid` 실패 시 `notFound()`(admin 상세 페이지와 동일 패턴). `getOperatorInstanceView` 직접 호출해 초기 데이터를 서버에서 가져온 뒤 Client Component에 props로 전달(중복 요청 없음 — Task 3 라우트는 이후 60초 폴링 전용).
+  - [x] `checklist-instance-view.tsx`: Client Component(`"use client"`).
     - 초기 렌더는 서버에서 받은 props를 그대로 사용(이것이 AD-5의 "최초 로드").
     - mount 시 `writeCache`로 서버에서 받은 데이터를 즉시 캐시에 기록(write-through) — 이후 곧 오프라인이 되어도 이미 렌더 중인 데이터를 잃지 않기 위함.
     - `setInterval` 60초마다 Task 3 라우트를 `fetch`로 호출: 성공하면 state + 캐시 갱신(`motion-instant` = 트랜지션 없이 즉시 교체), 실패(네트워크 에러 또는 `navigator.onLine === false`)하면 기존 state 유지 + 오프라인 배너 노출.
     - 언마운트 시 `clearInterval`.
     - 각 항목은 POS Tile(§4.1 참고, ≥44px)로 렌더링, 탭 시 `useState<Set<string>>` 기반 로컬 선택 상태 토글(서버 저장 없음 — 스키마에 "완료" 필드가 없다, Dev Notes "스코프 경계" 참고). 선택 시 CSS 클래스만 즉시 바뀌고 트랜지션 없음(motion-instant).
-  - [ ] `checklist-instance-view.css`: POS Tile 스타일 + tablet 768~1024px 고정 레이아웃(AC 4) + 오프라인 배너.
+  - [x] `checklist-instance-view.css`: POS Tile 스타일 + tablet 768~1024px 고정 레이아웃(AC 4) + 오프라인 배너.
 
-- [ ] Task 7: 오퍼레이터 내비 정리 — `app/operator/layout.tsx` (MODIFY, 최소 변경)
-  - [ ] "체크리스트" nav 항목을 placeholder에서 `/operator`로의 실제 `Link`로 전환(질의/피드백은 Epic 3 범위이므로 placeholder 그대로 유지).
+- [x] Task 7: 오퍼레이터 내비 정리 — `app/operator/layout.tsx` (MODIFY, 최소 변경)
+  - [x] "체크리스트" nav 항목을 placeholder에서 `/operator`로의 실제 `Link`로 전환(질의/피드백은 Epic 3 범위이므로 placeholder 그대로 유지).
 
-- [ ] Task 8: 테스트 (AC: 1, 2, 3, 4)
-  - [ ] `tests/services/checklist-instance.test.ts`(기존 파일에 추가): `getOperatorInstanceView` — 정상 조회(ceremony+items 반환), 존재하지 않는 ceremonyId 거부, 다른 홀 hallId로 조회 시 거부(AD-2 격리).
-  - [ ] `tests/lib/checklist-cache.test.tsx`(신규 — 확장자 주의, 아래 "테스트 요구사항" 참고): `readCache`/`writeCache` — 정상 왕복, 손상된 JSON 처리, 존재하지 않는 키 처리.
-  - [ ] `tests/components/checklist-instance-view.test.tsx`(신규, jsdom): 탭 시 선택 상태 클래스 즉시 반영, `navigator.onLine=false` 또는 fetch 실패 시 캐시 데이터가 유지되고 오프라인 배너가 뜨는지(`vi.useFakeTimers()`로 60초 인터벌 강제 진행 — Story 1.4 `video-upload-polling.test.ts`의 폴링 테스트 패턴 재사용).
-  - [ ] `npm run test`, `npx tsc --noEmit`, `npm run lint`, `npm run build` 전부 클린 확인.
+- [x] Task 8: 테스트 (AC: 1, 2, 3, 4)
+  - [x] `tests/services/checklist-instance.test.ts`(기존 파일에 추가): `getOperatorInstanceView` — 정상 조회(ceremony+items 반환), 존재하지 않는 ceremonyId 거부, 다른 홀 hallId로 조회 시 거부(AD-2 격리).
+  - [x] `tests/lib/checklist-cache.test.tsx`(신규 — 확장자 주의, 아래 "테스트 요구사항" 참고): `readCache`/`writeCache` — 정상 왕복, 손상된 JSON 처리, 존재하지 않는 키 처리.
+  - [x] `tests/components/checklist-instance-view.test.tsx`(신규, jsdom): 탭 시 선택 상태 클래스 즉시 반영, `navigator.onLine=false` 또는 fetch 실패 시 캐시 데이터가 유지되고 오프라인 배너가 뜨는지(`vi.useFakeTimers()`로 60초 인터벌 강제 진행 — Story 1.4 `video-upload-polling.test.ts`의 폴링 테스트 패턴 재사용, `act()`로 타이머 advance를 감싸야 `findByRole` 내부 폴링이 fake timer에 걸려 timeout나지 않는다).
+  - [x] `npm run test`, `npx tsc --noEmit`, `npm run lint`, `npm run build` 전부 클린 확인.
 
-- [ ] Task 9: 수동 검증
-  - [ ] 로컬 서버에서 오퍼레이터 계정으로 로그인 → `/operator` → 오늘 예식 목록에서 하나 선택 → 항목이 POS Tile로 보이는지, 탭 시 즉시 선택 상태가 반영되는지 확인(AC 1).
-  - [ ] 브라우저 DevTools Network 탭에서 오프라인 모드로 전환 → 화면이 깨지지 않고 마지막으로 로드된 항목이 계속 보이는지, 오프라인 배너가 뜨는지 확인(AC 2). 다시 온라인으로 전환 → 배너가 사라지는지 확인.
-  - [ ] Story 2.2의 관리자 상세 페이지에서 항목을 하나 추가/제외 → 오퍼레이터 화면을 새로고침하지 않고 60초(또는 테스트를 위해 임시로 인터벌을 단축) 대기 → 변경이 반영되는지 확인(AC 3).
-  - [ ] 브라우저 창을 768~1024px 폭으로 리사이즈해 레이아웃이 고정 체크리스트+하단 내비 구조를 유지하는지 확인(AC 4).
+- [x] Task 9: 수동 검증
+  - [x] 로컬 서버(`npm run dev`)에서 오퍼레이터 계정(01000000002)으로 `/api/auth/sign-in/phone-number` 실제 로그인 → `GET /operator` → 오늘 예식("1층 홀", 7월 27일 09:33)이 목록에 실제로 뜨는지 HTML 응답으로 확인 → `GET /operator/ceremonies/[hallId]/[ceremonyId]` → `checklist-tile`/`checklist-tile-grid` 클래스와 실제 항목명("영상 없는 항목")이 SSR HTML에 포함됨을 확인(AC 1 마크업 확인). 탭 시 즉시 선택 상태 반영 자체는 `tests/components/checklist-instance-view.test.tsx`의 첫 번째 테스트로 자동화 검증(순수 클라이언트 상태라 서버 HTTP로는 재현 불가).
+  - [x] `GET /api/operator/ceremonies/[hallId]/[ceremonyId]`를 세션 쿠키 있음/없음/잘못된 uuid 3가지로 직접 호출 — 200(JSON 정상), 500(비인증, 기존 `requireAdminSession` 미가드 패턴과 동일하게 처리됨), 400(`{error:{code:"invalid_id",...}}`)을 각각 실제로 확인.
+  - [x] AC 3의 데이터 경로를 실제 DB 변경으로 검증: 인스턴스에 항목을 하나 직접 추가(SQL, Story 2.2의 `addInstanceItem`이 같은 테이블에 만드는 것과 동일한 형태의 행) → 같은 폴링 엔드포인트를 재호출 → 항목 수가 1개→2개로 실제 반영됨을 확인 후 원상복구. 클라이언트의 60초 `setInterval` 배선 자체(성공 시 갱신, 실패 시 캐시 유지)는 `checklist-instance-view.test.tsx`의 나머지 3개 테스트로 자동화 검증.
+  - [x] **한계 — 브라우저 도구 없음:** 이 세션에는 실제 브라우저를 조작하는 도구(DevTools 오프라인 토글, 창 리사이즈)가 없어 AC 2(실제 오프라인 전환)와 AC 4(768~1024px 리사이즈)는 브라우저 수동 확인 대신 (a) 자동화 컴포넌트 테스트(`navigator.onLine=false` 모킹, fetch 실패 모킹으로 캐시 폴백+배너 확인)와 (b) `checklist-instance-view.css`의 `@media (min-width: 768px) and (max-width: 1024px)` 규칙 코드 리뷰로 대체 검증했다. 실제 태블릿/브라우저에서의 최종 확인은 코드 리뷰 시점에 별도로 필요.
 
 ## Dev Notes
 
@@ -154,20 +154,40 @@ apps/web/
 
 ### Agent Model Used
 
-_TBD_
+Amelia (claude-sonnet-5)
 
 ### Debug Log References
 
-_TBD_
+- **테스트 순서 함정 재확인(Story 2.2와 동일 클래스):** `getOperatorInstanceView` 테스트를 처음 작성할 때 템플릿 항목을 예식보다 나중에 만들어 인스턴스가 빈 채로 나왔다 — Story 2.2의 CTE는 예식 생성 시점에 존재하는 템플릿 항목만 스냅샷 복사하므로, 순서를 (템플릿 항목 생성 → 예식 생성)으로 바꿔 해결.
+- **`vi.advanceTimersByTimeAsync` + fake timers + React 상태 업데이트 조합에서 `findByRole`이 타임아웃:** 컴포넌트 테스트에서 `setInterval` 콜백이 비동기로 state를 갱신하는데, 이 갱신을 `act(async () => { await vi.advanceTimersByTimeAsync(60_000); })`로 감싸지 않으면 "not wrapped in act" 경고와 함께 `findByRole`의 내부 폴링(실제 타이머 기반)이 가짜 타이머에 걸려 5초 실제 타임아웃이 났다 — `act()`로 감싸고 이후 동기 `getByRole`을 쓰는 것으로 해결(Story 1.4의 폴링 테스트는 컴포넌트가 아니라 순수 함수를 테스트해 이 문제를 겪지 않았다는 차이를 확인).
+- **AD-5 "mount 시 재검증 fetch" 문구를 문자 그대로 구현하지 않은 설계 결정:** Server Component(SSR)가 이미 최신 데이터를 가져오므로 클라이언트 mount 시 중복 fetch를 보내지 않고, 대신 SSR 데이터를 즉시 localStorage에 write-through한 뒤 60초 인터벌부터 폴링을 시작하도록 구현(스토리 Dev Notes에 이 설계 판단과 그 근거를 미리 기록해둠).
 
 ### Completion Notes List
 
-_TBD_
+- AC 1: POS Tile 마크업(`checklist-tile`/`checklist-tile-grid`)이 실제 SSR HTML에 렌더링됨을 로컬 서버 HTTP 응답으로 확인. 탭 시 0ms 즉시 선택 상태 반영(트랜지션 없는 CSS)은 컴포넌트 테스트로 자동화 검증.
+- AC 2: `getOperatorInstanceView`/폴링 API/오프라인 캐시(`checklist-cache.ts`) 전부 자동화 테스트로 검증. 실제 브라우저 오프라인 토글은 이 세션에 브라우저 조작 도구가 없어 수행하지 못함(Dev Notes 및 Task 9에 한계로 명시) — `navigator.onLine=false` 모킹 + fetch 실패 모킹으로 동일한 코드 경로를 커버.
+- AC 3: 클라이언트 폴링 배선(성공/실패 분기)은 컴포넌트 테스트로, 실제 데이터 반영 경로(관리자 쪽 변경 → 오퍼레이터 폴링 API 응답)는 로컬 서버에 대한 실제 DB 변경 + HTTP 재호출로 검증(항목 1개→2개 반영 확인 후 원상복구).
+- AC 4: `checklist-instance-view.css`의 tablet 768~1024px 미디어 쿼리로 구현. 실제 브라우저 리사이즈 확인은 도구 제약으로 수행하지 못함(코드 리뷰로 대체).
+- `getOperatorInstanceView`는 `getCeremonyDetail`과 일부 리포지토리 호출을 공유하지만 억지로 통합하지 않음(Dev Notes에 근거 기록) — 60초 폴링에 불필요한 `listCandidateTemplateItems` 쿼리를 추가하지 않기 위함.
+- "체크" 상태는 스키마에 없는 대로 서버에 저장하지 않고 순수 클라이언트 로컬 상태로만 구현(Dev Notes "스코프 경계" 그대로 준수).
+- `npm run test`(54개 전체 통과), `npx tsc --noEmit`, `npm run lint`, `npm run build` 전부 클린.
 
 ### File List
 
-_TBD_
+- `apps/web/lib/auth-guard.ts` (MODIFY) — `requireSession()` 추가
+- `apps/web/lib/services/checklist-instance.ts` (MODIFY) — `getOperatorInstanceView` 추가
+- `apps/web/lib/operator/checklist-cache.ts` (NEW)
+- `apps/web/app/api/operator/ceremonies/[hallId]/[ceremonyId]/route.ts` (NEW)
+- `apps/web/app/operator/page.tsx` (MODIFY) — 오늘 예식 목록으로 교체
+- `apps/web/app/operator/operator-home.css` (NEW)
+- `apps/web/app/operator/layout.tsx` (MODIFY) — 체크리스트 nav 링크화
+- `apps/web/app/operator/ceremonies/[hallId]/[ceremonyId]/page.tsx` (NEW)
+- `apps/web/app/operator/ceremonies/[hallId]/[ceremonyId]/checklist-instance-view.tsx` (NEW)
+- `apps/web/app/operator/ceremonies/[hallId]/[ceremonyId]/checklist-instance-view.css` (NEW)
+- `apps/web/tests/services/checklist-instance.test.ts` (MODIFY) — `getOperatorInstanceView` 테스트 3건 추가
+- `apps/web/tests/lib/checklist-cache.test.tsx` (NEW)
+- `apps/web/tests/components/checklist-instance-view.test.tsx` (NEW)
 
 ## Change Log
 
-_TBD_
+- 2026-07-27: Story 구현 완료. AC 1~4 중 서버/데이터 경로(AC 1 마크업, AC 2 캐시 로직, AC 3 데이터 반영)는 자동화 테스트(vitest, 신규 11건) + 로컬 서버 실제 HTTP 요청 + DB 직접 조작으로 검증. AC 2/4의 실제 브라우저 동작(오프라인 토글, 태블릿 리사이즈)은 이 세션에 브라우저 도구가 없어 컴포넌트 테스트 모킹 + CSS 코드 리뷰로 대체 검증했으며, 이 한계를 스토리 파일에 명시했다.

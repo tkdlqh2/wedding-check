@@ -1,4 +1,5 @@
 import { listActiveHalls } from "@/lib/services/hall";
+import { listMembers } from "@/lib/services/member";
 import {
   listCeremoniesForDate,
   listCeremoniesPaginated,
@@ -71,8 +72,9 @@ export default async function CeremoniesPage({
     : parseYearMonthParams(params.year, params.month, currentKstYearMonth());
   const page = parsePageParam(params.page);
 
-  const [halls, markedDates, listResult] = await Promise.all([
+  const [halls, allMembers, markedDates, listResult] = await Promise.all([
     listActiveHalls(),
+    listMembers(),
     listCeremonyDatesForMonth(year, month),
     selectedDate
       ? listCeremoniesForDate(selectedDate).then((ceremonies) => ({
@@ -83,6 +85,10 @@ export default async function CeremoniesPage({
         }))
       : listCeremoniesPaginated({ page, pageSize: PAGE_SIZE }),
   ]);
+  // FR-18: 카드의 담당자 pill 토글 대상 — 활성 오퍼레이터 역할 회원 전원.
+  const activeOperators = allMembers
+    .filter((m) => m.role === "operator" && !m.banned)
+    .map((m) => ({ id: m.id, name: m.name }));
 
   const listTitle = selectedDate
     ? `${Number(selectedDate.slice(5, 7))}월 ${Number(selectedDate.slice(8))}일 예식`
@@ -116,7 +122,11 @@ export default async function CeremoniesPage({
           ) : (
             <ul className="ceremony-list">
               {listResult.ceremonies.map((ceremony) => (
-                <CeremonyRow key={ceremony.id} ceremony={ceremony} />
+                <CeremonyRow
+                  key={ceremony.id}
+                  ceremony={ceremony}
+                  activeOperators={activeOperators}
+                />
               ))}
             </ul>
           )}

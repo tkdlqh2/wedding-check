@@ -20,8 +20,26 @@
 .hall-form {
   display: flex;
   flex-direction: column;
+  gap: var(--space-xs);
+  width: 100%;
+}
+
+/* 대표 피드백(2026-07-27): 홀 이름 입력과 등록 버튼은 한 줄 — templates.css의
+   .templates-page__add-step-row와 동일 리듬. */
+.hall-form__row {
+  display: flex;
   gap: var(--space-sm);
-  align-items: flex-start;
+  width: 100%;
+}
+
+.hall-form__row .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.hall-form__row .btn-primary {
+  flex: none;
+  white-space: nowrap;
 }
 
 .hall-list {

@@ -2,6 +2,7 @@ import * as instanceRepo from "../db/repositories/checklist-instance";
 import * as templateItemRepo from "../db/repositories/template-item";
 import * as checklistItemRepo from "../db/repositories/checklist-item";
 import * as ceremonyRepo from "../db/repositories/ceremony";
+import * as demoVideoRepo from "../db/repositories/demo-video";
 import type { Ceremony } from "../db/repositories/ceremony";
 import type {
   ChecklistInstance,
@@ -26,9 +27,16 @@ async function requireInstance(hallId: string, ceremonyId: string): Promise<Chec
   return instance;
 }
 
+export type OperatorInstanceItem = ChecklistInstanceItem & {
+  // 실행 화면 "상세" 펼침에서 재생할 시연 영상(FR-3) — 인스턴스 항목의
+  // templateItemCheckId(원본 체크리스트 항목 소프트 참조)로 demo_videos를 조회해
+  // 병합한다. 원본이 삭제됐거나 영상이 없으면 null.
+  videoUrl: string | null;
+};
+
 export type OperatorInstanceView = {
   ceremony: Ceremony;
-  items: ChecklistInstanceItem[];
+  items: OperatorInstanceItem[];
 };
 
 // getCeremonyDetail과 달리 listCandidateChecklistItems를 호출하지 않는다 — 오퍼레이터
@@ -44,7 +52,20 @@ export async function getOperatorInstanceView(
   }
   const instance = await requireInstance(hallId, ceremonyId);
   const items = await instanceRepo.listItems(hallId, instance.id);
-  return { ceremony, items };
+  const checkIds = items
+    .map((item) => item.templateItemCheckId)
+    .filter((id): id is string => id !== null);
+  const videos = await demoVideoRepo.findByChecklistItemIds(hallId, checkIds);
+  const videoByCheckId = new Map(videos.map((v) => [v.checklistItemId, v.videoUrl]));
+  return {
+    ceremony,
+    items: items.map((item) => ({
+      ...item,
+      videoUrl: item.templateItemCheckId
+        ? (videoByCheckId.get(item.templateItemCheckId) ?? null)
+        : null,
+    })),
+  };
 }
 
 export async function getCeremonyDetail(hallId: string, ceremonyId: string): Promise<CeremonyDetail> {
@@ -167,6 +188,39 @@ export async function addAdHocInstanceItem(
     stepId,
     groupRootId,
   });
+}
+
+// 프로토타입 WeddingDetailScreen.js 단계 헤더의 "수정"/"단계 삭제" — 이 예식 스냅샷의
+// 단계 이름 변경/단계 통째 삭제. 그룹 키는 group-by-step.ts의 그룹핑과 동일한 3단
+// 위계(템플릿 단계 → ad-hoc 단계 → orphan 단일 항목)를 액션 레이어에서 받아 그대로
+// 리포지토리에 넘긴다. 갱신/삭제된 행이 0이면 존재하지 않는 단계로 취급한다.
+export async function renameInstanceStep(
+  hallId: string,
+  ceremonyId: string,
+  key: instanceRepo.StepGroupKey,
+  stepName: string,
+): Promise<void> {
+  const trimmed = stepName.trim();
+  if (!trimmed) {
+    throw new ChecklistInstanceValidationError("단계 이름을 입력해주세요");
+  }
+  const instance = await requireInstance(hallId, ceremonyId);
+  const updated = await instanceRepo.renameStepGroup(hallId, instance.id, key, trimmed);
+  if (updated === 0) {
+    throw new ChecklistInstanceValidationError("존재하지 않는 단계입니다");
+  }
+}
+
+export async function deleteInstanceStep(
+  hallId: string,
+  ceremonyId: string,
+  key: instanceRepo.StepGroupKey,
+): Promise<void> {
+  const instance = await requireInstance(hallId, ceremonyId);
+  const deleted = await instanceRepo.deleteStepGroup(hallId, instance.id, key);
+  if (deleted === 0) {
+    throw new ChecklistInstanceValidationError("존재하지 않는 단계입니다");
+  }
 }
 
 // Story 5.8: 인스턴스 항목의 제목/설명 수정(기존에는 추가/제외만 가능했다).

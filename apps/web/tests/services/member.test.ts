@@ -152,6 +152,23 @@ describe("createMember (Story 5.4 AC 2, 3)", () => {
     expect(rejected[0].reason).toBeInstanceOf(MemberValidationError);
     expect((rejected[0].reason as Error).message).toBe("이미 등록된 전화번호입니다");
   });
+
+  it("drizzle-orm이 감싼 Postgres unique_violation(err.cause.code)도 동일한 한국어 오류로 번역된다 (코덱스 리뷰 3차 P2 — 위의 동시성 테스트는 어느 경합 창에 걸릴지 타이밍에 의존하므로, 가장 좁은 경합 창을 결정적으로 재현)", async () => {
+    // better-auth의 createUser 내부 사전 조회까지 통과한 뒤 DB INSERT에서만 실패하는
+    // 상황을 결정적으로 재현하기 위해 auth.api.createUser 자체를 drizzle-orm이 실제로
+    // 던지는 형태(DrizzleQueryError: err.code 없음, err.cause.code === "23505")로 모킹한다.
+    const drizzleWrappedError = Object.assign(new Error("Failed query: insert into user..."), {
+      cause: { code: "23505", message: "duplicate key value violates unique constraint" },
+    });
+    const spy = vi.spyOn(auth.api, "createUser").mockRejectedValue(drizzleWrappedError);
+    try {
+      await expect(
+        createMember({ name: "경합 시도2", phoneNumber: "01044449999", password: "pw-9999" }),
+      ).rejects.toThrow("이미 등록된 전화번호입니다");
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });
 
 describe("계정 비활성화/재활성화 — better-auth admin 플러그인 위임 (Story 5.4 AC 4)", () => {

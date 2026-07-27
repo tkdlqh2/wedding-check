@@ -92,6 +92,13 @@
       "when": 1785127314934,
       "tag": "0012_checklist-instance-items-sort-order-unique",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1785128536134,
+      "tag": "0013_checklist-instance-items-sort-order-unique-deferrable",
+      "breakpoints": true
     }
   ]
 }

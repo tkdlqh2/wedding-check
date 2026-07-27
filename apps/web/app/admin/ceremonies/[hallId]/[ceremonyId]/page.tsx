@@ -2,14 +2,13 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import * as hallRepo from "@/lib/db/repositories/hall";
 import { getCeremonyDetail, ChecklistInstanceValidationError } from "@/lib/services/checklist-instance";
-import type {
-  CandidateChecklistItem,
-  ChecklistInstanceItem,
-} from "@/lib/db/repositories/checklist-instance";
 import { listMembers } from "@/lib/services/member";
 import { isValidUuid } from "@/lib/uuid";
-import { removeInstanceItemAction, assignOperatorAction } from "./actions";
+import { assignOperatorAction } from "./actions";
 import { AddItemButton } from "./add-item-button";
+import { InstanceItemRow } from "./instance-item-row";
+import { InstanceItemForm } from "./instance-item-form";
+import { groupCandidatesByStep, groupItemsByStep } from "./group-by-step";
 import "./ceremony-detail.css";
 
 const ceremonyDateFormatter = new Intl.DateTimeFormat("ko-KR", {
@@ -20,38 +19,6 @@ const ceremonyDateFormatter = new Intl.DateTimeFormat("ko-KR", {
   minute: "2-digit",
   hour12: false,
 });
-
-// candidates/items는 이미 리포지토리에서 (단계 순서, 항목 순서)로 정렬되어 온다 — 순서를
-// 유지한 채 연속된 같은 그룹 키끼리만 묶는 순차 그룹핑이면 충분하다(재정렬 불필요).
-// 코덱스 리뷰 3차 P2(candidates): stepName은 유일함이 보장되지 않는다(관리자가 같은
-// 이름의 단계를 두 번 만들 수 있음) — templateItemId(단계 FK)로 묶어 서로 다른 두
-// 단계가 이름이 같다는 이유로 하나로 합쳐지지 않게 한다. items의 templateItemId는
-// nullable(부모 단계가 나중에 삭제되면 set null)이지만, 순수 JS `===` 비교는
-// `null === null`이 true라 문제없이 그룹핑된다(Postgres NULL 비교와 다름).
-function groupSequentialByKey<T, K>(items: T[], keyFn: (item: T) => K): [K, T[]][] {
-  const groups: [K, T[]][] = [];
-  for (const item of items) {
-    const lastGroup = groups[groups.length - 1];
-    if (lastGroup && lastGroup[0] === keyFn(item)) {
-      lastGroup[1].push(item);
-    } else {
-      groups.push([keyFn(item), [item]]);
-    }
-  }
-  return groups;
-}
-
-function groupCandidatesByStep(
-  candidates: CandidateChecklistItem[],
-): [string, CandidateChecklistItem[]][] {
-  return groupSequentialByKey(candidates, (c) => c.templateItemId);
-}
-
-function groupItemsByStep(
-  items: ChecklistInstanceItem[],
-): [string | null, ChecklistInstanceItem[]][] {
-  return groupSequentialByKey(items, (i) => i.templateItemId);
-}
 
 export default async function CeremonyDetailPage({
   params,
@@ -82,11 +49,18 @@ export default async function CeremonyDetailPage({
   }
 
   const { ceremony, items, candidates } = detail;
-  // Story 5.8 AC 7: 담당자는 활성 오퍼레이터 역할 회원만 배정 대상.
+  // Story 5.8 AC 7: 담당자는 활성 오퍼레이터 역할 회원만 새로 배정 가능.
   const eligibleOperators = allMembers.filter((m) => m.role === "operator" && !m.banned);
   const assignedOperatorName = ceremony.assignedOperatorId
     ? (allMembers.find((m) => m.id === ceremony.assignedOperatorId)?.name ?? null)
     : null;
+  // 코덱스 리뷰 P2: 배정된 담당자가 이후 비활성화/역할 변경으로 eligibleOperators에서
+  // 빠지면, 그 담당자의 pill 자체가 사라져 해제(operatorId="") 수단이 없어져 배정이
+  // 계속 남아있게 된다 — eligibleOperators 목록과 별개로 항상 해제 가능한 컨트롤을
+  // 하나 더 둔다.
+  const isAssignedOperatorEligible = eligibleOperators.some(
+    (m) => m.id === ceremony.assignedOperatorId,
+  );
 
   return (
     <section className="ceremony-detail-page">
@@ -128,38 +102,58 @@ export default async function CeremonyDetailPage({
             );
           })
         )}
+        {ceremony.assignedOperatorId && !isAssignedOperatorEligible && (
+          <form action={assignOperatorAction}>
+            <input type="hidden" name="hallId" value={hallId} />
+            <input type="hidden" name="ceremonyId" value={ceremonyId} />
+            <input type="hidden" name="operatorId" value="" />
+            <button
+              type="submit"
+              className="ceremony-detail-page__assignee-pill ceremony-detail-page__assignee-pill--stale"
+            >
+              {assignedOperatorName ?? "알 수 없는 회원"} · 배정 해제
+            </button>
+          </form>
+        )}
         {!assignedOperatorName && (
           <span className="ceremony-detail-page__assignee-unassigned">미배정</span>
         )}
       </div>
 
       <h2>포함된 항목 ({items.length}개)</h2>
+      <p className="ceremony-detail-page__hint">
+        여기서 추가·수정·제외한 내용은 이 예식에만 반영되고 템플릿은 바뀌지 않습니다.
+      </p>
       {items.length === 0 ? (
         <p className="ceremony-detail-page__empty">포함된 항목이 없습니다.</p>
       ) : (
         <div className="instance-candidate-groups">
-          {groupItemsByStep(items).map(([templateItemId, stepItems]) => (
-            <div key={templateItemId ?? "unlinked"} className="instance-candidate-group">
+          {groupItemsByStep(items).map(([groupKey, stepItems]) => (
+            <div key={groupKey} className="instance-candidate-group">
               <h3 className="instance-candidate-group__step-name">{stepItems[0].stepName}</h3>
               <ul className="instance-item-list">
                 {stepItems.map((item) => (
-                  <li key={item.id} className="instance-item-card">
-                    <span className="instance-item-card__name">{item.title}</span>
-                    <form action={removeInstanceItemAction}>
-                      <input type="hidden" name="hallId" value={hallId} />
-                      <input type="hidden" name="ceremonyId" value={ceremonyId} />
-                      <input type="hidden" name="itemId" value={item.id} />
-                      <button type="submit" className="btn-secondary">
-                        제외
-                      </button>
-                    </form>
-                  </li>
+                  <InstanceItemRow key={item.id} hallId={hallId} ceremonyId={ceremonyId} item={item} />
                 ))}
               </ul>
+              <div className="instance-candidate-group__quick-add">
+                <InstanceItemForm
+                  hallId={hallId}
+                  ceremonyId={ceremonyId}
+                  stepContext={{
+                    templateItemId: stepItems[0].templateItemId,
+                    groupRootId: stepItems[0].adHocGroupRootId,
+                  }}
+                />
+              </div>
             </div>
           ))}
         </div>
       )}
+
+      <div className="ceremony-detail-page__new-step">
+        <InstanceItemForm hallId={hallId} ceremonyId={ceremonyId} isNewStep />
+      </div>
 
       <h2>추가 가능한 항목</h2>
       {candidates.length === 0 ? (

@@ -80,3 +80,38 @@ describe("memberRepo.findById (Story 5.7)", () => {
     expect(result?.name).toBe("회원D");
   });
 });
+
+describe("memberRepo.demoteIfNotLastActiveAdmin (Story 5.7 AC 2, 코덱스 리뷰 P2)", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("다른 활성 관리자가 있으면 강등에 성공하고 role이 operator로 바뀐다", async () => {
+    const admin1 = await createTestMember({ phoneNumber: "01099001111", role: "admin" });
+    await createTestMember({ phoneNumber: "01099002222", role: "admin" });
+
+    const result = await memberRepo.demoteIfNotLastActiveAdmin(admin1.id);
+
+    expect(result).toBe(true);
+    const updated = await memberRepo.findById(admin1.id);
+    expect(updated?.role).toBe("operator");
+  });
+
+  it("유일한 활성 관리자면 강등에 실패하고 role이 admin으로 유지된다", async () => {
+    const onlyAdmin = await createTestMember({ phoneNumber: "01099003333", role: "admin" });
+
+    const result = await memberRepo.demoteIfNotLastActiveAdmin(onlyAdmin.id);
+
+    expect(result).toBe(false);
+    const unchanged = await memberRepo.findById(onlyAdmin.id);
+    expect(unchanged?.role).toBe("admin");
+  });
+
+  it("이미 operator인 대상이면 강등에 실패한다(no-op)", async () => {
+    const operatorMember = await createTestMember({ phoneNumber: "01099004444" });
+
+    const result = await memberRepo.demoteIfNotLastActiveAdmin(operatorMember.id);
+
+    expect(result).toBe(false);
+  });
+});

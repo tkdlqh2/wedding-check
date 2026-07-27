@@ -202,6 +202,14 @@ export async function reactivateMember(id: string): Promise<void> {
 // AD-3에 따라 admin 세션만 이 화면에 접근할 수 있으므로, "활성 관리자가 1명뿐인" 상황의
 // 그 1명은 항상 호출자 자신이다 — 그래도 target.id === currentUserId를 명시적으로
 // 검사해 카운트 로직 버그가 다른 사람의 역할 변경까지 막지 않도록 한다.
+//
+// 코덱스 리뷰 P2: 이 보호를 "카운트 확인 → setRole 호출" 두 단계로 나누면 두 관리자가
+// 동시에 자기 자신을 강등할 때 TOCTOU 경합으로 활성 관리자가 0명이 될 수 있다 — 자기
+// 자신을 admin에서 내리는 경로는 memberRepo.demoteIfNotLastActiveAdmin()의 단일 원자적
+// SQL 문(FOR UPDATE 잠금 기반)에 위임한다. 이 경로는 better-auth의 setRole을 거치지
+// 않지만, 호출자 권한은 이미 Server Action의 requireAdminSession()이 검증했고
+// setRole 자체도 결국 동일한 internalAdapter.updateUser(userId, { role })일 뿐이라
+// 안전하다(routes.mjs 확인 완료).
 export async function setMemberRole(
   currentUserId: string,
   targetId: string,
@@ -217,13 +225,13 @@ export async function setMemberRole(
   }
 
   if (target.id === currentUserId && target.role === "admin" && role !== "admin") {
-    const all = await memberRepo.findAll();
-    const activeAdminCount = all.filter((m) => m.role === "admin" && !m.banned).length;
-    if (activeAdminCount <= 1) {
+    const demoted = await memberRepo.demoteIfNotLastActiveAdmin(targetId);
+    if (!demoted) {
       throw new MemberValidationError(
         "마지막 활성 관리자는 역할을 변경할 수 없습니다. 다른 계정을 관리자로 지정한 뒤 다시 시도하세요.",
       );
     }
+    return;
   }
 
   await auth.api.setRole({

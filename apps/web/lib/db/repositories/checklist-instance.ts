@@ -1,4 +1,4 @@
-import { eq, and, asc, notInArray, isNotNull } from "drizzle-orm";
+import { eq, and, asc, notInArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "../index";
 import {
   checklistInstances,
@@ -50,10 +50,19 @@ export async function listItems(
 // INSERT 문 안에서 처리되므로 Story 1.3의 neon-http 트랜잭션 제약과도 무관하다.
 // Story 5.5: 파라미터가 단계(TemplateItem)에서 체크리스트 항목으로 바뀌었다 — 소속
 // 단계명(stepName)은 그룹핑 표시를 위해 호출자(서비스)가 함께 채워 넘긴다.
+//
+// 코덱스 리뷰 P1: sortOrder에 체크리스트 항목의 "단계 안" sortOrder(예: 0, 1)를 그대로
+// 쓰면, 여러 단계가 각자 0부터 시작하는 sortOrder를 갖고 있어 인스턴스 전체의 평탄화된
+// 순서와 충돌·동률이 발생해 오퍼레이터 화면의 단계별 그룹(연속된 stepName 가정, Story 5.5
+// checklist-instance-view.tsx groupItemsByStep)이 뒤섞일 수 있었다. 수동 추가 항목은
+// 항상 그 인스턴스의 현재 최댓값 다음(맨 뒤)에 배치한다 — ceremonyRepo.create()의
+// row_number() 평탄화 계산과 별개로, 이 함수는 "당일 변경"이라 맨 뒤에 추가되는 것이
+// 자연스럽다(대표가 원래 템플릿 순서 중간에 끼워 넣고 싶다면 이후 순서 편집 기능에서
+// 다룰 문제 — 이 스토리 범위 밖).
 export async function addItem(
   hallId: string,
   instanceId: string,
-  checklistItem: { id: string; title: string; description: string | null; sortOrder: number; stepName: string },
+  checklistItem: { id: string; title: string; description: string | null; stepName: string },
 ): Promise<ChecklistInstanceItem> {
   const [inserted] = await db
     .insert(checklistInstanceItems)
@@ -64,7 +73,7 @@ export async function addItem(
       stepName: checklistItem.stepName,
       title: checklistItem.title,
       description: checklistItem.description,
-      sortOrder: checklistItem.sortOrder,
+      sortOrder: sql<number>`coalesce((select max(${checklistInstanceItems.sortOrder}) from ${checklistInstanceItems} where ${checklistInstanceItems.instanceId} = ${instanceId}), -1) + 1`,
     })
     .onConflictDoNothing({
       target: [checklistInstanceItems.instanceId, checklistInstanceItems.templateItemCheckId],

@@ -219,6 +219,10 @@ Amelia (claude-sonnet-5)
 - **부분집합 매칭 테스트로 실제 매칭 방향을 검증함:** `ceremony.contract_conditions @> template_item.applicable_contract_conditions` 방향을 실제 DB에 태깅된 항목 3가지 케이스(제외/포함/무조건포함)로 검증 — 전부 스토리 Dev Notes의 표대로 동작함을 확인.
 - **수동 검증 중 발견한 검증 스크립트 자체의 함정(앱 버그 아님):** (1) 상세 페이지의 "제외" 버튼은 `useActionState` 없는 plain Server Action이라 `$ACTION_ID_<hash>` 히든 필드가 필요한데, 처음엔 이 필드 없이 POST해서 500을 봤다 — Story 1.4에서 이미 기록된 인코딩 차이(useActionState 액션은 `$ACTION_REF_N`, plain 액션은 `$ACTION_ID_<hash>`)를 재확인. (2) "제외" 후 해당 항목명이 페이지에서 완전히 사라질 거라 잘못 가정해 검증 스크립트가 실패로 보였음 — 실제로는 인스턴스에서만 빠지고 원본 템플릿 항목은 그대로라 "추가 가능한 항목" 섹션에 다시 나타나는 게 맞는 동작(DB 직접 조회로 삭제 자체는 확인됨). 둘 다 애플리케이션 코드가 아니라 검증 스크립트의 실수였다.
 
+**코덱스 리뷰 1차(PR #9) — 2건 실결함, 둘 다 수정·회귀 테스트 추가 후 확인:**
+- **[P1] `readContractConditions`가 체크 안 한 조건도 `false`로 채우고 있었음.** 부분집합 매칭은 "요구 조건 없음"(키 없음)과 "false를 요구함"(키 있음+false)을 구분하는데, 태깅 안 한 템플릿 항목이 매번 `{requiresOfficiant:false, hasAdditionalEvent:false}`가 되어 해당 조건이 `true`인 예식에서 잘못 제외되는 실제 버그였다. 체크한 키만 넣도록 수정(`{}` = 무조건 포함). 순수 함수라 `"use server"` 파일 밖(`contract-conditions.ts`)으로 분리해 단위 테스트 가능하게 만듦.
+- **[P2] `addItem`에 (instance_id, template_item_id) 유일성이 보장되지 않아, 재전송·두 탭 동시 제출로 같은 항목이 중복 추가될 수 있었음.** DB에 UNIQUE 제약 추가(`0009_curly_fallen_one.sql`) + `onConflictDoNothing`으로 멱등하게 처리하도록 수정.
+
 ### Completion Notes List
 
 - AC 1~4 전부 로컬 서버에 실제 로그인 후 HTTP 요청으로 검증: (1) "주례 관련"으로 태깅한 템플릿 항목이 "주례 없음" 예식 등록 시 인스턴스에서 실제로 빠지고, "주례 있음"이면 포함됨을 DB 직접 조회로 확인, (2) 상세 페이지에서 후보 항목 추가 → "포함된 항목"으로 이동, 제외 → "추가 가능한 항목"으로 복귀함을 확인, (3) 다른 홀의 templateItemId를 폼 필드에서 직접 조작해 추가를 시도 → `ChecklistInstanceValidationError`로 거부되고 DB에도 실제로 추가되지 않음을 확인(2-hop 재검증의 핵심 시나리오), (4) 조합 후보 목록에 다른 홀의 템플릿 항목이 한 번도 노출되지 않음을 확인.
@@ -244,8 +248,11 @@ Amelia (claude-sonnet-5)
 - `apps/web/app/admin/ceremonies/[hallId]/[ceremonyId]/ceremony-detail.css` (NEW)
 - `apps/web/tests/helpers/db.ts` (MODIFY) — `createTestTemplateItem`에 `applicableContractConditions` 오버라이드 추가
 - `apps/web/tests/repositories/ceremony.test.ts` (MODIFY) — 부분집합 매칭 테스트 3건 추가
-- `apps/web/tests/repositories/checklist-instance.test.ts` (NEW)
+- `apps/web/tests/repositories/checklist-instance.test.ts` (NEW, 코덱스 1차 이후 중복 방지 테스트 추가)
 - `apps/web/tests/services/checklist-instance.test.ts` (NEW)
+- `apps/web/app/admin/templates/[hallId]/contract-conditions.ts` (NEW, 코덱스 1차 P1 수정)
+- `apps/web/tests/lib/template-item-conditions.test.ts` (NEW, 코덱스 1차 P1 회귀 테스트)
+- `apps/web/drizzle/0009_curly_fallen_one.sql` (NEW, 코덱스 1차 P2 — instance_id/template_item_id UNIQUE)
 
 ## Change Log
 

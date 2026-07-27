@@ -25,9 +25,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link href="/admin/halls" className="admin-nav__link">
             홀
           </Link>
-          <Link href="/admin/halls" className="admin-nav__link">
-            템플릿
-          </Link>
           <Link href="/admin/ceremonies" className="admin-nav__link">
             예식
           </Link>

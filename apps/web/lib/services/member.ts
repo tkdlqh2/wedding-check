@@ -66,11 +66,15 @@ export async function createMember(input: {
     });
     return created as Member;
   } catch (err) {
-    // 코덱스 리뷰 P2: (1) 위의 findByPhoneNumber 사전 검증과 실제 생성 사이에 동시
-    // 요청이 끼어들면 이메일(전화번호 기반 합성값)이 여전히 중복될 수 있어 better-auth가
-    // 직접 USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL을 던진다. (2) 비밀번호가 better-auth
-    // 정책(길이 등)에 안 맞으면 PASSWORD_TOO_SHORT/PASSWORD_TOO_LONG을 던진다. 둘 다
-    // 그대로 흘려보내면 Server Action이 처리 안 된 일반 오류로 실패하므로, 여기서
+    // 코덱스 리뷰 P2(1~2차): (1) 위의 findByPhoneNumber 사전 검증과 실제 생성 사이에
+    // 동시 요청이 끼어들면 이메일(전화번호 기반 합성값)이 여전히 중복될 수 있어
+    // better-auth의 자체 사전 조회가 직접 USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL을
+    // 던진다. (2) 비밀번호가 better-auth 정책(길이 등)에 안 맞으면
+    // PASSWORD_TOO_SHORT/PASSWORD_TOO_LONG을 던진다. (3) 두 요청이 better-auth의
+    // 자체 사전 조회까지도 동시에 통과하면(더 좁은 경합 창) email/phone_number unique
+    // 제약을 건 DB INSERT 자체가 실패하는데, 이건 APIError가 아니라 Postgres 드라이버가
+    // 던지는 raw 에러(SQLSTATE 23505 = unique_violation)다. 셋 다 그대로 흘려보내면
+    // Server Action이 처리 안 된 일반 오류로 실패하므로, 여기서 전부
     // MemberValidationError로 번역해 폼에 구체적 오류가 표시되게 한다(AC 3).
     if (err instanceof APIError) {
       if (err.body?.code === "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL") {
@@ -80,6 +84,9 @@ export async function createMember(input: {
         throw new MemberValidationError("비밀번호 길이가 올바르지 않습니다");
       }
       throw new MemberValidationError(err.body?.message ?? "계정 생성에 실패했습니다");
+    }
+    if (typeof err === "object" && err !== null && "code" in err && err.code === "23505") {
+      throw new MemberValidationError("이미 등록된 전화번호입니다");
     }
     throw err;
   }

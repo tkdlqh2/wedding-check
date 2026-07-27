@@ -136,6 +136,22 @@ describe("createMember (Story 5.4 AC 2, 3)", () => {
       spy.mockRestore();
     }
   });
+
+  it("동시에 같은 전화번호로 등록을 시도해도 하나만 성공하고 나머지는 항상 동일한 한국어 오류를 받는다 (코덱스 리뷰 P2 — 사전검사/better-auth 사전조회/DB unique 제약 중 어느 경합 창에 걸리든 동일한 결과)", async () => {
+    const attempts = await Promise.allSettled([
+      createMember({ name: "동시등록A", phoneNumber: "01044448888", password: "pw-a-1234" }),
+      createMember({ name: "동시등록B", phoneNumber: "01044448888", password: "pw-b-1234" }),
+    ]);
+
+    const fulfilled = attempts.filter((r) => r.status === "fulfilled");
+    const rejected = attempts.filter(
+      (r): r is PromiseRejectedResult => r.status === "rejected",
+    );
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0].reason).toBeInstanceOf(MemberValidationError);
+    expect((rejected[0].reason as Error).message).toBe("이미 등록된 전화번호입니다");
+  });
 });
 
 describe("계정 비활성화/재활성화 — better-auth admin 플러그인 위임 (Story 5.4 AC 4)", () => {

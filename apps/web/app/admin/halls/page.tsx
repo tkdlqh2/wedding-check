@@ -9,14 +9,11 @@ export default async function HallsPage() {
   return (
     <section className="halls-page">
       <h1>홀 관리</h1>
-
-      <div className="halls-page__form-card">
-        <HallForm />
-      </div>
+      <p className="halls-page__subtitle">홀별로 독립된 체크리스트 템플릿을 관리할 수 있습니다.</p>
 
       {halls.length === 0 ? (
         <p className="halls-page__empty">
-          등록된 홀이 없습니다. 위에서 첫 홀을 등록해보세요.
+          등록된 홀이 없습니다. 아래에서 첫 홀을 등록해보세요.
         </p>
       ) : (
         <ul className="hall-list">
@@ -25,6 +22,10 @@ export default async function HallsPage() {
           ))}
         </ul>
       )}
+
+      <div className="halls-page__add-hall">
+        <HallForm />
+      </div>
     </section>
   );
 }

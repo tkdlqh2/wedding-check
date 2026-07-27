@@ -1,6 +1,9 @@
-/* DESIGN.md §4 Cards(Feature/Content Card, UX-DR6), §14 Empty state */
+/* prototype/js/screens/TemplateScreen.js 시각 언어 이식 — 번호 배지 헤더 카드,
+   58px 들여쓴 체크리스트 항목 행, 점선 추가 입력. DESIGN.md 토큰만 사용(색상 값은
+   프로토타입과 동일한 브랜드 팔레트라 그대로 var() 매핑). */
 .templates-page {
-  max-width: 720px;
+  max-width: 900px;
+  margin: 0 auto;
 }
 
 .templates-page__back {
@@ -10,12 +13,10 @@
   margin-bottom: var(--space-sm);
 }
 
-.templates-page__form-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-lg);
-  padding: var(--space-lg);
-  margin-bottom: var(--space-xl);
+.templates-page__subtitle {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin: 6px 0 var(--space-lg);
 }
 
 .templates-page__empty {
@@ -23,14 +24,239 @@
   font-size: 14px;
 }
 
-.template-item-form {
+.template-item-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* 단계 카드 — 헤더(회색 배경)+체크리스트 항목 목록으로 구성, overflow hidden으로
+   내부 헤더의 배경/보더가 카드 라운딩 밖으로 삐져나오지 않게 한다. */
+.template-item-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.template-item-card--editing {
+  padding: var(--space-lg);
+}
+
+.template-item-card__body {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 14px 20px;
+  background: var(--color-surface-soft);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.template-item-card__index {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.template-item-card__step-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.template-item-card__conditions {
+  display: flex;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+/* 조건 태그는 상태 배지(UX-DR8)가 아니라 메타 정보라 상태색을 쓰지 않는다. */
+.condition-tag {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.template-item-card__item-count {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.template-item-card__actions {
+  display: flex;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.template-item-card__actions .btn-secondary {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.template-item-card__checklist {
+  padding-bottom: var(--space-xs);
+}
+
+.template-item-card__checklist-empty {
+  color: var(--color-text-muted);
+  font-size: 14px;
+  margin: var(--space-md) 20px;
+}
+
+.checklist-item-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.checklist-item-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 12px 20px 12px 58px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.checklist-item-card--editing {
+  display: block;
+  padding: var(--space-md) 20px var(--space-md) 58px;
+}
+
+.checklist-item-card__body {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.checklist-item-card__title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.checklist-item-card__description {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: 0;
+  flex-basis: 100%;
+}
+
+/* "설명 있음" 태그(§2 조건 태그와 동일 톤) / "▶ 시연 영상" 태그(정보색 — 영상은
+   자산이 있다는 긍정적 신호라 톤을 구분) */
+.checklist-item-card__tag {
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border-light);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.checklist-item-card__tag--video {
+  background: #eef5fd;
+  border-color: transparent;
+  color: var(--color-info);
+}
+
+.checklist-item-form-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.checklist-item-card__video {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+  flex-basis: 100%;
+}
+
+.checklist-item-card__video video {
+  max-width: 100%;
+  border-radius: var(--radius-md);
+}
+
+.checklist-item-card__video-empty {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+.video-upload {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.video-upload__notice {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  margin: 0;
+}
+
+.checklist-item-card__actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.checklist-item-card__actions .btn-secondary {
+  padding: 5px 9px;
+  font-size: 12px;
+}
+
+/* 체크리스트 항목 빠른 추가 — 요약(제목)만 필수, 점선 인풋으로 "아직 폼처럼
+   무겁지 않다"는 신호(DESIGN.md §10 "정해진 형식 없이" 톤과 같은 원칙). */
+.template-item-card__checklist-form {
+  padding: 10px 20px 14px 58px;
+}
+
+.checklist-item-form--quick {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.checklist-item-form--quick .input {
+  border-style: dashed;
+}
+
+/* 단계 수정 폼 / 체크리스트 항목 수정 폼(제목+설명) — 공통 스택형 레이아웃 */
+.template-item-form,
+.checklist-item-form {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
   align-items: flex-start;
 }
 
-.template-item-form textarea {
+.template-item-form textarea,
+.checklist-item-form textarea {
   resize: vertical;
   font-family: inherit;
 }
@@ -48,104 +274,20 @@
   color: var(--color-text-secondary);
 }
 
-.template-item-card__conditions {
-  display: flex;
-  gap: var(--space-xs);
-  flex-wrap: wrap;
+/* 새 단계 추가 — 프로토타입과 동일하게 목록 맨 아래, 점선 카드 */
+.templates-page__add-step {
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border-mid);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg) 20px;
+  margin-top: var(--space-md);
 }
 
-/* 조건 태그는 상태 배지(UX-DR8)가 아니라 메타 정보라 상태색을 쓰지 않는다. */
-.condition-tag {
-  background: var(--color-surface-soft);
-  color: var(--color-text-muted);
-  border-radius: var(--radius-sm);
-  padding: 2px 8px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.template-item-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+.templates-page__add-step-row {
   display: flex;
-  flex-direction: column;
   gap: var(--space-sm);
 }
 
-/* Feature/Content Card (UX-DR6): 흰 배경, border #E6E6E6, radius 8~12px, padding 24px */
-.template-item-card {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-md);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-lg);
-  padding: var(--space-lg);
-}
-
-.template-item-card--editing {
-  flex-direction: column;
-  align-items: stretch;
-}
-
-.template-item-card__body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.template-item-card__step-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.template-item-card__description {
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--color-text-secondary);
-  margin: 0;
-}
-
-.template-item-card__video {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  margin-top: var(--space-sm);
-}
-
-.template-item-card__video video {
-  max-width: 100%;
-  border-radius: var(--radius-md);
-}
-
-.template-item-card__video-empty {
-  color: var(--color-text-muted);
-  font-size: 14px;
-  margin: 0;
-}
-
-.video-upload {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  flex-wrap: wrap;
-}
-
-.video-upload__notice {
-  color: var(--color-text-muted);
-  font-size: 12px;
-  margin: 0;
-}
-
-.template-item-card__actions {
-  display: flex;
-  gap: var(--space-xs);
-  flex-shrink: 0;
-}
-
-.template-item-card__actions .btn-secondary {
-  padding: var(--space-sm) var(--space-md);
+.templates-page__add-step-row .input {
+  flex: 1;
 }

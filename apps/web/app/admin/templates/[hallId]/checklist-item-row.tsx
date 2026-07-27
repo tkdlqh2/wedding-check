@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { deleteChecklistItemAction, moveChecklistItemAction } from "./actions";
 import { ChecklistItemForm } from "./checklist-item-form";
-import { VideoUpload } from "./video-upload";
 
-// Story 5.5: template-item-row.tsx의 기존 영상 블록(<video>/업로드 폼)을 그대로
-// 옮겨왔다 — 시연 영상은 이제 단계가 아니라 체크리스트 항목에 붙는다.
+// Story 5.5(대표 피드백 반영, prototype/js/screens/TemplateScreen.js와 동일 원칙):
+// 목록에 있을 때는 "긴 설명"/"▶ 시연 영상" 여부만 태그로 보여주고, 실제 설명 전문과
+// 영상 재생/업로드 UI는 "수정"을 눌러야만 나타난다(ChecklistItemForm 편집 모드).
 export function ChecklistItemRow({
   hallId,
   templateItemId,
@@ -37,6 +37,8 @@ export function ChecklistItemRow({
           hallId={hallId}
           templateItemId={templateItemId}
           item={item}
+          demoVideo={demoVideo}
+          blobEnabled={blobEnabled}
           onSuccess={() => setEditing(false)}
         />
         <button type="button" className="btn-secondary" onClick={() => setEditing(false)}>
@@ -50,20 +52,8 @@ export function ChecklistItemRow({
     <li className="checklist-item-card">
       <div className="checklist-item-card__body">
         <span className="checklist-item-card__title">{item.title}</span>
-        {item.description && <p className="checklist-item-card__description">{item.description}</p>}
-        <div className="checklist-item-card__video">
-          {demoVideo ? (
-            <video controls src={demoVideo.videoUrl} />
-          ) : (
-            <p className="checklist-item-card__video-empty">영상 없음</p>
-          )}
-          <VideoUpload
-            hallId={hallId}
-            checklistItemId={item.id}
-            blobEnabled={blobEnabled}
-            currentVideoUrl={demoVideo?.videoUrl}
-          />
-        </div>
+        {item.description && <span className="checklist-item-card__tag">긴 설명</span>}
+        {demoVideo && <span className="checklist-item-card__tag checklist-item-card__tag--video">▶ 시연 영상</span>}
       </div>
       <div className="checklist-item-card__actions">
         <form action={moveChecklistItemAction}>

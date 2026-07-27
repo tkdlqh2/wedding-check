@@ -23,7 +23,15 @@ export async function createCeremonyAction(
   await requireAdminSession();
 
   const hallId = String(formData.get("hallId") ?? "");
-  const ceremonyAt = parseCeremonyAtInput(String(formData.get("ceremonyAt") ?? ""));
+  // Story 5.8 AC 1: 날짜/시각 입력란이 분리됐다 — parseCeremonyAtInput의 KST 오프셋
+  // 파싱 로직(9~17행)은 그대로 두고, 두 값을 datetime-local과 동일한 형태
+  // ("YYYY-MM-DDTHH:mm")로 합쳐서 넘긴다.
+  const ceremonyDate = String(formData.get("ceremonyDate") ?? "");
+  const ceremonyTime = String(formData.get("ceremonyTime") ?? "");
+  const ceremonyAt =
+    ceremonyDate && ceremonyTime
+      ? parseCeremonyAtInput(`${ceremonyDate}T${ceremonyTime}`)
+      : null;
   if (!ceremonyAt) {
     return { error: "예식 일시를 입력해주세요" };
   }

@@ -51,17 +51,57 @@
   width: 100%;
 }
 
-.ceremony-form__conditions {
+/* Story 5.8 AC 1: 날짜/시각 분리 입력 — prototype/js/screens/WeddingScreen.js 47~50행
+   참고(날짜 flex:1, 시각 고정폭). */
+.ceremony-form__datetime {
   display: flex;
-  gap: var(--space-md);
+  gap: var(--space-sm);
 }
 
-.ceremony-form__checkbox {
+.ceremony-form__datetime input[type="date"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.ceremony-form__datetime input[type="time"] {
+  width: 110px;
+  flex: none;
+}
+
+/* Story 5.8 AC 3: 신랑·신부 한 줄 배치. */
+.ceremony-form__couple-row {
   display: flex;
-  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+}
+
+.ceremony-form__couple-row .ceremony-form__field {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Story 5.8 AC 4: 계약 형태 pill 토글(체크박스 대체) — 선택 시 브랜드 틴트 배경 +
+   보더(design-tokens.css 변수가 정확히 #FDEDE7/#E8552D와 일치). */
+.ceremony-form__conditions {
+  display: flex;
   gap: var(--space-xs);
-  font-size: 14px;
-  color: var(--color-text-secondary);
+  flex-wrap: wrap;
+}
+
+.ceremony-form__condition-pill {
+  cursor: pointer;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-mid);
+  border-radius: var(--radius-full);
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.ceremony-form__condition-pill--active {
+  background: var(--color-brand-tint);
+  border-color: var(--color-brand);
 }
 
 .ceremony-list {
@@ -86,12 +126,15 @@
   border-left: 4px solid var(--color-border-mid);
   border-radius: var(--radius-md);
   padding: var(--space-md);
+  /* Story 5.8 AC 5: 담당자 칩까지 추가되며 카드가 넓어질 수 있어 오버플로 방지. */
+  flex-wrap: wrap;
 }
 
 .ceremony-card__body {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
+  min-width: 0;
 }
 
 .ceremony-card__hall {
@@ -110,12 +153,25 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--color-text-primary);
+  overflow-wrap: anywhere;
 }
 
 .ceremony-card__item-count {
   font-size: 14px;
   color: var(--color-text-muted);
   flex-shrink: 0;
+}
+
+/* Story 5.8 AC 8: 읽기 전용 담당자 표시(목록 카드). */
+.ceremony-card__assignee {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.ceremony-card__assignee--unassigned {
+  color: var(--color-error);
 }
 
 /* Story 5.2 — 예식 날짜 필터 캘린더. prototype/js/screens/WeddingScreen.js와 동일한

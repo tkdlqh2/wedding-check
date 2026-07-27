@@ -3,8 +3,64 @@ import * as ceremonyRepo from "../db/repositories/ceremony";
 import * as templateItemRepo from "../db/repositories/template-item";
 import * as instanceRepo from "../db/repositories/checklist-instance";
 import type { Feedback } from "../db/repositories/feedback";
+import { getEmbeddingPort, getLLMPort } from "../ai";
 
 export class FeedbackValidationError extends Error {}
+
+const OUTCOME_VALUES = ["well_handled", "mishandled"] as const;
+type Outcome = (typeof OUTCOME_VALUES)[number];
+
+function isOutcome(value: unknown): value is Outcome {
+  return typeof value === "string" && (OUTCOME_VALUES as readonly string[]).includes(value);
+}
+
+const STRUCTURE_RESPONSE_SCHEMA = {
+  type: "object",
+  properties: {
+    situation: { type: "string" },
+    outcome: { type: "string", enum: [...OUTCOME_VALUES] },
+    rationale: { type: "string" },
+    tags: { type: "array", items: { type: "string" } },
+  },
+  required: ["situation", "outcome", "rationale", "tags"],
+  additionalProperties: false,
+} as const;
+
+interface StructuredDraft {
+  situation: string;
+  outcome: Outcome;
+  rationale: string;
+  tags: string[];
+}
+
+// FR-9: LLM 응답(JSON 문자열)을 검증한다. output_config.format(JSON Schema)이 형태를
+// 대부분 강제하지만, AD-8 안전 경계 원칙상 서비스 레이어에서 한 번 더 검증한다 —
+// LLM이 스키마를 어기거나 빈 문자열을 채워 넣는 경우까지 방어한다.
+function parseStructuredDraft(text: string): StructuredDraft {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new Error("구조화 응답이 유효한 JSON이 아닙니다");
+  }
+  if (typeof parsed !== "object" || parsed === null) {
+    throw new Error("구조화 응답 형식이 올바르지 않습니다");
+  }
+  const { situation, outcome, rationale, tags } = parsed as Record<string, unknown>;
+  if (typeof situation !== "string" || situation.trim().length === 0) {
+    throw new Error("구조화 응답의 situation이 비어있습니다");
+  }
+  if (!isOutcome(outcome)) {
+    throw new Error("구조화 응답의 outcome 값이 올바르지 않습니다");
+  }
+  if (typeof rationale !== "string" || rationale.trim().length === 0) {
+    throw new Error("구조화 응답의 rationale이 비어있습니다");
+  }
+  if (!Array.isArray(tags) || !tags.every((t) => typeof t === "string")) {
+    throw new Error("구조화 응답의 tags 형식이 올바르지 않습니다");
+  }
+  return { situation: situation.trim(), outcome, rationale: rationale.trim(), tags };
+}
 
 // AD-2 2-hop 재검증: ceremonyRepo/templateItemRepo 둘 다 hallId로 스코프된 조회다 —
 // 둘 다 성공해야 예식과 단계가 실제로 같은 홀 소속임이 보장된다
@@ -83,4 +139,119 @@ export async function getDraftFeedback(
 ): Promise<Feedback | undefined> {
   await requireCeremonyAndStep(hallId, ceremonyId, templateItemId);
   return feedbackRepo.findByCeremonyAndStep(ceremonyId, templateItemId);
+}
+
+async function requireDraftFeedback(
+  hallId: string,
+  ceremonyId: string,
+  templateItemId: string,
+): Promise<Feedback> {
+  await requireCeremonyAndStep(hallId, ceremonyId, templateItemId);
+  const existing = await feedbackRepo.findByCeremonyAndStep(ceremonyId, templateItemId);
+  if (!existing) {
+    throw new FeedbackValidationError("임시저장된 피드백이 없습니다");
+  }
+  if (existing.status !== "draft") {
+    throw new FeedbackValidationError("이미 확정된 피드백입니다");
+  }
+  return existing;
+}
+
+// AC 1: draft 피드백의 원본 자연어(content)를 5필드(단계는 이미 앎) 중 4개
+// (situation/outcome/rationale/tags)로 자동 구조화한 초안을 만들어 저장한다.
+// NFR-1: temperature=0(어댑터 기본값)으로 결정성을 최대화하되, 재구조화는 기존 초안을
+// 덮어쓴다 — 오퍼레이터가 다시 구조화를 눌렀다는 것은 이전 초안을 버리겠다는 의도다.
+export async function structureFeedback(
+  hallId: string,
+  ceremonyId: string,
+  templateItemId: string,
+): Promise<Feedback> {
+  const existing = await requireDraftFeedback(hallId, ceremonyId, templateItemId);
+
+  const prompt = `당신은 웨딩홀 예식 진행 중 발생한 변수 상황 피드백을 구조화하는 보조 도구입니다.
+다음은 오퍼레이터가 "${existing.stepName}" 단계에서 자유롭게 작성한 피드백입니다.
+
+"""
+${existing.content}
+"""
+
+이 내용을 바탕으로 아래 필드를 채워주세요.
+- situation: 어떤 상황이 있었는지 객관적으로 요약한 설명
+- outcome: 이 상황에 잘 대처했는지 여부 (well_handled 또는 mishandled 중 하나)
+- rationale: 사후에 돌아봤을 때의 판단(왜 그렇게 대처했는지, 다음엔 어떻게 해야 하는지)
+- tags: 이 상황을 분류할 수 있는 키워드 1~5개`;
+
+  const result = await getLLMPort().generate({ prompt, responseSchema: STRUCTURE_RESPONSE_SCHEMA });
+  const draft = parseStructuredDraft(result.text);
+
+  const updated = await feedbackRepo.updateStructuredFields(existing.id, draft);
+  if (!updated) {
+    throw new FeedbackValidationError("이미 확정된 피드백은 수정할 수 없습니다");
+  }
+  return updated;
+}
+
+// AC 2: 오퍼레이터가 구조화 초안의 4개 필드를 직접 고쳐 저장한다.
+export async function updateStructuredFields(
+  hallId: string,
+  ceremonyId: string,
+  templateItemId: string,
+  fields: { situation: string; outcome: string; rationale: string; tags: string[] },
+): Promise<Feedback> {
+  const existing = await requireDraftFeedback(hallId, ceremonyId, templateItemId);
+
+  const situation = fields.situation.trim();
+  const rationale = fields.rationale.trim();
+  if (situation.length === 0) {
+    throw new FeedbackValidationError("상황 설명을 입력하세요");
+  }
+  if (!isOutcome(fields.outcome)) {
+    throw new FeedbackValidationError("대처 결과 값이 올바르지 않습니다");
+  }
+  if (rationale.length === 0) {
+    throw new FeedbackValidationError("사후 판단을 입력하세요");
+  }
+  if (!Array.isArray(fields.tags) || !fields.tags.every((t) => typeof t === "string")) {
+    throw new FeedbackValidationError("태그 형식이 올바르지 않습니다");
+  }
+
+  const updated = await feedbackRepo.updateStructuredFields(existing.id, {
+    situation,
+    outcome: fields.outcome,
+    rationale,
+    tags: fields.tags,
+  });
+  if (!updated) {
+    throw new FeedbackValidationError("이미 확정된 피드백은 수정할 수 없습니다");
+  }
+  return updated;
+}
+
+// AC 3 / AD-8: 5필드가 모두 채워진 draft만 confirmed로 전환하고, 그 시점에만
+// variable_case를 생성·임베딩한다. 임베딩(외부 API 호출)은 DB 원자적 쓰기 전에 미리
+// 완료해둔다 — 실패하면 feedback은 draft로 그대로 남는다(트랜잭션에 진입조차 하지
+// 않았으므로 "confirmed인데 variable_case 없음" 상태가 관측될 수 없다, AD-8).
+export async function confirmFeedback(
+  hallId: string,
+  ceremonyId: string,
+  templateItemId: string,
+): Promise<Feedback> {
+  const existing = await requireDraftFeedback(hallId, ceremonyId, templateItemId);
+
+  if (
+    !existing.situation ||
+    existing.situation.trim().length === 0 ||
+    !existing.outcome ||
+    !existing.rationale ||
+    existing.rationale.trim().length === 0
+  ) {
+    throw new FeedbackValidationError("구조화를 먼저 완료하세요");
+  }
+
+  const [embedding] = await getEmbeddingPort().embed([`${existing.situation} ${existing.rationale}`]);
+  const confirmed = await feedbackRepo.confirmAndCreateVariableCase(existing.id, embedding);
+  if (!confirmed) {
+    throw new FeedbackValidationError("이미 확정된 피드백입니다");
+  }
+  return confirmed;
 }

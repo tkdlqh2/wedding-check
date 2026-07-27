@@ -9,6 +9,16 @@ export type { Member };
 
 export class MemberValidationError extends Error {}
 
+// Postgres unique_violation(SQLSTATE 23505) — drizzle-orm은 raw 드라이버 에러를
+// DrizzleQueryError로 감싸 err.cause에 원본을 보존한다(node_modules/drizzle-orm/errors.js
+// 확인 완료). 감싸지 않은 raw 에러가 직접 올라오는 경로도 함께 확인한다.
+function isPostgresUniqueViolation(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null)?.code;
+  if (code === "23505") return true;
+  const cause = (err as { cause?: { code?: unknown } } | null)?.cause;
+  return cause?.code === "23505";
+}
+
 export async function listMembers(): Promise<Member[]> {
   return memberRepo.findAll();
 }
@@ -66,15 +76,17 @@ export async function createMember(input: {
     });
     return created as Member;
   } catch (err) {
-    // 코덱스 리뷰 P2(1~2차): (1) 위의 findByPhoneNumber 사전 검증과 실제 생성 사이에
+    // 코덱스 리뷰 P2(1~3차): (1) 위의 findByPhoneNumber 사전 검증과 실제 생성 사이에
     // 동시 요청이 끼어들면 이메일(전화번호 기반 합성값)이 여전히 중복될 수 있어
     // better-auth의 자체 사전 조회가 직접 USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL을
     // 던진다. (2) 비밀번호가 better-auth 정책(길이 등)에 안 맞으면
     // PASSWORD_TOO_SHORT/PASSWORD_TOO_LONG을 던진다. (3) 두 요청이 better-auth의
     // 자체 사전 조회까지도 동시에 통과하면(더 좁은 경합 창) email/phone_number unique
-    // 제약을 건 DB INSERT 자체가 실패하는데, 이건 APIError가 아니라 Postgres 드라이버가
-    // 던지는 raw 에러(SQLSTATE 23505 = unique_violation)다. 셋 다 그대로 흘려보내면
-    // Server Action이 처리 안 된 일반 오류로 실패하므로, 여기서 전부
+    // 제약을 건 DB INSERT 자체가 실패하는데, drizzle-orm이 Postgres raw 에러(SQLSTATE
+    // 23505 = unique_violation)를 DrizzleQueryError로 감싸 err.code가 아니라
+    // err.cause.code에 실제 코드가 있다(node_modules/drizzle-orm/errors.js 확인 완료) —
+    // 감싸지 않은 raw 드라이버 에러가 직접 올라오는 경로도 대비해 둘 다 확인한다. 셋 다
+    // 그대로 흘려보내면 Server Action이 처리 안 된 일반 오류로 실패하므로, 여기서 전부
     // MemberValidationError로 번역해 폼에 구체적 오류가 표시되게 한다(AC 3).
     if (err instanceof APIError) {
       if (err.body?.code === "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL") {
@@ -85,7 +97,7 @@ export async function createMember(input: {
       }
       throw new MemberValidationError(err.body?.message ?? "계정 생성에 실패했습니다");
     }
-    if (typeof err === "object" && err !== null && "code" in err && err.code === "23505") {
+    if (isPostgresUniqueViolation(err)) {
       throw new MemberValidationError("이미 등록된 전화번호입니다");
     }
     throw err;

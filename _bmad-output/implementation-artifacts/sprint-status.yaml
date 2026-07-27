@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: "07-26-2026 16:19"
-last_updated: "07-26-2026 22:30"
+last_updated: "07-27-2026 00:52"
 project: wedding-check
 project_key: WEDCHK
 tracking_system: file-system
@@ -57,7 +57,7 @@ development_status:
 
   epic-2: in-progress
   2-1-ceremony-registration: done
-  2-2-contract-based-instance-assembly: review
+  2-2-contract-based-instance-assembly: done
   2-3-operator-instance-view: backlog
   epic-2-retrospective: optional
 
@@ -76,6 +76,14 @@ development_status:
 # Per-story git pipeline substage (see GIT PIPELINE STAGE legend above).
 # 번호가 매겨진 스토리가 아닌 개별 수정(fix/*)도 동일한 파이프라인으로 추적한다.
 git_pipeline:
+  2-2-contract-based-instance-assembly:
+    stage: merged
+    branch: story/2-2-contract-based-instance-assembly
+    pr_url: "https://github.com/tkdlqh2/wedding-check/pull/9"
+    merge_commit: "f8f95c0"
+    notes: "일반 merge(fast-forward), 브랜치 삭제 완료. 코덱스 리뷰 2라운드(1차 P1/P2 발견 후 2차 클린). FR-5 AD-9 부분집합 매칭 구현: 템플릿 항목에 계약 형태 조건 태깅 UI 추가(Story 1.3에서 미뤘던 편집 UI), ceremonyRepo.create() CTE에 `ceremony.contract_conditions @> template_item.applicable_contract_conditions` JOIN 조건 추가(Story 2.1 로직은 최소 diff만 적용, 재작성 안 함). 예식 상세 페이지(/admin/ceremonies/[hallId]/[ceremonyId])에서 AD-2 2-hop 재검증을 거친 항목 수동 추가/제외 구현(instance/templateItem을 각각 hallId로 스코프 조회, Story 1.4 assertTemplateItemOwnedByHall과 동일 원리). 코덱스 발견: (1차 P1) 템플릿 항목 조건 폼이 체크 안 한 키도 false로 채워 부분집합 매칭에서 '무관심'과 'false 요구'를 혼동 — 태깅 안 한 항목이 특정 조건이 true인 예식에서 잘못 제외되던 실결함, 체크한 키만 넣도록 수정(순수 함수라 use server 파일 밖으로 분리해 단위 테스트 가능하게 함). (1차 P2) addItem에 유일성 보장이 없어 재전송/두 탭 동시 제출 시 같은 항목이 중복 추가될 수 있었음 — (instance_id, template_item_id) UNIQUE 제약 + onConflictDoNothing으로 멱등하게 수정. 부가로 jsonb 컬럼(applicableContractConditions/contractConditions)이 .$type<>() 없이 unknown으로 추론되던 걸 실제 사용 코드 작성 중 tsc가 잡아내 타입 전용 수정."
+    last_updated: "07-27-2026 00:52"
+
   2-1-ceremony-registration:
     stage: merged
     branch: story/2-1-ceremony-registration

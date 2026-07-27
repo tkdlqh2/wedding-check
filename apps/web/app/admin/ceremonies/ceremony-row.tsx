@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { CeremonyWithHallName } from "@/lib/services/ceremony";
+import { isCeremonyDone } from "@/lib/ceremony-status";
 
 // KST 고정 표시 — 이 제품은 국내 단일 웨딩홀 대상이라 서버/브라우저 로컬 타임존과
 // 무관하게 항상 한국 표준시로 표시한다(actions.ts의 입력 파싱과 대칭).
@@ -31,17 +32,8 @@ function contractLabel(conditions: Record<string, boolean>): string {
   return labels.length > 0 ? labels.join(" · ") : "기본 계약";
 }
 
-// [ASSUMPTION] 예식 진행 상태(예정/진행중/완료)를 오퍼레이터가 직접 바꾸는 FR은 아직
-// 없다(Story 2.1 Dev Notes에 이미 기록된 제약) — 여기서는 예식 일시와 현재 시각만
-// 비교한 단순 2단계(예정/완료) 표시로, 별도 저장 필드 없이 렌더링 시점에 계산한다.
-// 컴포넌트 본문 밖의 일반 함수로 분리 — Date.now()를 컴포넌트 렌더 본문에서 직접
-// 호출하면 react-hooks/purity 린트가 막는다.
-function computeIsDone(ceremonyAt: Date): boolean {
-  return ceremonyAt.getTime() <= Date.now();
-}
-
 export function CeremonyRow({ ceremony }: { ceremony: CeremonyWithHallName }) {
-  const isDone = computeIsDone(ceremony.ceremonyAt);
+  const isDone = isCeremonyDone(ceremony.ceremonyAt);
 
   return (
     <li className={"ceremony-card" + (isDone ? " ceremony-card--done" : "")}>

@@ -3,8 +3,12 @@ import { resetDb, createTestHall, createTestTemplateItem } from "../helpers/db";
 import * as ceremonyRepo from "@/lib/db/repositories/ceremony";
 import * as feedbackRepo from "@/lib/db/repositories/feedback";
 import { db } from "@/lib/db";
-import { feedback } from "@/lib/db/schema";
+import { feedback, variableCases } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+
+function dummyEmbedding(): number[] {
+  return Array.from({ length: 1024 }, (_, i) => i / 1024);
+}
 
 async function createCeremony(hallId: string) {
   return ceremonyRepo.create(hallId, {
@@ -163,6 +167,128 @@ describe("feedback 리포지토리", () => {
       expect(result).toBeUndefined();
       const untouched = await feedbackRepo.findByCeremonyAndStep(ceremonyId, step.id);
       expect(untouched?.content).toBe("확정된 내용");
+    });
+  });
+
+  // Story 3.2 AC 1/2: 구조화 초안(LLM 결과 또는 오퍼레이터 수정)을 draft 행에 저장.
+  describe("updateStructuredFields", () => {
+    it("draft 행이면 4개 필드를 저장한다", async () => {
+      const hall = await createTestHall();
+      const { ceremonyId } = await createCeremony(hall.id);
+      const step = await createTestTemplateItem(hall.id);
+      const created = await feedbackRepo.create({
+        hallId: hall.id,
+        ceremonyId,
+        templateItemId: step.id,
+        stepName: step.stepName,
+        content: "주례자가 순서를 바꿨다",
+      });
+
+      const result = await feedbackRepo.updateStructuredFields(created.id, {
+        situation: "주례자가 사전 협의 없이 순서를 바꿨다",
+        outcome: "well_handled",
+        rationale: "당황하지 않고 다음 순서를 안내했다",
+        tags: ["주례자", "순서변경"],
+      });
+
+      expect(result?.situation).toBe("주례자가 사전 협의 없이 순서를 바꿨다");
+      expect(result?.outcome).toBe("well_handled");
+      expect(result?.tags).toEqual(["주례자", "순서변경"]);
+      expect(result?.status).toBe("draft");
+    });
+
+    // AD-8: 확정된 피드백은 구조화 초안도 조용히 덮어써질 수 없다.
+    it("이미 confirmed면 갱신하지 않고 undefined를 반환한다", async () => {
+      const hall = await createTestHall();
+      const { ceremonyId } = await createCeremony(hall.id);
+      const step = await createTestTemplateItem(hall.id);
+      const created = await feedbackRepo.create({
+        hallId: hall.id,
+        ceremonyId,
+        templateItemId: step.id,
+        stepName: step.stepName,
+        content: "내용",
+      });
+      await db.update(feedback).set({ status: "confirmed" }).where(eq(feedback.id, created.id));
+
+      const result = await feedbackRepo.updateStructuredFields(created.id, {
+        situation: "덮어쓰기 시도",
+        outcome: "well_handled",
+        rationale: "덮어쓰기 시도",
+        tags: [],
+      });
+
+      expect(result).toBeUndefined();
+    });
+  });
+
+  // Story 3.2 AC 3/AD-8: draft -> confirmed 전환과 variable_case 생성이 하나의
+  // 원자적 단위로 묶이는지 검증(db.transaction() 없이 단일 CTE로 구현).
+  describe("confirmAndCreateVariableCase", () => {
+    it("draft 행을 confirmed로 바꾸고 variable_case를 생성한다", async () => {
+      const hall = await createTestHall();
+      const { ceremonyId } = await createCeremony(hall.id);
+      const step = await createTestTemplateItem(hall.id, { stepName: "신랑입장" });
+      const created = await feedbackRepo.create({
+        hallId: hall.id,
+        ceremonyId,
+        templateItemId: step.id,
+        stepName: step.stepName,
+        content: "내용",
+      });
+      await feedbackRepo.updateStructuredFields(created.id, {
+        situation: "상황 설명",
+        outcome: "well_handled",
+        rationale: "사후 판단",
+        tags: ["태그1"],
+      });
+
+      const embedding = dummyEmbedding();
+      const result = await feedbackRepo.confirmAndCreateVariableCase(created.id, embedding);
+
+      expect(result?.status).toBe("confirmed");
+      const cases = await db
+        .select()
+        .from(variableCases)
+        .where(eq(variableCases.feedbackId, created.id));
+      expect(cases).toHaveLength(1);
+      expect(cases[0].situation).toBe("상황 설명");
+      expect(cases[0].hallId).toBe(hall.id);
+      expect(cases[0].embedding).toHaveLength(1024);
+    });
+
+    // AD-8 핵심 불변조건: 이미 confirmed인 행을 다시 확정하려 하면 아무 것도 바뀌지
+    // 않아야 한다(반쪽 상태 — confirmed인데 variable_case가 2개거나 중복 생성되는 것 방지).
+    it("이미 confirmed면 아무것도 생성하지 않고 undefined를 반환한다", async () => {
+      const hall = await createTestHall();
+      const { ceremonyId } = await createCeremony(hall.id);
+      const step = await createTestTemplateItem(hall.id);
+      const created = await feedbackRepo.create({
+        hallId: hall.id,
+        ceremonyId,
+        templateItemId: step.id,
+        stepName: step.stepName,
+        content: "내용",
+      });
+      await feedbackRepo.updateStructuredFields(created.id, {
+        situation: "상황",
+        outcome: "well_handled",
+        rationale: "판단",
+        tags: [],
+      });
+      await feedbackRepo.confirmAndCreateVariableCase(created.id, dummyEmbedding());
+
+      const secondAttempt = await feedbackRepo.confirmAndCreateVariableCase(
+        created.id,
+        dummyEmbedding(),
+      );
+
+      expect(secondAttempt).toBeUndefined();
+      const cases = await db
+        .select()
+        .from(variableCases)
+        .where(eq(variableCases.feedbackId, created.id));
+      expect(cases).toHaveLength(1);
     });
   });
 });

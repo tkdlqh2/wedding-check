@@ -179,6 +179,9 @@ Claude Sonnet 5
 - `apps/web/app/admin/ceremonies/ceremony-row.tsx` (MODIFY 재작성) — 프로토타입 위계로 카드 재정렬(제목/메타/담당자/상태배지)
 - `apps/web/tests/lib/group-by-step.test.ts` (NEW)
 - `apps/web/tests/repositories/checklist-instance.test.ts`, `apps/web/tests/services/checklist-instance.test.ts` (MODIFY) — `addAdHocItem`/`updateItem`/`addAdHocInstanceItem`/`updateInstanceItem` 테스트
+- `apps/web/app/admin/ceremonies/[hallId]/[ceremonyId]/assignee-picker.tsx` (NEW) — 검색 가능한 담당자 배정 대화상자
+- `apps/web/app/admin/ceremonies/[hallId]/[ceremonyId]/add-item-button.tsx` (DELETE) — "추가 가능한 항목" 섹션 제거로 미사용
+- `apps/web/lib/ceremony-status.ts` (NEW) — `isCeremonyDone` 공유 유틸
 
 ## Change Log
 
@@ -186,3 +189,5 @@ Claude Sonnet 5
 - 2026-07-27: 구현 완료 (dev) — AC 1~8 전부 구현. 마이그레이션 스냅샷 드리프트(groom_name/bride_name) 발견 및 보정. vitest 164건 통과, tsc/lint/build 클린. 로컬 서버 curl로 실제 렌더링 확인(등록 폼, 목록, 상세 — 14단계 그룹핑 실데이터로 검증). Status → review.
 - 2026-07-27: 코덱스 리뷰 4라운드(1~3차 실결함 2건 발견/수정, 4차 클린) — (1) 삭제된 템플릿 단계에서 온 항목이 여러 개면 전부 null 키로 합쳐져 서로 다른 단계가 하나로 표시되던 문제, 항목별 고유 키로 분리(회귀 테스트 추가). (2) 배정된 담당자가 이후 비활성화/역할 변경되면 해제 수단이 사라지던 문제, 별도 해제 컨트롤 추가.
 - 2026-07-27: 대표의 추가 실시간 피드백 반영(AC 5 범위 내 — "프로토타입처럼" 요구를 더 정확히 충족) — (1) 목록 카드를 프로토타입 위계(시간+신랑신부 제목 → 날짜/홀/계약형태 메타 → 담당자, 우측에 체크리스트 개수+상태배지+상세버튼)로 전면 재정렬, 상태 배지는 예식 일시 기준 예정/완료 2단계로 계산([ASSUMPTION] — 오퍼레이터가 직접 바꾸는 상태 FR은 아직 없음, Story 2.1 Dev Notes 참고). (2) 예식 상세를 템플릿 편집기와 동일하게 이 예식 전용 단계/항목을 자유롭게 추가·수정할 수 있도록 확장 — 신규 컬럼(`ad_hoc_group_root_id`)으로 템플릿에 없는 "이 예식만의 단계"를 그룹핑하고, `addAdHocItem`/`updateItem`으로 추가/수정 지원. 이 확장은 checklist_instance_items만 건드리고 템플릿 카탈로그는 전혀 건드리지 않는다(각 예식의 체크리스트는 독립된 사본). vitest 신규 20건 포함 전체 184건 통과, tsc/lint/build 클린. 로컬 서버 curl로 재확인.
+- 2026-07-27: 코덱스 리뷰 추가 라운드 — (1) [실결함, 수정] `groupItemsByStep`이 `adHocGroupRootId`를 전혀 확인하지 않아 "이 예식만의 새 단계"에 항목을 두 번째로 추가해도 별도 카드로 렌더링되던 실결함(핵심 신규 기능이 사실상 동작하지 않는 상태) — `templateItemId ?? adHocGroupRootId ?? orphan:id` 순으로 폴백하도록 수정, 회귀 테스트 추가. (2) [실결함, 수정] `addAdHocItem`의 target/shifted CTE가 `instance_id`만으로 스코프되어 AD-2(리포지토리 hallId 스코프 원칙)를 어겨 이론상 다른 홀 오염 가능 — `hall_id` 조건 추가. (3) [의도된 트레이드오프, 미수정] "추가 가능한 항목"(템플릿 카탈로그 재추가) 섹션을 대표의 명시적 요청("쓸모없는 건 지워")으로 제거하면서, 제외된 템플릿 항목을 원래 템플릿 연결 그대로 복구할 수단이 없어졌다는 지적 — 대표가 이 세션에서 직접, 반복적으로 요청한 제품 결정이라 되돌리지 않음. 하위 서비스/리포지토리 함수(`addInstanceItem`, `listCandidateChecklistItems`)와 그 테스트는 그대로 보존돼 있어(app 레이어 UI 배선만 제거), 필요해지면 낮은 비용으로 다시 노출 가능.
+- 2026-07-27: 대표 추가 피드백 3건 반영 — (1) 담당자 배정을 검색 가능한 대화상자로 전환(오퍼레이터 다수 대비, account-menu.tsx 모달 패턴 재사용), pill 클릭으로 즉시 해제. (2) 단계/체크리스트 시각을 templates.css `.template-item-card*`와 동일하게(번호 배지, 58px 들여쓴 행, 항목 개수). (3) 상세 화면 제목을 프로토타입과 동일하게 시간+신랑신부(28px/700)+상태배지 재구성(기존엔 홀명+날짜였음, 프로토타입과 전혀 다르다는 직접 지적 반영). `isCeremonyDone`을 `lib/ceremony-status.ts`로 추출해 목록/상세 공유. vitest 185건 통과, tsc/lint/build 클린, 로컬 서버 curl로 재확인.

@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation";
 const LINKS = [
   { href: "/admin/halls", label: "홀" },
   { href: "/admin/ceremonies", label: "예식" },
+  { href: "/admin/members", label: "회원" },
 ] as const;
 
 // Story 5.2 AC 5: 현재 위치한 탭을 prototype/js/screens/AdminScreen.js와 동일하게

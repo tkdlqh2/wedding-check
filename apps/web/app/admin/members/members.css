@@ -1,0 +1,148 @@
+/* DESIGN.md §2 Color Palette, §4 Cards, §7 라운딩 스케일, §14 Empty state.
+   Story 5.4: prototype/js/screens/MemberScreen.js의 360px 등록 폼 + 1fr 목록 그리드
+   구조를 시각 참고하되, 색상/라운딩은 design-tokens.css 변수만 사용한다. */
+
+.members-page {
+  max-width: 1200px;
+}
+
+.members-page__description {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  margin-top: var(--space-xs);
+}
+
+.members-page__grid {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: var(--space-lg);
+  align-items: start;
+  margin-top: var(--space-lg);
+}
+
+.members-page__form-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+}
+
+.members-page__form-card h2 {
+  font-size: 18px;
+  margin: 0 0 var(--space-md);
+}
+
+.members-page__empty {
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.member-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.member-form__hint {
+  background: var(--color-surface-soft);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  color: var(--color-text-muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+.member-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.member-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.member-row:last-child {
+  border-bottom: none;
+}
+
+.member-row--inactive {
+  opacity: 0.6;
+}
+
+.member-row__avatar {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-full);
+  background: var(--color-info);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.member-row--inactive .member-row__avatar {
+  background: var(--color-text-disabled);
+}
+
+.member-row__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.member-row__name-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.member-row__name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.member-row__role-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-info);
+  background: var(--color-surface-soft);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+}
+
+.member-row__role-badge--admin {
+  color: var(--color-brand);
+  background: var(--color-brand-tint);
+}
+
+.member-row__status-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+}
+
+.member-row__phone {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+.member-row__actions {
+  flex: none;
+}

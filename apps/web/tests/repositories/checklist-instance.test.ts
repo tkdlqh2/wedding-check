@@ -117,6 +117,49 @@ describe("checklistInstanceRepo — addItem/removeItem", () => {
     expect(items.map((i) => i.title)).toEqual(["A-1", "B-1"]);
   });
 
+  // 코덱스 리뷰 5차 P2: 이미 단계A/단계B 항목이 순서대로 있는 인스턴스에 단계A의
+  // 다른 항목을 나중에 수동 추가하면, 무조건 맨 뒤에 붙일 경우 A/B/A 순서가 되어
+  // 오퍼레이터 화면이 같은 단계를 두 그룹으로 쪼개 보여준다 — 같은 단계의 기존 항목
+  // 바로 뒤에 삽입되어(제3의 항목 사이에 끼지 않고) 하나의 연속된 그룹을 이뤄야 한다.
+  it("이미 인스턴스에 있는 단계의 항목을 나중에 추가해도 그 단계 항목들과 연속으로 묶인다", async () => {
+    const hall = await createTestHall();
+    const { instanceId } = await createCeremonyWithNoItems(hall.id);
+    const stepA = await createTestTemplateItem(hall.id, { stepName: "단계A", sortOrder: 1 });
+    const stepB = await createTestTemplateItem(hall.id, { stepName: "단계B", sortOrder: 2 });
+    const itemA1 = await createTestChecklistItem(hall.id, stepA.id, { title: "A-1", sortOrder: 0 });
+    const itemA2 = await createTestChecklistItem(hall.id, stepA.id, { title: "A-2", sortOrder: 1 });
+    const itemB1 = await createTestChecklistItem(hall.id, stepB.id, { title: "B-1", sortOrder: 0 });
+
+    // 먼저 단계A-1, 단계B-1 순서로 인스턴스에 추가된 상태를 만든다(예: 처음엔
+    // 단계A-2가 조건에 안 맞아 제외됐다가, 나중에 관리자가 수동으로 추가하는 시나리오).
+    await instanceRepo.addItem(hall.id, instanceId, {
+      id: itemA1.id,
+      title: itemA1.title,
+      description: itemA1.description,
+      stepId: stepA.id,
+      stepName: stepA.stepName,
+    });
+    await instanceRepo.addItem(hall.id, instanceId, {
+      id: itemB1.id,
+      title: itemB1.title,
+      description: itemB1.description,
+      stepId: stepB.id,
+      stepName: stepB.stepName,
+    });
+    // 단계A의 또 다른 항목을 나중에 추가 — 무조건 맨 뒤(A-1, B-1, A-2)가 아니라
+    // 단계A 항목들끼리 연속(A-1, A-2, B-1)이 되어야 한다.
+    await instanceRepo.addItem(hall.id, instanceId, {
+      id: itemA2.id,
+      title: itemA2.title,
+      description: itemA2.description,
+      stepId: stepA.id,
+      stepName: stepA.stepName,
+    });
+
+    const items = await instanceRepo.listItems(hall.id, instanceId);
+    expect(items.map((i) => i.title)).toEqual(["A-1", "A-2", "B-1"]);
+  });
+
   it("다른 홀의 instanceId/itemId로는 제거되지 않는다 (홀 스코프 격리)", async () => {
     const hallA = await createTestHall({ name: "A홀" });
     const hallB = await createTestHall({ name: "B홀" });

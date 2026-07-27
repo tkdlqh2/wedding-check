@@ -87,11 +87,18 @@ export async function listItems(
 // 코덱스 리뷰 P1: sortOrder에 체크리스트 항목의 "단계 안" sortOrder(예: 0, 1)를 그대로
 // 쓰면, 여러 단계가 각자 0부터 시작하는 sortOrder를 갖고 있어 인스턴스 전체의 평탄화된
 // 순서와 충돌·동률이 발생해 오퍼레이터 화면의 단계별 그룹(연속된 stepName 가정, Story 5.5
-// checklist-instance-view.tsx groupItemsByStep)이 뒤섞일 수 있었다. 수동 추가 항목은
-// 항상 그 인스턴스의 현재 최댓값 다음(맨 뒤)에 배치한다 — ceremonyRepo.create()의
-// row_number() 평탄화 계산과 별개로, 이 함수는 "당일 변경"이라 맨 뒤에 추가되는 것이
-// 자연스럽다(대표가 원래 템플릿 순서 중간에 끼워 넣고 싶다면 이후 순서 편집 기능에서
-// 다룰 문제 — 이 스토리 범위 밖).
+// checklist-instance-view.tsx groupItemsByStep)이 뒤섞일 수 있었다.
+//
+// 코덱스 리뷰 5차 P2: 무조건 인스턴스 전체 맨 뒤에 추가하면, 이미 그 단계의 다른
+// 항목이 인스턴스 중간에 있는 경우(예: 단계A 항목 → 단계B 항목 → 방금 추가된 단계A
+// 항목) 오퍼레이터 화면이 같은 단계를 두 그룹으로 쪼개 보여준다(그룹핑이 "연속된"
+// templateItemId만 묶으므로). 그래서 "같은 단계의 기존 항목이 있으면 그 바로 뒤에,
+// 없으면 인스턴스 맨 뒤에" 삽입하도록 CTE 하나로 계산한다 — target.base가 "그 단계의
+// 마지막 항목 sortOrder"(있으면) 또는 "인스턴스 전체 마지막 sortOrder"(없으면, 즉
+// 기존과 동일한 맨 뒤 추가) 중 존재하는 값으로 정해지고, base보다 큰 기존 항목들만
+// 한 칸씩 밀어 자리를 만든 뒤 base+1에 삽입한다. 같은 단계 항목이 없을 때는 밀어야 할
+// 대상이 애초에 없으므로(정의상 base가 곧 전체 최댓값) UPDATE가 아무 행도 건드리지
+// 않는 자연스러운 no-op이 되어, 기존 "맨 뒤 추가" 동작과 완전히 동일하게 수렴한다.
 export async function addItem(
   hallId: string,
   instanceId: string,
@@ -103,24 +110,55 @@ export async function addItem(
     stepName: string;
   },
 ): Promise<ChecklistInstanceItem> {
-  const [inserted] = await withConcurrencyRetry(() =>
-    db
-      .insert(checklistInstanceItems)
-      .values({
-        hallId,
-        instanceId,
-        templateItemId: checklistItem.stepId,
-        templateItemCheckId: checklistItem.id,
-        stepName: checklistItem.stepName,
-        title: checklistItem.title,
-        description: checklistItem.description,
-        sortOrder: sql<number>`coalesce((select max(${checklistInstanceItems.sortOrder}) from ${checklistInstanceItems} where ${checklistInstanceItems.instanceId} = ${instanceId}), -1) + 1`,
-      })
-      .onConflictDoNothing({
-        target: [checklistInstanceItems.instanceId, checklistInstanceItems.templateItemCheckId],
-      })
-      .returning(),
+  const result = await withConcurrencyRetry(async () =>
+    await db.execute<ChecklistInstanceItem>(sql`
+      with target as (
+        select coalesce(
+          (select max(sort_order) from ${checklistInstanceItems}
+            where instance_id = ${instanceId} and template_item_id = ${checklistItem.stepId}),
+          (select max(sort_order) from ${checklistInstanceItems}
+            where instance_id = ${instanceId}),
+          -1
+        ) as base
+      ),
+      shifted as (
+        update ${checklistInstanceItems}
+        set sort_order = sort_order + 1
+        where instance_id = ${instanceId}
+          and sort_order > (select base from target)
+        returning id
+      )
+      insert into checklist_instance_items
+        (hall_id, instance_id, template_item_id, template_item_check_id, step_name, title, description, sort_order)
+      select
+        ${hallId}, ${instanceId}, ${checklistItem.stepId}, ${checklistItem.id},
+        ${checklistItem.stepName}, ${checklistItem.title}, ${checklistItem.description},
+        (select base from target) + 1
+      -- PostgreSQL은 WITH절의 데이터 변경 CTE라도 어디서도 참조하지 않으면 아예
+      -- 실행하지 않는다(직접 재현해 확인한 실제 동작 — "shifted"가 정의만 되고 안 쓰이면
+      -- 뒤 항목을 밀지 않은 채 그대로 INSERT해 UNIQUE 위반이 났었다). "shifted"의 결과를
+      -- 실제로 참조해야 하지만 행이 0개일 수도 있는(밀 대상이 없는 "맨 뒤 추가" 케이스)
+      -- 스칼라 서브쿼리라 INSERT ... SELECT의 카디널리티에 영향을 주지 않으면서 강제로
+      -- 실행시키는 표준적인 우회: 항상 참인 조건에 COUNT(*)를 넣는다.
+      where (select count(*) from shifted) >= 0
+      on conflict (instance_id, template_item_check_id) do nothing
+      -- db.execute()의 raw SQL은 drizzle의 camelCase 매핑을 거치지 않으므로(그냥
+      -- pg 드라이버가 돌려주는 컬럼명 그대로) ChecklistInstanceItem 타입(camelCase
+      -- 필드)과 맞추기 위해 명시적으로 별칭을 준다.
+      returning
+        id,
+        hall_id as "hallId",
+        instance_id as "instanceId",
+        template_item_id as "templateItemId",
+        template_item_check_id as "templateItemCheckId",
+        step_name as "stepName",
+        title,
+        description,
+        sort_order as "sortOrder",
+        created_at as "createdAt"
+    `),
   );
+  const inserted = result.rows[0];
   if (inserted) return inserted;
 
   const existing = await db.query.checklistInstanceItems.findFirst({

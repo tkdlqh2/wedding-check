@@ -14,3 +14,9 @@ export async function findAll(): Promise<Member[]> {
 export async function findByPhoneNumber(phoneNumber: string): Promise<Member | undefined> {
   return db.query.user.findFirst({ where: eq(user.phoneNumber, phoneNumber) });
 }
+
+// Story 5.7 AC 2: 역할 변경 대상 조회(마지막 활성 관리자 보호 로직이 대상 계정의
+// 현재 role/banned 상태를 확인하는 데 쓴다).
+export async function findById(id: string): Promise<Member | undefined> {
+  return db.query.user.findFirst({ where: eq(user.id, id) });
+}

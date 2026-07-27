@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { resetDb } from "../helpers/db";
 import { createMember, MemberValidationError } from "@/lib/services/member";
+import * as memberRepo from "@/lib/db/repositories/member";
 import { auth } from "@/lib/auth";
 
 // deactivateMember/reactivateMember(lib/services/member.ts)는 next/headers()의 headers()를
@@ -95,6 +96,45 @@ describe("createMember (Story 5.4 AC 2, 3)", () => {
     await expect(
       createMember({ name: "이름만있음", phoneNumber: "01044445555", password: "  " }),
     ).rejects.toThrow(MemberValidationError);
+  });
+
+  it("비밀번호 앞뒤 공백이 trim되지 않고 그대로 저장된다 (코덱스 리뷰 P2)", async () => {
+    await createMember({
+      name: "공백비번",
+      phoneNumber: "01044446666",
+      password: "  pw with spaces  ",
+    });
+
+    await expect(
+      auth.api.signInPhoneNumber({
+        body: { phoneNumber: "01044446666", password: "pw with spaces" },
+      }),
+    ).rejects.toThrow();
+
+    const signInResult = await auth.api.signInPhoneNumber({
+      body: { phoneNumber: "01044446666", password: "  pw with spaces  " },
+    });
+    expect(signInResult.user.phoneNumber).toBe("01044446666");
+  });
+
+  it("사전 중복 검사를 통과했더라도 better-auth가 실제 생성 시점에 중복을 거부하면(동시 요청 경합) 동일한 한국어 오류로 번역된다 (코덱스 리뷰 P2)", async () => {
+    await createMember({
+      name: "먼저 등록됨",
+      phoneNumber: "01044447777",
+      password: "operator-pw-1234",
+    });
+
+    // findByPhoneNumber 사전 검사가 통과했다고 가정하기 위해 mock으로 우회 —
+    // better-auth의 createUser 자체가 던지는 USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL을
+    // 서비스가 그대로 흘려보내지 않고 MemberValidationError로 번역하는지 검증한다.
+    const spy = vi.spyOn(memberRepo, "findByPhoneNumber").mockResolvedValue(undefined);
+    try {
+      await expect(
+        createMember({ name: "경합 시도", phoneNumber: "01044447777", password: "pw-5678" }),
+      ).rejects.toThrow("이미 등록된 전화번호입니다");
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 

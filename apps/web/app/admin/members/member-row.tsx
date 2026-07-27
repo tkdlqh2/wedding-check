@@ -9,8 +9,10 @@ const ROLE_LABEL: Record<string, string> = {
 
 export function MemberRow({
   member,
+  isSelf,
 }: {
   member: { id: string; name: string; phoneNumber: string | null; role: string; banned: boolean };
+  isSelf: boolean;
 }) {
   const active = !member.banned;
 
@@ -35,7 +37,9 @@ export function MemberRow({
         <div className="member-row__phone">{member.phoneNumber ?? "전화번호 미등록"}</div>
       </div>
       <div className="member-row__actions">
-        {active ? (
+        {active && isSelf ? (
+          <span className="member-row__self-hint">현재 로그인한 계정</span>
+        ) : active ? (
           <form
             action={deactivateMemberAction}
             onSubmit={(e) => {

@@ -5,9 +5,11 @@ import {
   removeInstanceItem,
   addAdHocInstanceItem,
   updateInstanceItem,
+  renameInstanceStep,
+  deleteInstanceStep,
   ChecklistInstanceValidationError,
 } from "@/lib/services/checklist-instance";
-import { assignOperator, CeremonyValidationError } from "@/lib/services/ceremony";
+import type { StepGroupKey } from "@/lib/db/repositories/checklist-instance";
 import { requireAdminSession } from "@/lib/auth-guard";
 import { isValidUuid } from "@/lib/uuid";
 
@@ -85,34 +87,54 @@ export async function updateInstanceItemAction(
   return {};
 }
 
-export type AssignOperatorFormState = { error?: string };
+// 단계 그룹 키 파싱 — group-by-step.ts 그룹핑과 동일한 3단 위계(템플릿 단계 →
+// ad-hoc 단계 → orphan 단일 항목). 셋 다 없거나 형식이 틀리면 null.
+function parseStepGroupKey(formData: FormData): StepGroupKey | null {
+  const templateItemId = String(formData.get("templateItemId") ?? "");
+  const groupRootId = String(formData.get("groupRootId") ?? "");
+  const itemId = String(formData.get("itemId") ?? "");
+  if (templateItemId) return isValidUuid(templateItemId) ? { templateItemId } : null;
+  if (groupRootId) return isValidUuid(groupRootId) ? { groupRootId } : null;
+  if (itemId) return isValidUuid(itemId) ? { itemId } : null;
+  return null;
+}
 
-// Story 5.8 AC 7: operatorId는 better-auth user.id(uuid 형식이 아닌 text)라
-// isValidUuid로 검증하지 않는다 — assignOperator 서비스의 memberRepo.findById
-// 존재/역할/활성 여부 확인이 실질적인 검증 계층이다(Story 5.7 setMemberRoleAction과
-// 동일한 원칙 — 존재 확인을 서비스에 위임).
-//
-// 코덱스 리뷰 P2: 화면 렌더링과 제출 사이에 그 오퍼레이터가 비활성화/역할 변경되면
-// assignOperator가 거부하는데, 예전엔 이 실패를 조용히 삼켜 대화상자가 성공한 것처럼
-// 닫혔다 — useActionState로 에러를 반환해 대화상자가 계속 열려 있고 오류가 보이게 한다.
-export async function assignOperatorAction(
-  _prevState: AssignOperatorFormState,
+// 프로토타입 WeddingDetailScreen.js 단계 헤더의 "수정" — 이 예식 스냅샷의 단계 이름만
+// 바꾼다(템플릿 무관).
+export async function renameInstanceStepAction(
+  _prevState: InstanceItemFormState,
   formData: FormData,
-): Promise<AssignOperatorFormState> {
+): Promise<InstanceItemFormState> {
   await requireAdminSession();
   const hallId = String(formData.get("hallId") ?? "");
   const ceremonyId = String(formData.get("ceremonyId") ?? "");
-  const operatorIdRaw = String(formData.get("operatorId") ?? "");
-  if (!isValidUuid(hallId) || !isValidUuid(ceremonyId)) {
+  const key = parseStepGroupKey(formData);
+  if (!isValidUuid(hallId) || !isValidUuid(ceremonyId) || !key) {
     return { error: "잘못된 요청입니다" };
   }
+  const stepName = String(formData.get("stepName") ?? "");
   try {
-    await assignOperator(hallId, ceremonyId, operatorIdRaw || null);
+    await renameInstanceStep(hallId, ceremonyId, key, stepName);
   } catch (err) {
-    if (err instanceof CeremonyValidationError) return { error: err.message };
+    if (err instanceof ChecklistInstanceValidationError) return { error: err.message };
     throw err;
   }
   revalidatePath(`/admin/ceremonies/${hallId}/${ceremonyId}`);
-  revalidatePath("/admin/ceremonies");
   return {};
+}
+
+// 프로토타입의 "단계 삭제" — 그 단계에 속한 이 예식의 항목 전체를 삭제한다.
+export async function deleteInstanceStepAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const hallId = String(formData.get("hallId") ?? "");
+  const ceremonyId = String(formData.get("ceremonyId") ?? "");
+  const key = parseStepGroupKey(formData);
+  if (!isValidUuid(hallId) || !isValidUuid(ceremonyId) || !key) return;
+  try {
+    await deleteInstanceStep(hallId, ceremonyId, key);
+  } catch (err) {
+    // 이미 삭제된 단계의 재제출 등 — 삭제 목적은 달성된 상태라 조용히 무시한다.
+    if (!(err instanceof ChecklistInstanceValidationError)) throw err;
+  }
+  revalidatePath(`/admin/ceremonies/${hallId}/${ceremonyId}`);
 }

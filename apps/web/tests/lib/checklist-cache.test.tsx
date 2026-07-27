@@ -14,7 +14,7 @@ describe("checklist-cache", () => {
     const ceremonyId = "11111111-1111-1111-1111-111111111111";
     writeCache(ceremonyId, {
       ceremony: { id: ceremonyId, ceremonyAt: "2026-08-01T05:00:00.000Z", contractConditions: {} },
-      items: [{ id: "item-1", stepName: "신랑입장", description: null, sortOrder: 1 }],
+      items: [{ id: "item-1", stepName: "신랑입장", title: "조명 전환", description: null, sortOrder: 1 }],
     });
 
     const cached = readCache(ceremonyId);
@@ -70,6 +70,19 @@ describe("checklist-cache", () => {
       JSON.stringify({
         ceremony: { id: "x", ceremonyAt: "2026-08-01T00:00:00.000Z" },
         items: [null],
+      }),
+    );
+
+    expect(readCache(ceremonyId)).toBeNull();
+  });
+
+  it("items 원소에 title이 없으면 null을 반환한다 (Story 5.5)", () => {
+    const ceremonyId = "88888888-8888-8888-8888-888888888888";
+    window.localStorage.setItem(
+      `wedding-check:operator-checklist:${ceremonyId}`,
+      JSON.stringify({
+        ceremony: { id: "x", ceremonyAt: "2026-08-01T00:00:00.000Z" },
+        items: [{ id: "item-1", stepName: "신랑입장", description: null, sortOrder: 1 }],
       }),
     );
 

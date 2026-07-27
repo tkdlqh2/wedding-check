@@ -4,7 +4,7 @@ baseline_commit: 03e3c84890af7c27d09bde57177af88fe15f73fd
 
 # Story 5.5: 체크리스트 템플릿 2단계 구조 전환 — 단계 + 체크리스트 항목
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -118,26 +118,26 @@ so that 실제 큐시트처럼 한 단계 안의 여러 개별 확인 사항을 
   - [x] 시드 로직: 기존 "stepName 매칭 upsert + currentMax 기준 재배치" 패턴을 2단계로 확장 — (1) 단계를 upsert(설명 없이 stepName만), (2) 그 단계 안에서 체크리스트 항목들을 title 매칭 upsert(같은 `currentMax+1+index` 재배치 기법을 `templateItemId` 스코프로 적용). 삭제 로직 없음 원칙(코덱스 리뷰 1~2차 교훈, PR #11)을 그대로 유지 — 이름이 일치하지 않는 기존 체크리스트 항목도 지우지 않는다.
   - [x] 재실행 시 기존 2개 홀(1층/2층)의 데이터가 새 구조로 안전하게 수렴하는지 로컬 DB에 실제로 재실행해 확인(Task 17 수동 검증에서).
 
-- [ ] Task 15: 테스트 — 리포지토리/서비스 (AC: 1, 2, 3, 4, 5, 7)
-  - [ ] `apps/web/tests/repositories/template-item.test.ts`(MODIFY): `description` 관련 assertion 제거/갱신.
-  - [ ] `apps/web/tests/repositories/checklist-item.test.ts`(NEW): create(sortOrder 자동 계산), findAllByTemplateItem(정렬), update, remove(연결된 demo_video cascade 확인), moveAdjacent(같은 단계 안에서만 스왑 — 다른 단계 항목과는 섞이지 않는지 별도 테스트), 홀 스코프 격리.
-  - [ ] `apps/web/tests/repositories/demo-video.test.ts`(MODIFY): `templateItemId` → `checklistItemId` 관련 전부 갱신.
-  - [ ] `apps/web/tests/repositories/ceremony.test.ts`(MODIFY): `create()`가 단계당 여러 체크리스트 항목을 올바르게 전개하고 flattened sort_order가 (단계 순서, 항목 순서)를 따르는지 검증하는 테스트 추가. 빈 단계(체크리스트 항목 없음)가 인스턴스에서 자동 제외되는지 테스트 추가.
-  - [ ] `apps/web/tests/repositories/checklist-instance.test.ts`(MODIFY): `addItem`/`removeItem`/`listCandidateChecklistItems`(이름 변경) 전부 체크리스트 항목 단위로 갱신, `stepName` 그룹핑 정보가 candidates에 포함되는지 확인.
-  - [ ] `apps/web/tests/services/demo-video.test.ts`(MODIFY): 함수명/인자명 갱신.
-  - [ ] `apps/web/tests/services/checklist-instance.test.ts`(MODIFY): `getOperatorInstanceView`가 반환하는 항목에 `title`이 포함되는지, `getCeremonyDetail`의 candidates가 체크리스트 항목+stepName 형태인지 갱신.
-  - [ ] NEW: `apps/web/tests/services/checklist-item.test.ts`: 제목 필수 검증(빈 문자열/공백만 거부), AD-2 2-hop 재검증(다른 홀 templateItemId로 생성 시도 시 거부).
-  - [ ] `apps/web/tests/lib/template-item-conditions.test.ts`: 이 파일이 `description` 관련 로직을 다루지 않는지 확인(순수 조건 파싱 함수라 영향 없을 가능성 높음 — 영향 있으면 갱신).
+- [x] Task 15: 테스트 — 리포지토리/서비스 (AC: 1, 2, 3, 4, 5, 7)
+  - [x] `apps/web/tests/repositories/template-item.test.ts`(MODIFY): `description` 관련 assertion 제거/갱신.
+  - [x] `apps/web/tests/repositories/checklist-item.test.ts`(NEW): create(sortOrder 자동 계산), findAllByTemplateItem(정렬), update, remove(연결된 demo_video cascade 확인), moveAdjacent(같은 단계 안에서만 스왑 — 다른 단계 항목과는 섞이지 않는지 별도 테스트), 홀 스코프 격리.
+  - [x] `apps/web/tests/repositories/demo-video.test.ts`(MODIFY): `templateItemId` → `checklistItemId` 관련 전부 갱신.
+  - [x] `apps/web/tests/repositories/ceremony.test.ts`(MODIFY): `create()`가 단계당 여러 체크리스트 항목을 올바르게 전개하고 flattened sort_order가 (단계 순서, 항목 순서)를 따르는지 검증하는 테스트 추가. 빈 단계(체크리스트 항목 없음)가 인스턴스에서 자동 제외되는지 테스트 추가.
+  - [x] `apps/web/tests/repositories/checklist-instance.test.ts`(MODIFY): `addItem`/`removeItem`/`listCandidateChecklistItems`(이름 변경) 전부 체크리스트 항목 단위로 갱신, `stepName` 그룹핑 정보가 candidates에 포함되는지 확인.
+  - [x] `apps/web/tests/services/demo-video.test.ts`(MODIFY): 함수명/인자명 갱신.
+  - [x] `apps/web/tests/services/checklist-instance.test.ts`(MODIFY): `getOperatorInstanceView`가 반환하는 항목에 `title`이 포함되는지, `getCeremonyDetail`의 candidates가 체크리스트 항목+stepName 형태인지 갱신.
+  - [x] NEW: `apps/web/tests/services/checklist-item.test.ts`: 제목 필수 검증(빈 문자열/공백만 거부), AD-2 2-hop 재검증(다른 홀 templateItemId로 생성 시도 시 거부).
+  - [x] `apps/web/tests/lib/template-item-conditions.test.ts`: 이 파일이 `description` 관련 로직을 다루지 않는지 확인(순수 조건 파싱 함수라 영향 없을 가능성 높음 — 영향 있으면 갱신).
 
-- [ ] Task 16: 테스트 — 컴포넌트 (AC: 6)
-  - [ ] `apps/web/tests/components/checklist-instance-view.test.tsx`(MODIFY): 기존 6개 테스트의 mock 데이터(`initialItems`)에 `title` 필드 추가, 탭 선택 대상 텍스트를 `stepName`이 아니라 `title` 기준으로 갱신. NEW 테스트: 서로 다른 두 단계에 속한 항목들이 각각의 그룹 헤더 아래 올바르게 나뉘어 렌더링되는지 확인.
-  - [ ] `npm run test`, `npx tsc --noEmit`, `npm run lint`, `npm run build` 전부 클린 확인.
+- [x] Task 16: 테스트 — 컴포넌트 (AC: 6)
+  - [x] `apps/web/tests/components/checklist-instance-view.test.tsx`(MODIFY): 기존 6개 테스트의 mock 데이터(`initialItems`)에 `title` 필드 추가, 탭 선택 대상 텍스트를 `stepName`이 아니라 `title` 기준으로 갱신. NEW 테스트: 서로 다른 두 단계에 속한 항목들이 각각의 그룹 헤더 아래 올바르게 나뉘어 렌더링되는지 확인.
+  - [x] `npm run test`, `npx tsc --noEmit`, `npm run lint`, `npm run build` 전부 클린 확인.
 
-- [ ] Task 17: 수동 검증
-  - [ ] 마이그레이션을 로컬 dev DB에 적용 후, `npm run seed:ceremony-checklist` 재실행 — 두 홀 모두 12단계 + 각 단계별 체크리스트 항목이 올바르게 생성/재배치되는지 `docker exec wedding-check-db psql`로 직접 확인.
-  - [ ] 로컬 서버에서 관리자 로그인 → `/admin/templates/[hallId]`에서 단계 등록(설명 필드 없음 확인) → 그 단계에 체크리스트 항목 2개 등록(제목만/제목+설명) → 하나에 영상 업로드 → 재생 확인 → 위/아래 재정렬이 같은 단계 안에서만 동작하는지 확인.
-  - [ ] `/admin/ceremonies`에서 새 예식 등록 → 생성된 인스턴스의 항목 수가 "포함된 단계들의 체크리스트 항목 합계"와 일치하는지 DB로 직접 확인(AC 5) → `/admin/ceremonies/[hallId]/[ceremonyId]`에서 후보 목록이 단계별로 그룹핑되어 보이는지, 개별 체크리스트 항목 추가/제외가 되는지 확인.
-  - [ ] 오퍼레이터 로그인 → `/operator/ceremonies/[hallId]/[ceremonyId]`에서 단계 그룹 헤더 + 체크리스트 항목 POS Tile이 올바르게 표시되고 탭 선택이 즉시 반영되는지 SSR HTML + 실제 탭 동작(자동화 컴포넌트 테스트로 대체 가능, Story 2.3 한계와 동일) 확인.
+- [x] Task 17: 수동 검증
+  - [x] 마이그레이션을 로컬 dev DB에 적용 후, `npm run seed:ceremony-checklist` 재실행 — 두 홀 모두 12단계 + 각 단계별 체크리스트 항목이 올바르게 생성/재배치되는지 `docker exec wedding-check-db psql`로 직접 확인.
+  - [x] 로컬 서버에서 관리자 로그인 → `/admin/templates/[hallId]`에서 단계 등록(설명 필드 없음 확인) → 그 단계에 체크리스트 항목 2개 등록(제목만/제목+설명) → 하나에 영상 업로드 → 재생 확인 → 위/아래 재정렬이 같은 단계 안에서만 동작하는지 확인.
+  - [x] `/admin/ceremonies`에서 새 예식 등록 → 생성된 인스턴스의 항목 수가 "포함된 단계들의 체크리스트 항목 합계"와 일치하는지 DB로 직접 확인(AC 5) → `/admin/ceremonies/[hallId]/[ceremonyId]`에서 후보 목록이 단계별로 그룹핑되어 보이는지, 개별 체크리스트 항목 추가/제외가 되는지 확인.
+  - [x] 오퍼레이터 로그인 → `/operator/ceremonies/[hallId]/[ceremonyId]`에서 단계 그룹 헤더 + 체크리스트 항목 POS Tile이 올바르게 표시되고 탭 선택이 즉시 반영되는지 SSR HTML + 실제 탭 동작(자동화 컴포넌트 테스트로 대체 가능, Story 2.3 한계와 동일) 확인.
 
 ## Dev Notes
 
@@ -205,20 +205,90 @@ vitest 이중 environment(`.test.ts`=node, `.test.tsx`=jsdom, `vitest.config.ts`
 
 ### Agent Model Used
 
-(dev-story 실행 시 기록)
+claude-sonnet-5 (dev-story)
 
 ### Debug Log References
 
-(dev-story 실행 시 기록)
+- 로컬 dev DB(`wedding_check`)와 테스트 DB(`wedding_check_test`)에 실제 마이그레이션 적용 — `drizzle-kit generate`가 비대화형 셸에서 rename 모호성 프롬프트로 막혀 `--custom`으로 빈 마이그레이션을 생성 후 SQL 직접 작성. 테스트 DB의 기존 `demo_videos` 2행이 1차 적용 중 NOT NULL 위반으로 중간 실패 → 마이그레이션에 `DELETE FROM demo_videos` 추가 + 이미 부분 적용된 테스트 DB는 수기 SQL로 나머지 단계 완료, 최종 상태를 dev DB와 `\d` 대조로 확인.
+- `tests/repositories/checklist-item.test.ts`의 "다른 단계의 sortOrder와는 독립적이다" 테스트가 두 단계 모두 기본 sortOrder(1)를 써서 `(hall_id, sort_order)` UNIQUE 위반으로 최초 실패 — 명시적으로 다른 sortOrder를 지정해 수정.
+- `.next` 빌드 캐시가 이전에 떠 있던 `next dev` 프로세스와 충돌해 `EPERM: unlink .next/node_modules` 발생 — 포트 3000 리스닝 PID를 찾아 종료 후 `.next` 삭제하고 재빌드해 해결(기존 세션 Dev Notes에 이미 문서화된 패턴).
 
 ### Completion Notes List
 
-(dev-story 실행 시 기록)
+- 스키마: `checklist_template_items`("단계")에서 `description` 제거, 신규 `checklist_template_item_checks`("체크리스트 항목": 제목 필수/설명·영상 선택) 테이블 추가. `demo_videos`/`checklist_instance_items`가 이 신규 테이블을 참조하도록 변경. 데이터 손실 고지(마이그레이션 SQL 주석에도 기록): `demo_videos`는 dev DB 기준 0행이라 무손실, `checklist_instance_items`의 기존 2행(전부 이전 스토리들의 수동 검증용 테스트 데이터)은 새 구조로 백필 불가능해 삭제.
+- `ceremonyRepo.create()`의 인스턴스 자동 조합 CTE를 단계→체크리스트 항목 전개로 재작성 — `row_number() over (order by 단계 sortOrder, 항목 sortOrder)`로 평탄화된 sortOrder 계산. 체크리스트 항목이 없는 빈 단계는 INNER JOIN 특성상 인스턴스에서 자연히 제외됨을 전용 테스트로 확인.
+- 관리자 수동 추가/제외(Story 2.2)는 체크리스트 항목 단위로 전환하되, 후보 목록은 소속 단계(stepName)로 그룹핑해 표시 — 단계 전체 추가/제외가 아니라 개별 체크리스트 항목 단위가 더 일관된 설계라고 판단(Dev Notes에 근거 기록).
+- 오퍼레이터 조회 화면은 단계명을 그룹 헤더로, 체크리스트 항목을 개별 POS Tile로 표시하도록 재구성. 시연 영상은 오퍼레이터 화면에 노출하지 않음(FR-3 원래 스코프가 관리자 전용이라 스코프 경계 유지).
+- 시드 스크립트는 12단계 각각의 "·" 구분 description을 24개의 개별 체크리스트 항목(제목+선택적 설명)으로 분해해 재작성, 재실행 시 안전하게 수렴함을 실제 재시드로 확인.
+- **구현 중 대표 피드백으로 추가된 작업(원래 Task 목록에는 없었음):** 리포지토리에 저장된 `prototype/`(Claude Design 목업, React+CDN) 폴더를 참고해 어드민 템플릿 관리(`/admin/templates/[hallId]`)와 홀 관리(`/admin/halls`) 화면을 `prototype/js/screens/TemplateScreen.js`의 시각 언어(번호 배지 헤더 카드, 58px 들여쓴 체크리스트 항목 행, 점선 빠른-추가 인풋, 중앙 정렬 900px 컨테이너)에 맞춰 재스타일링. 홀 관리는 프로토타입에 전용 화면이 없어(WeddingScreen.js 안의 pill 버튼 선택기뿐) 템플릿 화면과 동일한 카드/점선-추가 톤을 일관되게 적용. 색상 `#eef5fd`(영상 태그 배경)는 DESIGN.md에 없는 값이지만 프로토타입 원본 그대로이며(TemplateScreen.js:37), OMD watch 훅이 자동으로 `.omd/preferences.md`에 편차로 기록함 — 의도된 것.
+- 브라우저 조작 도구가 없어 실제 클릭 인터랙션은 SSR HTML 직접 확인(curl+로그인 쿠키)과 자동화 컴포넌트 테스트로 대체 검증(Story 2.3/5.1과 동일한 한계).
 
 ### File List
 
-(dev-story 실행 시 기록)
+**스키마/마이그레이션**
+- `apps/web/lib/db/schema.ts` (MODIFY)
+- `apps/web/drizzle/0010_checklist-two-level-structure.sql` (NEW)
+- `apps/web/drizzle/meta/0010_snapshot.json` (NEW)
+- `apps/web/drizzle/meta/_journal.json` (MODIFY)
+
+**리포지토리/서비스**
+- `apps/web/lib/db/repositories/template-item.ts` (MODIFY)
+- `apps/web/lib/db/repositories/checklist-item.ts` (NEW)
+- `apps/web/lib/db/repositories/demo-video.ts` (MODIFY)
+- `apps/web/lib/db/repositories/checklist-instance.ts` (MODIFY)
+- `apps/web/lib/db/repositories/ceremony.ts` (MODIFY)
+- `apps/web/lib/services/template.ts` (MODIFY)
+- `apps/web/lib/services/checklist-item.ts` (NEW)
+- `apps/web/lib/services/demo-video.ts` (MODIFY)
+- `apps/web/lib/services/checklist-instance.ts` (MODIFY)
+
+**API 라우트**
+- `apps/web/app/api/templates/[hallId]/items/[itemId]/video/blob/route.ts` (MODIFY)
+- `apps/web/app/api/templates/[hallId]/items/[itemId]/video/local/route.ts` (MODIFY)
+
+**어드민 UI — 템플릿**
+- `apps/web/app/admin/templates/[hallId]/page.tsx` (MODIFY)
+- `apps/web/app/admin/templates/[hallId]/template-item-form.tsx` (MODIFY)
+- `apps/web/app/admin/templates/[hallId]/template-item-row.tsx` (MODIFY)
+- `apps/web/app/admin/templates/[hallId]/checklist-item-form.tsx` (NEW)
+- `apps/web/app/admin/templates/[hallId]/checklist-item-row.tsx` (NEW)
+- `apps/web/app/admin/templates/[hallId]/video-upload.tsx` (MODIFY)
+- `apps/web/app/admin/templates/[hallId]/actions.ts` (MODIFY)
+- `apps/web/app/admin/templates/[hallId]/templates.css` (MODIFY)
+
+**어드민 UI — 홀**
+- `apps/web/app/admin/halls/page.tsx` (MODIFY)
+- `apps/web/app/admin/halls/halls.css` (MODIFY)
+
+**어드민 UI — 예식 상세**
+- `apps/web/app/admin/ceremonies/[hallId]/[ceremonyId]/page.tsx` (MODIFY)
+- `apps/web/app/admin/ceremonies/[hallId]/[ceremonyId]/actions.ts` (MODIFY)
+- `apps/web/app/admin/ceremonies/[hallId]/[ceremonyId]/add-item-button.tsx` (MODIFY)
+
+**오퍼레이터 UI**
+- `apps/web/app/operator/ceremonies/[hallId]/[ceremonyId]/checklist-instance-view.tsx` (MODIFY)
+- `apps/web/app/operator/ceremonies/[hallId]/[ceremonyId]/checklist-instance-view.css` (MODIFY)
+- `apps/web/app/operator/ceremonies/[hallId]/[ceremonyId]/page.tsx` (MODIFY)
+- `apps/web/lib/operator/checklist-cache.ts` (MODIFY)
+
+**시드**
+- `apps/web/scripts/seed-ceremony-checklist.ts` (MODIFY)
+
+**테스트**
+- `apps/web/tests/helpers/db.ts` (MODIFY)
+- `apps/web/tests/repositories/template-item.test.ts` (unaffected, no changes)
+- `apps/web/tests/repositories/checklist-item.test.ts` (NEW)
+- `apps/web/tests/repositories/demo-video.test.ts` (MODIFY)
+- `apps/web/tests/repositories/ceremony.test.ts` (MODIFY)
+- `apps/web/tests/repositories/checklist-instance.test.ts` (MODIFY)
+- `apps/web/tests/services/demo-video.test.ts` (MODIFY)
+- `apps/web/tests/services/checklist-instance.test.ts` (MODIFY)
+- `apps/web/tests/services/checklist-item.test.ts` (NEW)
+- `apps/web/tests/components/checklist-instance-view.test.tsx` (MODIFY)
+- `apps/web/tests/components/video-upload.test.tsx` (MODIFY)
+- `apps/web/tests/lib/checklist-cache.test.tsx` (MODIFY)
 
 ## Change Log
 
 - 2026-07-27: 스토리 최초 작성 (create-story, Story 5.1 리뷰 중 대표가 발견한 후속 요구사항 — Epic 5의 5번째 스토리).
+- 2026-07-27: 구현 완료 (dev-story) — 스키마 마이그레이션부터 repo/service/API/어드민 UI/오퍼레이터 UI/시드/테스트까지 전 레이어 재작업, 구현 중 대표 피드백으로 템플릿/홀 화면을 `prototype/` 목업 디자인에 맞춰 재스타일링(범위 확장). `npm run test`(82 passed), `npx tsc --noEmit`/`npm run lint`/`npm run build` 전부 클린. Status → review.

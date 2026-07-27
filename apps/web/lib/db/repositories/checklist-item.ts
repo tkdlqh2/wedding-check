@@ -112,6 +112,17 @@ export async function update(
   return item;
 }
 
+// 시드 스크립트처럼 sortOrder를 직접 지정해야 하는 저수준 호출자 전용 —
+// template-item.ts::setSortOrder와 동일한 계약(일반 admin CRUD 경로는 쓰지 않음,
+// 호출자가 대상 값이 (template_item_id, sort_order) UNIQUE 제약과 충돌하지 않음을
+// 스스로 보장해야 함).
+export async function setSortOrder(hallId: string, id: string, sortOrder: number): Promise<void> {
+  await db
+    .update(checklistTemplateItemChecks)
+    .set({ sortOrder })
+    .where(and(eq(checklistTemplateItemChecks.id, id), eq(checklistTemplateItemChecks.hallId, hallId)));
+}
+
 // FR-2 삭제 정책과 동일하게 하드 삭제 — 연결된 demo_videos 행은 onDelete cascade로
 // 함께 정리된다.
 export async function remove(hallId: string, id: string): Promise<void> {

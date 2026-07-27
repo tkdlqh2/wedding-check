@@ -113,10 +113,10 @@ so that 실제 큐시트처럼 한 단계 안의 여러 개별 확인 사항을 
   - [x] 렌더링: `items`를 순서 그대로(이미 서버가 정렬해서 줌, Task 6의 flattened sort_order) 순회하며 `stepName`이 바뀔 때마다 새 그룹 헤더(`<h2>` 또는 유사, 비인터랙티브)를 렌더링하고, 그 아래 `checklist-tile-grid`에 그 단계의 체크리스트 항목들을 POS Tile로 나열(각 타일 라벨은 `item.title`). `selectedIds`/`toggleSelected`/오프라인·캐시·폴링 로직은 항목 단위로 그대로 동작(itemId가 이제 체크리스트 항목 id이므로 자연히 맞음).
   - [x] CSS: 그룹 헤더 스타일 추가(DESIGN.md 토큰 — `--color-text-secondary`, 14px/600 정도의 절제된 섹션 라벨, 화려하지 않게 §7 Do's/Don'ts "실행 화면을 장식하지 말 것" 준수).
 
-- [ ] Task 14: 시드 스크립트 전면 재작성 — `apps/web/scripts/seed-ceremony-checklist.ts` (MODIFY, AC 없음 — 검증용 실 데이터 정합성)
-  - [ ] `STEPS` 배열 구조를 `{ stepName: string; items: { title: string; description?: string }[] }[]`로 변경. 기존 12단계 각각의 "·"로 구분된 description 문자열을 개별 체크리스트 항목(제목+선택적 설명)으로 분해 — 예: "개식사"의 기존 `"조명: 사회자 조명 준비 · 주의: 조명이 들어가면 개식사부터 진행하도록 사회자에게 사전 안내"`를 `[{ title: "사회자 조명 준비" }, { title: "조명 진입 시 개식사 진행 안내", description: "조명이 들어가면 개식사부터 진행하도록 사회자에게 사전 안내" }]` 형태로(제목은 핵심 동작을 짧게, 부가 맥락이 있으면 설명으로). 12단계 전체를 원본 큐시트 메모(세션 앞부분에서 사용자가 제공한 원문, 이 스토리 파일에는 재수록하지 않음 — 기존 커밋의 `seed-ceremony-checklist.ts` git 히스토리에서 원문 확인 가능)를 참고해 분해.
-  - [ ] 시드 로직: 기존 "stepName 매칭 upsert + currentMax 기준 재배치" 패턴을 2단계로 확장 — (1) 단계를 upsert(설명 없이 stepName만), (2) 그 단계 안에서 체크리스트 항목들을 title 매칭 upsert(같은 `currentMax+1+index` 재배치 기법을 `templateItemId` 스코프로 적용). 삭제 로직 없음 원칙(코덱스 리뷰 1~2차 교훈, PR #11)을 그대로 유지 — 이름이 일치하지 않는 기존 체크리스트 항목도 지우지 않는다.
-  - [ ] 재실행 시 기존 2개 홀(1층/2층)의 데이터가 새 구조로 안전하게 수렴하는지 로컬 DB에 실제로 재실행해 확인(Task 17 수동 검증에서).
+- [x] Task 14: 시드 스크립트 전면 재작성 — `apps/web/scripts/seed-ceremony-checklist.ts` (MODIFY, AC 없음 — 검증용 실 데이터 정합성)
+  - [x] `STEPS` 배열 구조를 `{ stepName: string; items: { title: string; description?: string }[] }[]`로 변경. 기존 12단계 각각의 "·"로 구분된 description 문자열을 개별 체크리스트 항목(제목+선택적 설명)으로 분해 — 예: "개식사"의 기존 `"조명: 사회자 조명 준비 · 주의: 조명이 들어가면 개식사부터 진행하도록 사회자에게 사전 안내"`를 `[{ title: "사회자 조명 준비" }, { title: "조명 진입 시 개식사 진행 안내", description: "조명이 들어가면 개식사부터 진행하도록 사회자에게 사전 안내" }]` 형태로(제목은 핵심 동작을 짧게, 부가 맥락이 있으면 설명으로). 12단계 전체를 원본 큐시트 메모(세션 앞부분에서 사용자가 제공한 원문, 이 스토리 파일에는 재수록하지 않음 — 기존 커밋의 `seed-ceremony-checklist.ts` git 히스토리에서 원문 확인 가능)를 참고해 분해.
+  - [x] 시드 로직: 기존 "stepName 매칭 upsert + currentMax 기준 재배치" 패턴을 2단계로 확장 — (1) 단계를 upsert(설명 없이 stepName만), (2) 그 단계 안에서 체크리스트 항목들을 title 매칭 upsert(같은 `currentMax+1+index` 재배치 기법을 `templateItemId` 스코프로 적용). 삭제 로직 없음 원칙(코덱스 리뷰 1~2차 교훈, PR #11)을 그대로 유지 — 이름이 일치하지 않는 기존 체크리스트 항목도 지우지 않는다.
+  - [x] 재실행 시 기존 2개 홀(1층/2층)의 데이터가 새 구조로 안전하게 수렴하는지 로컬 DB에 실제로 재실행해 확인(Task 17 수동 검증에서).
 
 - [ ] Task 15: 테스트 — 리포지토리/서비스 (AC: 1, 2, 3, 4, 5, 7)
   - [ ] `apps/web/tests/repositories/template-item.test.ts`(MODIFY): `description` 관련 assertion 제거/갱신.

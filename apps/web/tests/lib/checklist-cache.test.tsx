@@ -13,8 +13,25 @@ describe("checklist-cache", () => {
   it("쓴 값을 그대로 읽을 수 있다(왕복)", () => {
     const ceremonyId = "11111111-1111-1111-1111-111111111111";
     writeCache(ceremonyId, {
-      ceremony: { id: ceremonyId, ceremonyAt: "2026-08-01T05:00:00.000Z", contractConditions: {} },
-      items: [{ id: "item-1", templateItemId: "step-1", stepName: "신랑입장", title: "조명 전환", description: null, sortOrder: 1 }],
+      ceremony: {
+        id: ceremonyId,
+        ceremonyAt: "2026-08-01T05:00:00.000Z",
+        contractConditions: {},
+        groomName: "김신랑",
+        brideName: "이신부",
+      },
+      items: [
+        {
+          id: "item-1",
+          templateItemId: "step-1",
+          adHocGroupRootId: null,
+          stepName: "신랑입장",
+          title: "조명 전환",
+          description: null,
+          sortOrder: 1,
+          videoUrl: null,
+        },
+      ],
     });
 
     const cached = readCache(ceremonyId);
@@ -27,11 +44,23 @@ describe("checklist-cache", () => {
 
   it("다른 ceremonyId의 캐시는 서로 섞이지 않는다", () => {
     writeCache("11111111-1111-1111-1111-111111111111", {
-      ceremony: { id: "a", ceremonyAt: "2026-08-01T05:00:00.000Z", contractConditions: {} },
+      ceremony: {
+        id: "a",
+        ceremonyAt: "2026-08-01T05:00:00.000Z",
+        contractConditions: {},
+        groomName: null,
+        brideName: null,
+      },
       items: [],
     });
     writeCache("22222222-2222-2222-2222-222222222222", {
-      ceremony: { id: "b", ceremonyAt: "2026-08-02T05:00:00.000Z", contractConditions: {} },
+      ceremony: {
+        id: "b",
+        ceremonyAt: "2026-08-02T05:00:00.000Z",
+        contractConditions: {},
+        groomName: null,
+        brideName: null,
+      },
       items: [],
     });
 
@@ -83,6 +112,22 @@ describe("checklist-cache", () => {
       JSON.stringify({
         ceremony: { id: "x", ceremonyAt: "2026-08-01T00:00:00.000Z" },
         items: [{ id: "item-1", stepName: "신랑입장", description: null, sortOrder: 1 }],
+      }),
+    );
+
+    expect(readCache(ceremonyId)).toBeNull();
+  });
+
+  it("이전 앱 버전이 남긴 캐시(신규 필드 없음)는 셰이프 불일치로 null을 반환한다", () => {
+    const ceremonyId = "99999999-9999-9999-9999-999999999999";
+    window.localStorage.setItem(
+      `wedding-check:operator-checklist:${ceremonyId}`,
+      JSON.stringify({
+        ceremony: { id: "x", ceremonyAt: "2026-08-01T00:00:00.000Z", contractConditions: {} },
+        items: [
+          { id: "item-1", templateItemId: "step-1", stepName: "신랑입장", title: "조명 전환", description: null, sortOrder: 1 },
+        ],
+        cachedAt: "2026-08-01T00:00:00.000Z",
       }),
     );
 

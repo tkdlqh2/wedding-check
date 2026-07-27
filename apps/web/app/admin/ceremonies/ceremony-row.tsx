@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { CeremonyWithHallName } from "@/lib/services/ceremony";
 import { isCeremonyDone } from "@/lib/ceremony-status";
+import { AssigneePills } from "./assignee-pills";
 
 // KST 고정 표시 — 이 제품은 국내 단일 웨딩홀 대상이라 서버/브라우저 로컬 타임존과
 // 무관하게 항상 한국 표준시로 표시한다(actions.ts의 입력 파싱과 대칭).
@@ -32,7 +33,13 @@ function contractLabel(conditions: Record<string, boolean>): string {
   return labels.length > 0 ? labels.join(" · ") : "기본 계약";
 }
 
-export function CeremonyRow({ ceremony }: { ceremony: CeremonyWithHallName }) {
+export function CeremonyRow({
+  ceremony,
+  activeOperators,
+}: {
+  ceremony: CeremonyWithHallName;
+  activeOperators: { id: string; name: string }[];
+}) {
   const isDone = isCeremonyDone(ceremony.ceremonyAt);
 
   return (
@@ -50,13 +57,13 @@ export function CeremonyRow({ ceremony }: { ceremony: CeremonyWithHallName }) {
           {dateFormatter.format(ceremony.ceremonyAt)} · {ceremony.hallName} ·{" "}
           {contractLabel(ceremony.contractConditions)}
         </div>
-        {/* Story 5.8 AC 8: 읽기 전용 — 배정 조작은 상세 화면(AC 7)에서만 가능하다. */}
-        <div className="ceremony-card__assignee-line">
-          담당{" "}
-          {ceremony.assignedOperatorName ?? (
-            <span className="ceremony-card__assignee-line--unassigned">미배정</span>
-          )}
-        </div>
+        {/* FR-18 다중 배정(프로토타입 WeddingScreen.js): 카드에서 바로 pill 토글로 배정. */}
+        <AssigneePills
+          hallId={ceremony.hallId}
+          ceremonyId={ceremony.id}
+          activeOperators={activeOperators}
+          assignees={ceremony.assignees}
+        />
       </div>
 
       <div className="ceremony-card__side">

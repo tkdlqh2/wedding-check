@@ -290,6 +290,67 @@ export async function updateItem(
   return updated;
 }
 
+// 예식 상세의 단계 그룹(연속된 항목 묶음) 식별 키 — group-by-step.ts의 그룹핑 키와
+// 동일한 3단 위계: 템플릿 단계(templateItemId) → ad-hoc 단계(adHocGroupRootId) →
+// 원본 단계가 삭제된 orphan 항목(단일 항목, 그 항목의 id로 지정).
+export type StepGroupKey =
+  | { templateItemId: string }
+  | { groupRootId: string }
+  | { itemId: string };
+
+function stepGroupCondition(key: StepGroupKey) {
+  if ("templateItemId" in key) {
+    return eq(checklistInstanceItems.templateItemId, key.templateItemId);
+  }
+  if ("groupRootId" in key) {
+    return eq(checklistInstanceItems.adHocGroupRootId, key.groupRootId);
+  }
+  return eq(checklistInstanceItems.id, key.itemId);
+}
+
+// 프로토타입 WeddingDetailScreen.js의 단계 "수정"(이름 변경) — 이 예식 스냅샷의
+// step_name만 바꾼다(템플릿은 건드리지 않음). 갱신된 행 수를 반환해 서비스가 0건을
+// 사용자 오류로 번역할 수 있게 한다.
+export async function renameStepGroup(
+  hallId: string,
+  instanceId: string,
+  key: StepGroupKey,
+  stepName: string,
+): Promise<number> {
+  const rows = await db
+    .update(checklistInstanceItems)
+    .set({ stepName })
+    .where(
+      and(
+        eq(checklistInstanceItems.instanceId, instanceId),
+        eq(checklistInstanceItems.hallId, hallId),
+        stepGroupCondition(key),
+      ),
+    )
+    .returning();
+  return rows.length;
+}
+
+// 프로토타입의 "단계 삭제" — 그 단계에 속한 이 예식의 항목 전체를 하드 삭제한다
+// (removeItem과 동일한 삭제 정책, 템플릿은 무관).
+export async function deleteStepGroup(
+  hallId: string,
+  instanceId: string,
+  key: StepGroupKey,
+): Promise<number> {
+  const rows = await db
+    .delete(checklistInstanceItems)
+    .where(
+      and(
+        eq(checklistInstanceItems.instanceId, instanceId),
+        eq(checklistInstanceItems.hallId, hallId),
+        stepGroupCondition(key),
+      ),
+    )
+    .returning();
+  return rows.length;
+}
+
 // FR-2 삭제 정책과 동일하게 하드 삭제(Story 1.3 Dev Notes "삭제 정책" 참고).
 export async function removeItem(
   hallId: string,

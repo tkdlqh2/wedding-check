@@ -1,6 +1,9 @@
-/* DESIGN.md §4 Cards, §14 Empty state — templates.css/ceremonies.css와 동일 컨벤션 */
+/* DESIGN.md §4 Cards, §14 Empty state — templates.css/ceremonies.css와 동일 컨벤션.
+   prototype/js/screens/WeddingDetailScreen.js를 템플릿 편집기(templates.css의
+   .template-item-card*)와 같은 시각 언어로 이식한다. */
 .ceremony-detail-page {
-  max-width: 640px;
+  max-width: 900px;
+  margin: 0 auto;
 }
 
 .ceremony-detail-page__back {
@@ -10,8 +13,8 @@
   margin-bottom: var(--space-sm);
 }
 
-/* prototype/js/screens/WeddingDetailScreen.js 17~22행 — 시간+신랑신부 제목(28px/700)
-   + 상태 배지, 그 아래 날짜·홀 메타 줄(14px, muted). */
+/* 프로토타입 17~22행 — 시간+신랑신부 제목(28px/700) + 상태 배지, 그 아래 날짜·홀·담당
+   메타 줄(14px). */
 .ceremony-detail-page__title-row {
   display: flex;
   align-items: center;
@@ -55,172 +58,40 @@
   margin: 4px 0 0;
 }
 
-.ceremony-detail-page h2 {
-  font-size: 20px;
-  margin-top: var(--space-xl);
+.ceremony-detail-page__meta-unassigned {
+  color: var(--color-error);
+  font-weight: 600;
+}
+
+/* 프로토타입 25행 — "이 예식에만 반영" 경고 톤 안내 박스. 프로토타입의 옅은 주황
+   배경은 DESIGN.md 팔레트에 없어, 임의 hex 대신 승인된 warning 토큰에서 파생한다. */
+.ceremony-detail-page__notice {
+  display: inline-block;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-warning) 12%, white);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin: var(--space-md) 0 0;
+}
+
+.ceremony-detail-page__notice strong {
+  color: var(--color-text-primary);
 }
 
 .ceremony-detail-page__empty {
   color: var(--color-text-muted);
   font-size: 14px;
+  margin-top: var(--space-lg);
 }
 
-/* Story 5.8 AC 7: 담당자 배정 — 활성 오퍼레이터 pill 토글(회원 등록 폼의 역할 pill,
-   apps/web/app/admin/members/members.css의 .member-form__role-pill*와 동일 패턴). */
-.ceremony-detail-page__assignee-section {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  flex-wrap: wrap;
-  margin-top: var(--space-md);
-}
-
-.ceremony-detail-page__assignee-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--color-text-muted);
-}
-
-.ceremony-detail-page__assignee-pill {
-  cursor: pointer;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-mid);
-  border-radius: var(--radius-full);
-  padding: 5px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-text-muted);
-}
-
-.ceremony-detail-page__assignee-pill--active {
-  background: var(--color-brand-tint);
-  border-color: var(--color-brand);
-  color: var(--color-brand);
-}
-
-/* 코덱스 리뷰 P2: 배정된 담당자가 이후 비활성화/역할 변경으로 활성 오퍼레이터
-   목록에서 빠졌을 때도 배정을 해제할 수 있는 별도 컨트롤 — 경고색(warning)으로
-   "정리가 필요한 상태"임을 표시한다(실패가 아니라 주의, DESIGN.md §2 상태색 원칙). */
-.ceremony-detail-page__assignee-pill--stale {
-  /* DESIGN.md 토큰 세트에 warning의 옅은 틴트 변수가 없어, brand-tint처럼 별도 hex를
-     새로 정의하는 대신 승인된 --color-warning 토큰에서 직접 파생한다(임의 색 추가 금지
-     원칙 준수). */
-  background: color-mix(in srgb, var(--color-warning) 12%, white);
-  border-color: var(--color-warning);
-  color: var(--color-warning);
-}
-
-.ceremony-detail-page__assignee-unassigned {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-error);
-}
-
-/* 대표 피드백(2026-07-27): 담당자 지정을 오퍼레이터가 많을 때도 쓸 수 있도록 검색
-   가능한 대화상자로 — apps/web/app/admin/admin-nav.css의 .account-modal* 패턴
-   그대로 재사용(오버레이+motion-slow 진입 애니메이션+reduce-motion 대응). */
-.assignee-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(31, 31, 31, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-md);
-  z-index: 100;
-}
-
-.assignee-modal {
-  background: var(--color-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-modal);
-  padding: var(--space-lg);
-  width: 100%;
-  max-width: 360px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  animation: assignee-modal-enter var(--motion-slow, 300ms) var(--ease-enter, cubic-bezier(0, 0, 0.2, 1));
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .assignee-modal {
-    animation: none;
-  }
-}
-
-@keyframes assignee-modal-enter {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.assignee-modal h2 {
-  font-size: 18px;
-  margin: 0;
-}
-
-.assignee-modal__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  max-height: 280px;
-  overflow-y: auto;
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
-}
-
-.assignee-modal__option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  cursor: pointer;
-  background: var(--color-surface);
-  border: none;
-  border-bottom: 1px solid var(--color-border-light);
-  padding: var(--space-sm) var(--space-md);
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  text-align: left;
-}
-
-.assignee-modal__list li:last-child .assignee-modal__option {
-  border-bottom: none;
-}
-
-.assignee-modal__option:hover {
-  background: var(--color-surface-soft);
-}
-
-.assignee-modal__option-check {
-  color: var(--color-brand);
-}
-
-.assignee-modal__empty {
-  padding: var(--space-md);
-  color: var(--color-text-muted);
-  font-size: 13px;
-}
-
-.assignee-modal__footer {
-  display: flex;
-  justify-content: flex-end;
-}
-
-/* Story 5.8 AC 6 + 대표 피드백: 예식 전용 체크리스트를 홀의 체크리스트 템플릿
-   (apps/web/app/admin/templates/[hallId]/templates.css .template-item-card*)과
-   최대한 같은 시각 언어로 — 번호 배지 헤더 + 58px 들여쓴 항목 목록. */
+/* 단계 카드 — 홀의 체크리스트 템플릿(templates.css .template-item-card*)과 동일한
+   시각 언어: 번호 배지 헤더(회색 배경) + 58px 들여쓴 항목 목록. */
 .instance-step-list {
   list-style: none;
   padding: 0;
-  margin: var(--space-md) 0 0;
+  margin: var(--space-lg) 0 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
@@ -270,6 +141,39 @@
   flex-shrink: 0;
 }
 
+/* 단계 헤더 액션(수정/단계 삭제) — 템플릿 편집기 .template-item-card__actions와 동일. */
+.instance-step-card__actions {
+  display: flex;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.instance-step-card__actions .btn-secondary {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+/* 단계 이름 인라인 수정 폼 — 헤더 자리에서 입력 + 취소/저장. */
+.instance-step-card__rename-form {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.instance-step-card__rename-form .input {
+  flex: 1;
+  min-width: 160px;
+}
+
+.instance-step-card__rename-form .btn-secondary,
+.instance-step-card__rename-form .btn-primary {
+  padding: 8px 14px;
+  font-size: 13px;
+  flex: none;
+}
+
 .instance-step-card__quick-add {
   padding: 10px 20px 14px 58px;
 }
@@ -283,15 +187,22 @@
 .instance-item-card {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-md);
   padding: 12px 20px 12px 58px;
   border-bottom: 1px solid var(--color-border-light);
-  flex-wrap: wrap;
 }
 
 .instance-item-list > li:last-child {
   border-bottom: none;
+}
+
+.instance-item-card__body {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
 }
 
 .instance-item-card__name {
@@ -302,20 +213,19 @@
   min-width: 0;
 }
 
-.instance-item-card__add-form {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
+/* "긴 설명" 태그 — 템플릿 편집기 .checklist-item-card__tag와 동일 톤(설명 전문은
+   "수정"을 눌러야 나타난다). */
+.instance-item-card__tag {
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border-light);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
 }
 
-.ceremony-detail-page__hint {
-  font-size: 13px;
-  color: var(--color-text-muted);
-  margin: var(--space-xs) 0 0;
-}
-
-/* Story 5.8: "이 예식에만" 체크 항목 추가/수정 — 템플릿의 checklist-item-form* 패턴을
-   그대로 재사용(apps/web/app/admin/templates/[hallId]/templates.css 186~324행 참고). */
 .instance-item-card--editing {
   display: block;
   padding: var(--space-md) 20px var(--space-md) 58px;
@@ -329,6 +239,12 @@
   margin-left: auto;
 }
 
+.instance-item-card__actions .btn-secondary {
+  padding: 5px 9px;
+  font-size: 12px;
+}
+
+/* "이 예식에만" 체크 항목 추가/수정 — 템플릿의 checklist-item-form* 패턴 재사용. */
 .instance-item-form-panel {
   display: flex;
   flex-direction: column;
@@ -364,10 +280,6 @@
 
 /* 각 단계 안의 빠른 추가(요약만 필수, 점선 인풋 — DESIGN.md §10 "정해진 형식 없이"
    톤과 동일 원칙). */
-.instance-candidate-group__quick-add {
-  padding: var(--space-sm) var(--space-md) var(--space-md);
-}
-
 .instance-item-form--quick {
   display: flex;
   gap: var(--space-sm);

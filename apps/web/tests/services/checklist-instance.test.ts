@@ -14,6 +14,8 @@ import {
   removeInstanceItem,
   addAdHocInstanceItem,
   updateInstanceItem,
+  renameInstanceStep,
+  deleteInstanceStep,
   ChecklistInstanceValidationError,
 } from "@/lib/services/checklist-instance";
 
@@ -351,5 +353,127 @@ describe("getOperatorInstanceView — 오퍼레이터 읽기 전용 조회 (AC 1
     await expect(getOperatorInstanceView(hallB.id, ceremonyId)).rejects.toThrow(
       ChecklistInstanceValidationError,
     );
+  });
+});
+
+describe("renameInstanceStep / deleteInstanceStep — 이 예식 스냅샷의 단계 수정/삭제", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("템플릿 단계 그룹의 이름을 바꾸면 그 단계 소속 항목 전체의 stepName이 바뀐다(템플릿은 그대로)", async () => {
+    const hall = await createTestHall();
+    const step = await createTestTemplateItem(hall.id, { stepName: "신랑입장" });
+    await createTestChecklistItem(hall.id, step.id, { title: "조명 전환", sortOrder: 1 });
+    await createTestChecklistItem(hall.id, step.id, { title: "음악 큐", sortOrder: 2 });
+    const { ceremonyId, instanceId } = await createCeremony(hall.id);
+
+    await renameInstanceStep(hall.id, ceremonyId, { templateItemId: step.id }, "신랑 입장(변경)");
+
+    const items = await instanceRepo.listItems(hall.id, instanceId);
+    expect(items).toHaveLength(2);
+    expect(items.every((i) => i.stepName === "신랑 입장(변경)")).toBe(true);
+    // 템플릿 원본은 바뀌지 않는다 — 실행용 사본만 수정된다.
+    const templateItemRepo = await import("@/lib/db/repositories/template-item");
+    const original = await templateItemRepo.findById(hall.id, step.id);
+    expect(original?.stepName).toBe("신랑입장");
+  });
+
+  it("ad-hoc 단계 그룹도 groupRootId로 이름을 바꿀 수 있다", async () => {
+    const hall = await createTestHall();
+    const { ceremonyId, instanceId } = await createCeremony(hall.id);
+    const first = await addAdHocInstanceItem(hall.id, ceremonyId, {
+      title: "첫 항목",
+      description: null,
+      stepName: "깜짝 이벤트",
+    });
+    await addAdHocInstanceItem(hall.id, ceremonyId, {
+      title: "둘째 항목",
+      description: null,
+      stepName: "",
+      groupRootId: first.adHocGroupRootId,
+    });
+
+    await renameInstanceStep(
+      hall.id,
+      ceremonyId,
+      { groupRootId: first.adHocGroupRootId as string },
+      "깜짝 이벤트(수정)",
+    );
+
+    const items = await instanceRepo.listItems(hall.id, instanceId);
+    expect(items.every((i) => i.stepName === "깜짝 이벤트(수정)")).toBe(true);
+  });
+
+  it("빈 이름으로 바꾸려 하면 거부된다", async () => {
+    const hall = await createTestHall();
+    const step = await createTestTemplateItem(hall.id, { stepName: "축가" });
+    await createTestChecklistItem(hall.id, step.id);
+    const { ceremonyId } = await createCeremony(hall.id);
+
+    await expect(
+      renameInstanceStep(hall.id, ceremonyId, { templateItemId: step.id }, "   "),
+    ).rejects.toThrow(ChecklistInstanceValidationError);
+  });
+
+  it("존재하지 않는 단계 그룹이면 거부된다", async () => {
+    const hall = await createTestHall();
+    const { ceremonyId } = await createCeremony(hall.id);
+
+    await expect(
+      renameInstanceStep(
+        hall.id,
+        ceremonyId,
+        { templateItemId: "00000000-0000-0000-0000-000000000000" },
+        "새 이름",
+      ),
+    ).rejects.toThrow(ChecklistInstanceValidationError);
+  });
+
+  it("단계 삭제는 그 단계 소속 항목 전체를 삭제하고 다른 단계는 남긴다", async () => {
+    const hall = await createTestHall();
+    const stepA = await createTestTemplateItem(hall.id, { stepName: "개식사", sortOrder: 1 });
+    await createTestChecklistItem(hall.id, stepA.id, { title: "A-1", sortOrder: 1 });
+    await createTestChecklistItem(hall.id, stepA.id, { title: "A-2", sortOrder: 2 });
+    const stepB = await createTestTemplateItem(hall.id, { stepName: "축가", sortOrder: 2 });
+    await createTestChecklistItem(hall.id, stepB.id, { title: "B-1" });
+    const { ceremonyId, instanceId } = await createCeremony(hall.id);
+
+    await deleteInstanceStep(hall.id, ceremonyId, { templateItemId: stepA.id });
+
+    const items = await instanceRepo.listItems(hall.id, instanceId);
+    expect(items).toHaveLength(1);
+    expect(items[0].title).toBe("B-1");
+  });
+
+  it("다른 홀 hallId로는 단계를 삭제할 수 없다(AD-2)", async () => {
+    const hallA = await createTestHall({ name: "A홀" });
+    const hallB = await createTestHall({ name: "B홀" });
+    const step = await createTestTemplateItem(hallA.id, { stepName: "개식사" });
+    await createTestChecklistItem(hallA.id, step.id);
+    const { ceremonyId, instanceId } = await createCeremony(hallA.id);
+
+    // hallB 스코프로는 인스턴스 자체가 조회되지 않아 거부된다.
+    await expect(
+      deleteInstanceStep(hallB.id, ceremonyId, { templateItemId: step.id }),
+    ).rejects.toThrow(ChecklistInstanceValidationError);
+
+    const items = await instanceRepo.listItems(hallA.id, instanceId);
+    expect(items).toHaveLength(1);
+  });
+
+  it("orphan 단일 항목 단계는 itemId 키로 삭제할 수 있다", async () => {
+    const hall = await createTestHall();
+    const { ceremonyId, instanceId } = await createCeremony(hall.id);
+    const item = await addAdHocInstanceItem(hall.id, ceremonyId, {
+      title: "홀로 남은 항목",
+      description: null,
+      stepName: "임시 단계",
+    });
+
+    await deleteInstanceStep(hall.id, ceremonyId, { itemId: item.id });
+
+    const items = await instanceRepo.listItems(hall.id, instanceId);
+    expect(items).toHaveLength(0);
   });
 });

@@ -224,6 +224,9 @@ export function ChecklistInstanceView({
   async function changeStatus(next: string) {
     setStatusPending(true);
     setStatusError(null);
+    // 코덱스 리뷰 P2: 이 POST보다 먼저 시작된 60초 폴링 GET이 나중에 도착하면 낡은
+    // 상태로 화면/캐시를 되돌린다 — 진행 중인 폴링 응답을 낡은 것으로 무효화한다.
+    latestRequestIdRef.current++;
     try {
       const res = await fetch(`/api/operator/ceremonies/${hallId}/${ceremonyId}/status`, {
         method: "POST",
@@ -245,6 +248,9 @@ export function ChecklistInstanceView({
       // 요청 값(next)이 아니라 서버가 확정해 돌려준 상태를 반영/캐시한다.
       const body = (await res.json().catch(() => null)) as { status?: string } | null;
       const updated = { ...ceremony, status: body?.status ?? next };
+      // POST가 진행되는 동안 새로 시작된 폴링이 있을 수도 있다 — 반영 직전에 한 번 더
+      // 무효화해, 이 확정 상태가 어떤 폴링 응답에도 덮이지 않게 한다.
+      latestRequestIdRef.current++;
       setCeremony(updated);
       writeCache(ceremonyId, { ceremony: updated, items });
     } catch {

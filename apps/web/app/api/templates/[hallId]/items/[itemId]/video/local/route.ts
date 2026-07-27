@@ -4,7 +4,7 @@ import { requireAdminSession } from "@/lib/auth-guard";
 import { isValidUuid } from "@/lib/uuid";
 import {
   saveDemoVideo,
-  assertTemplateItemOwnedByHall,
+  assertChecklistItemOwnedByHall,
   DemoVideoValidationError,
 } from "@/lib/services/demo-video";
 import { saveLocalVideoFile } from "@/lib/storage/local-video-store";
@@ -18,6 +18,8 @@ import {
 // 호출한다. Route Handler는 Server Action(기본 1MB 바디 제한)과 달리 기본 바디 크기
 // 제한이 없고, 로컬 next dev는 Vercel Functions의 4.5MB 제한(AD-4가 우회하려는 대상)도
 // 적용받지 않으므로 이 경로는 AD-4가 막으려는 문제 자체가 로컬에서는 발생하지 않는다.
+// Story 5.5: URL의 [itemId]는 이제 "단계 id"가 아니라 "체크리스트 항목 id"를 가리킨다
+// (경로 자체는 이미 범용 이름이라 바꾸지 않았다).
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ hallId: string; itemId: string }> },
@@ -44,7 +46,7 @@ export async function POST(
   }
 
   try {
-    await assertTemplateItemOwnedByHall(hallId, itemId);
+    await assertChecklistItemOwnedByHall(hallId, itemId);
   } catch (err) {
     if (err instanceof DemoVideoValidationError) {
       return Response.json(

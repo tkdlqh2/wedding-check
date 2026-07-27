@@ -53,7 +53,6 @@ export async function create(
   hallId: string,
   input: {
     stepName: string;
-    description?: string | null;
     applicableContractConditions?: Record<string, boolean>;
   },
 ): Promise<TemplateItem> {
@@ -67,7 +66,6 @@ export async function create(
       .values({
         hallId,
         stepName: input.stepName,
-        description: input.description ?? null,
         applicableContractConditions: input.applicableContractConditions ?? {},
         sortOrder: sql<number>`coalesce((select max(${checklistTemplateItems.sortOrder}) from ${checklistTemplateItems} where ${checklistTemplateItems.hallId} = ${hallId}), -1) + 1`,
       })
@@ -94,7 +92,6 @@ export async function update(
   id: string,
   input: {
     stepName: string;
-    description?: string | null;
     applicableContractConditions?: Record<string, boolean>;
   },
 ): Promise<TemplateItem> {
@@ -102,7 +99,6 @@ export async function update(
     .update(checklistTemplateItems)
     .set({
       stepName: input.stepName,
-      description: input.description ?? null,
       applicableContractConditions: input.applicableContractConditions ?? {},
     })
     .where(and(eq(checklistTemplateItems.id, id), eq(checklistTemplateItems.hallId, hallId)))

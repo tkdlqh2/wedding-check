@@ -67,11 +67,15 @@ export async function createCeremony(input: {
   hallId: string;
   ceremonyAt: Date;
   contractConditions: Record<string, boolean>;
+  groomName?: string;
+  brideName?: string;
 }): Promise<Ceremony> {
   await assertHallExists(input.hallId);
   const { ceremonyId } = await ceremonyRepo.create(input.hallId, {
     ceremonyAt: input.ceremonyAt,
     contractConditions: input.contractConditions,
+    groomName: input.groomName?.trim() || null,
+    brideName: input.brideName?.trim() || null,
   });
   const ceremony = await ceremonyRepo.findById(input.hallId, ceremonyId);
   if (!ceremony) {

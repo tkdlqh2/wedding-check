@@ -38,6 +38,28 @@ export function CeremonyForm({ halls }: { halls: { id: string; name: string }[] 
         <input id="ceremony-at" name="ceremonyAt" type="datetime-local" className="input" />
       </div>
 
+      <div className="ceremony-form__field">
+        <label htmlFor="ceremony-groom-name">신랑 이름</label>
+        <input
+          id="ceremony-groom-name"
+          name="groomName"
+          type="text"
+          className={state.errorField === "groomName" ? "input input--error" : "input"}
+          aria-invalid={state.errorField === "groomName"}
+        />
+      </div>
+
+      <div className="ceremony-form__field">
+        <label htmlFor="ceremony-bride-name">신부 이름</label>
+        <input
+          id="ceremony-bride-name"
+          name="brideName"
+          type="text"
+          className={state.errorField === "brideName" ? "input input--error" : "input"}
+          aria-invalid={state.errorField === "brideName"}
+        />
+      </div>
+
       <div className="ceremony-form__conditions">
         <label className="ceremony-form__checkbox">
           <input type="checkbox" name="requiresOfficiant" />

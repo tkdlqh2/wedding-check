@@ -94,6 +94,7 @@ describe("removeInstanceItem", () => {
       stepId: step.id,
       stepName: step.stepName,
     });
+    if (!added) throw new Error("추가 실패 — 예정 예식이라 항상 성공해야 한다");
 
     await removeInstanceItem(hall.id, ceremonyId, added.id);
 

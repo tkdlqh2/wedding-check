@@ -1,0 +1,87 @@
+/* DESIGN.md §4 체크리스트 항목 타일(POS Tile), §8 Tablet 768-1024px 고정 레이아웃(UX-DR11),
+   §14 Error(오프라인/동기화) 지속 배너, §15 motion-instant(0ms, 트랜지션 없음) */
+
+.operator-instance-page {
+  max-width: 640px;
+}
+
+.operator-instance-page__back {
+  display: inline-block;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  margin-bottom: var(--space-md);
+  text-decoration: none;
+}
+
+.checklist-instance-view__offline-banner,
+.checklist-instance-view__error-banner {
+  background: var(--color-surface-soft);
+  border-left: 4px solid var(--color-error);
+  border-radius: var(--radius-sm);
+  padding: var(--space-md);
+  font-size: 14px;
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-md);
+}
+
+.checklist-instance-view__empty {
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.checklist-tile-grid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* 체크리스트 항목 타일 — 흰 배경, 8px 라운드, ≥44px 탭 타깃. 탭 시 상태 변화는
+   motion-instant(0ms) — transition 프로퍼티를 의도적으로 두지 않는다. */
+.checklist-tile {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.checklist-tile--selected {
+  background: var(--color-brand-tint);
+  border: 1px solid var(--color-brand);
+}
+
+/* UX-DR11: Tablet/iPad(768-1024px)에서 체크리스트+질의 고정 레이아웃 — 실행 화면은
+   태블릿 네이티브 존이므로 이 너비대에서 뷰포트 높이에 맞춘 스크롤 컨테이너로 고정한다.
+   .operator-shell(operator-nav.css)은 기본이 min-height라 자식이 넘치면 뷰포트보다
+   커질 수 있다 — 이 breakpoint에서는 height로 고정해 하단 내비(.operator-nav, sibling)가
+   항상 화면 안에 머물게 하고, .operator-content는 flex:1(기존 상속)로 남은 공간만
+   차지하며 내부에서만 스크롤한다(코덱스 리뷰 P2 반영 — .operator-content에 또 100dvh를
+   주면 내비 높이만큼 전체가 뷰포트를 넘쳐 내비가 화면 밖으로 밀려났다). */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .operator-shell {
+    height: 100dvh;
+  }
+
+  .operator-content {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .operator-instance-page {
+    flex: 1;
+    overflow-y: auto;
+    max-width: none;
+  }
+}

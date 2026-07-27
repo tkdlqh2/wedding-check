@@ -4,6 +4,7 @@ import * as ceremonyRepo from "@/lib/db/repositories/ceremony";
 import * as instanceRepo from "@/lib/db/repositories/checklist-instance";
 import {
   getCeremonyDetail,
+  getOperatorInstanceView,
   addInstanceItem,
   removeInstanceItem,
   ChecklistInstanceValidationError,
@@ -112,5 +113,44 @@ describe("getCeremonyDetail", () => {
     await expect(
       getCeremonyDetail(hall.id, "00000000-0000-0000-0000-000000000000"),
     ).rejects.toThrow(ChecklistInstanceValidationError);
+  });
+});
+
+describe("getOperatorInstanceView — 오퍼레이터 읽기 전용 조회 (AC 1, 2, 3)", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("예식+항목 목록을 반환한다(후보 목록은 포함하지 않는다)", async () => {
+    const hall = await createTestHall();
+    // 인스턴스 자동 조합(Story 2.2 CTE)은 예식 생성 시점에 존재하는 템플릿 항목만
+    // 스냅샷으로 복사한다 — 템플릿 항목을 예식보다 먼저 만들어야 항목이 채워진다.
+    await createTestTemplateItem(hall.id, { stepName: "신랑입장" });
+    const { ceremonyId } = await createCeremony(hall.id);
+
+    const view = await getOperatorInstanceView(hall.id, ceremonyId);
+
+    expect(view.ceremony.id).toBe(ceremonyId);
+    expect(view.items).toHaveLength(1);
+    expect(view.items[0].stepName).toBe("신랑입장");
+    expect(view).not.toHaveProperty("candidates");
+  });
+
+  it("존재하지 않는 ceremonyId면 거부된다", async () => {
+    const hall = await createTestHall();
+
+    await expect(
+      getOperatorInstanceView(hall.id, "00000000-0000-0000-0000-000000000000"),
+    ).rejects.toThrow(ChecklistInstanceValidationError);
+  });
+
+  it("다른 홀의 hallId로 조회하면 거부된다 (AD-2 격리)", async () => {
+    const hallA = await createTestHall({ name: "A홀" });
+    const hallB = await createTestHall({ name: "B홀" });
+    const { ceremonyId } = await createCeremony(hallA.id);
+
+    await expect(getOperatorInstanceView(hallB.id, ceremonyId)).rejects.toThrow(
+      ChecklistInstanceValidationError,
+    );
   });
 });

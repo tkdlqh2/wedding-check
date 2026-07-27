@@ -22,6 +22,27 @@ async function requireInstance(hallId: string, ceremonyId: string): Promise<Chec
   return instance;
 }
 
+export type OperatorInstanceView = {
+  ceremony: Ceremony;
+  items: ChecklistInstanceItem[];
+};
+
+// getCeremonyDetail과 달리 listCandidateTemplateItems를 호출하지 않는다 — 오퍼레이터
+// 화면은 후보 목록이 필요 없고, 이 함수는 클라이언트가 60초마다 폴링하므로 불필요한
+// 템플릿 항목 쿼리를 매번 추가하지 않는다(Story 2.3).
+export async function getOperatorInstanceView(
+  hallId: string,
+  ceremonyId: string,
+): Promise<OperatorInstanceView> {
+  const ceremony = await ceremonyRepo.findById(hallId, ceremonyId);
+  if (!ceremony) {
+    throw new ChecklistInstanceValidationError("존재하지 않는 예식입니다");
+  }
+  const instance = await requireInstance(hallId, ceremonyId);
+  const items = await instanceRepo.listItems(hallId, instance.id);
+  return { ceremony, items };
+}
+
 export async function getCeremonyDetail(hallId: string, ceremonyId: string): Promise<CeremonyDetail> {
   const ceremony = await ceremonyRepo.findById(hallId, ceremonyId);
   if (!ceremony) {

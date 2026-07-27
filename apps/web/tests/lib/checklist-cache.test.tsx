@@ -62,4 +62,27 @@ describe("checklist-cache", () => {
 
     expect(readCache(ceremonyId)).toBeNull();
   });
+
+  it("items 배열 안에 형태가 다른 원소(null 등)가 있으면 null을 반환한다 (코덱스 4차 P2)", () => {
+    const ceremonyId = "66666666-6666-6666-6666-666666666666";
+    window.localStorage.setItem(
+      `wedding-check:operator-checklist:${ceremonyId}`,
+      JSON.stringify({
+        ceremony: { id: "x", ceremonyAt: "2026-08-01T00:00:00.000Z" },
+        items: [null],
+      }),
+    );
+
+    expect(readCache(ceremonyId)).toBeNull();
+  });
+
+  it("ceremonyAt이 유효한 날짜 문자열이 아니면 null을 반환한다 (코덱스 4차 P2)", () => {
+    const ceremonyId = "77777777-7777-7777-7777-777777777777";
+    window.localStorage.setItem(
+      `wedding-check:operator-checklist:${ceremonyId}`,
+      JSON.stringify({ ceremony: { id: "x", ceremonyAt: "not-a-date" }, items: [] }),
+    );
+
+    expect(readCache(ceremonyId)).toBeNull();
+  });
 });

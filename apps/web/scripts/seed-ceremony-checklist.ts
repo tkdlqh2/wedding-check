@@ -156,13 +156,24 @@ const STEPS: StepSeed[] = [
   },
 ];
 
-// 한 단계 안의 체크리스트 항목들을 title 매칭으로 upsert하고, 그 단계 범위의 기존
-// sortOrder 최댓값 + 배열 순서로 재배치한다 — seedHall의 단계 upsert와 완전히 동일한
-// 기법을 한 단계 아래 범위(hallId 전체가 아니라 templateItemId 안)에 적용한다.
+// 한 단계 안의 체크리스트 항목들을 title 매칭으로 upsert하고, 그 단계 범위의 "이
+// 시드가 다루지 않는(=관리자가 직접 추가한 커스텀)" 항목들의 sortOrder 최댓값 + 배열
+// 순서로 재배치한다 — seedHall의 단계 upsert와 완전히 동일한 기법을 한 단계 아래
+// 범위(hallId 전체가 아니라 templateItemId 안)에 적용한다.
+//
+// 코덱스 리뷰 2차 P2: 매칭된(=이번에 재배치할) 항목 자신의 옛 sortOrder까지 기준값
+// 계산에 포함하면, 재실행할 때마다 그 옛 값이 다시 새 기준값이 되어 절대값이 끝없이
+// 커진다(수렴하지 않음 — 상대 순서는 맞아도 idempotent하지 않음). 이 시드가 다루는
+// title 집합을 기준값 계산에서 제외해 커스텀 항목의 최댓값만 기준으로 삼으면, 커스텀
+// 항목이 추가/삭제되지 않는 한 재실행해도 절대값 자체가 완전히 동일하게 수렴한다.
 async function seedChecklistItems(hallId: string, templateItemId: string, items: ChecklistItemSeed[]) {
   const existing = await checklistItemRepo.findAllByTemplateItem(hallId, templateItemId);
   const existingByTitle = new Map(existing.map((item) => [item.title, item]));
-  const currentMax = existing.reduce((max, item) => Math.max(max, item.sortOrder), -1);
+  const seedTitles = new Set(items.map((seed) => seed.title));
+  const currentMax = existing.reduce(
+    (max, item) => (seedTitles.has(item.title) ? max : Math.max(max, item.sortOrder)),
+    -1,
+  );
 
   for (const [index, seed] of items.entries()) {
     const targetSortOrder = currentMax + 1 + index;
@@ -190,10 +201,17 @@ async function seedHall(hallId: string, hallName: string) {
 
   const existing = await templateItemRepo.findAllByHall(hallId);
   const existingByStepName = new Map(existing.map((item) => [item.stepName, item]));
-  // 이 홀의 현재 sortOrder 최댓값을 미리 한 번만 계산해둔다 — 이후 이 12단계를
-  // (currentMax+1)부터 STEPS 순서 그대로 배치하면, 다른 기존 항목의 sortOrder와
-  // 절대 겹치지 않는다(모든 대상 값이 원래 최댓값보다 크므로).
-  const currentMax = existing.reduce((max, item) => Math.max(max, item.sortOrder), -1);
+  // 이 홀의 커스텀(=STEPS에 없는) 단계들의 sortOrder 최댓값을 미리 한 번만 계산해둔다
+  // — 이후 이 12단계를 (currentMax+1)부터 STEPS 순서 그대로 배치하면, 다른 기존
+  // 항목의 sortOrder와 절대 겹치지 않는다(모든 대상 값이 원래 최댓값보다 크므로).
+  // 코덱스 리뷰 2차 P2: STEPS 자신의 옛 sortOrder를 기준값에 포함하면 재실행마다
+  // 절대값이 끝없이 커져 idempotent하지 않다 — STEPS 이름 집합을 기준값 계산에서
+  // 제외해, 커스텀 단계가 없는 한 재실행해도 절대값이 완전히 동일하게 수렴하게 한다.
+  const seedStepNames = new Set(STEPS.map((step) => step.stepName));
+  const currentMax = existing.reduce(
+    (max, item) => (seedStepNames.has(item.stepName) ? max : Math.max(max, item.sortOrder)),
+    -1,
+  );
 
   for (const [index, step] of STEPS.entries()) {
     const targetSortOrder = currentMax + 1 + index;

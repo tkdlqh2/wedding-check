@@ -1,6 +1,6 @@
 {
-  "id": "69a1e7c9-745d-4c46-9ffe-bc56ffaffda9",
-  "prevId": "2878312f-ef37-4907-9324-24cd4c0ce345",
+  "id": "e7dbd380-6a49-4b1c-bd43-257cb7dc1779",
+  "prevId": "8a0981db-acba-477f-bcea-a53ba5b44565",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -169,6 +169,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "assigned_operator_id": {
+          "name": "assigned_operator_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -185,6 +191,19 @@
           ],
           "onUpdate": "no action",
           "onDelete": "no action"
+        },
+        "ceremonies_assigned_operator_id_user_id_fk": {
+          "name": "ceremonies_assigned_operator_id_user_id_fk",
+          "tableFrom": "ceremonies",
+          "columnsFrom": [
+            "assigned_operator_id"
+          ],
+          "tableTo": "user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -246,6 +265,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "ad_hoc_group_root_id": {
+          "name": "ad_hoc_group_root_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},

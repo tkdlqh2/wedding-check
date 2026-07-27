@@ -444,3 +444,37 @@ describe("checklistInstanceRepo.listCandidateChecklistItems — 홀 스코프 �
     expect(candidates).toHaveLength(0);
   });
 });
+
+// Story 3.1 코덱스 리뷰 P2: feedback 서비스가 "이 단계가 이 예식의 실제 체크리스트에
+// 포함돼 있는가"를 검증하는 데 쓰는 함수 — 단계가 인스턴스에 조합됐는지(=체크리스트
+// 항목이 실제로 있는지)만 확인한다.
+describe("checklistInstanceRepo.existsForTemplateItem", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("인스턴스에 조합된 단계면 true를 반환한다", async () => {
+    const hall = await createTestHall();
+    const step = await createTestTemplateItem(hall.id, { stepName: "신랑입장" });
+    await createTestChecklistItem(hall.id, step.id, { title: "조명 전환" });
+    const { instanceId } = await ceremonyRepo.create(hall.id, {
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+
+    await expect(instanceRepo.existsForTemplateItem(instanceId, step.id)).resolves.toBe(true);
+  });
+
+  it("체크리스트 항목이 하나도 없어 인스턴스에 조합되지 않은 단계면 false를 반환한다", async () => {
+    const hall = await createTestHall();
+    const excludedStep = await createTestTemplateItem(hall.id, { stepName: "빈 단계" });
+    const { instanceId } = await ceremonyRepo.create(hall.id, {
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+
+    await expect(
+      instanceRepo.existsForTemplateItem(instanceId, excludedStep.id),
+    ).resolves.toBe(false);
+  });
+});

@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: "07-26-2026 16:19"
-last_updated: "07-27-2026 17:45"
+last_updated: "07-27-2026 18:10"
 project: wedding-check
 project_key: WEDCHK
 tracking_system: file-system
@@ -61,8 +61,8 @@ development_status:
   2-3-operator-instance-view: done
   epic-2-retrospective: optional
 
-  epic-3: backlog
-  3-1-natural-language-feedback: backlog
+  epic-3: in-progress
+  3-1-natural-language-feedback: done
   3-2-feedback-structuring-confirmation: backlog
   3-3-natural-language-query: backlog
   3-4-evidence-based-response: backlog
@@ -81,12 +81,27 @@ development_status:
   5-5-checklist-two-level-structure: done
   5-6-admin-account-menu: done
   5-7-member-management-polish: done
-  5-8-ceremony-screens-polish: ready-for-dev
+  5-8-ceremony-screens-polish: review
   epic-5-retrospective: optional
 
 # Per-story git pipeline substage (see GIT PIPELINE STAGE legend above).
 # 번호가 매겨진 스토리가 아닌 개별 수정(fix/*)도 동일한 파이프라인으로 추적한다.
 git_pipeline:
+  3-1-natural-language-feedback:
+    stage: merged
+    branch: story/3-1-natural-language-feedback
+    pr_url: "https://github.com/tkdlqh2/wedding-check/pull/22"
+    merge_commit: "8f9e25d"
+    notes: "git worktree(.claude/worktrees/story-3-1-natural-language-feedback)로 착수, main(654950f, Story 5.7 병합 직후) 기준 분기. Epic 3(변수 상황 피드백 축적과 실행 중 질의) 1번째 스토리(FR-8) — 아직 feedback/variable_cases 스키마가 없어 이 스토리가 feedback 테이블을 처음 만든다(AD-8: status draft|confirmed, confirmed 전환은 Story 3.2 범위). 오퍼레이터 체크리스트 조회 화면(단계 그룹)마다 인라인 피드백 입력 패널을 추가, Route Handler(api/feedback/[hallId]/[ceremonyId])로 draft 저장/조회. drizzle-kit generate가 이 환경에서 비TTY 프롬프트로 실패해(Story 5.4와 동일 이슈) 마이그레이션/스냅샷(0016_natural-language-feedback)을 직접 구성 — 병행 세션의 Story 5.8도 같은 시점(main 654950f)에서 분기해 자신의 0016(ceremony 화면 정합화)을 만들어뒀음을 병합 순서상 먼저 알아챔, 두 PR 중 나중에 병합되는 쪽이 0017로 재배치해야 함(5.3/5.4/5.5 선례와 동일 패턴, 이 PR이 먼저 머지되면 5.8 쪽 작업). 코덱스 리뷰 2라운드(1~2차 실결함 3건 발견 후 수정: 동시 저장 경합 P1, 체크리스트 미포함 단계 검증 누락 P2, upsert 시 updatedAt 미갱신 P2, 3차 클린). vitest 182건(신규 22건) 통과, tsc/lint/build 클린, 실제 로그인+HTTP로 저장/이어쓰기/AD-8 confirmed 방어/401/회귀 없음 수동 검증."
+    last_updated: "07-27-2026 21:45"
+
+  5-8-ceremony-screens-polish:
+    stage: pr-open
+    branch: story/5-8-ceremony-screens-polish
+    pr_url: "https://github.com/tkdlqh2/wedding-check/pull/21"
+    notes: "main(654950f) 기준 분기(primary 체크아웃). Epic 5 2차 후속 3건 중 마지막(FR-4, FR-12, FR-13, FR-18). 예식 등록 폼 날짜/시각 분리, 신랑·신부 한 줄 배치, 계약 형태 체크박스->pill 토글(제출값 동일 유지). 예식 상세 '포함된 항목'을 '추가 가능한 항목'과 동일한 단계별 그룹 구조로 변경(groupSequentialByKey 제네릭 헬퍼로 통합) — Story 5.5에서 도입된 instance-candidate-group* 클래스에 실제 CSS가 없었던 것도 함께 채움. 신규 기능: 담당 오퍼레이터 단일 배정(ceremonies.assigned_operator_id, text FK -> user.id — user.id가 uuid 아닌 text임을 실제 로그인 응답으로 재확인 후 선언) — 상세 화면 활성 오퍼레이터 pill 토글, 목록 카드는 읽기 전용 배지. 스토리 작성 중 실제 마이그레이션 드리프트 발견: Story 5.3의 groom_name/bride_name이 0014 커스텀 SQL로 DB엔 반영됐지만 0014/0015 snapshot.json엔 한 번도 기록된 적 없었음(scripts/apply-migrations.ts가 snapshot을 안 읽어 런타임엔 무해) — 0016_snapshot.json 구성 시 함께 보정. drizzle-kit generate는 예상대로 비TTY 프롬프트로 실패해 Story 5.4 방식대로 snapshot 수기 구성. vitest 신규 15건(ceremonyRepo.assignOperator 3건 + service assignOperator 6건 + 목록 병합 1건) 포함 전체 164건 통과, tsc/lint/build 전부 클린. 로컬 서버(포트 3000, 대표 구동 중)에 실제 로그인 후 curl로 등록 폼/목록/상세 렌더링 확인(실 시드 데이터 14단계 그룹핑 확인). **주의: 이 스토리의 0016도 story/3-1-natural-language-feedback과 같은 main(654950f) 기준 654950f에서 독립적으로 만들어짐 — 둘 다 main에 머지되려면 나중에 머지되는 쪽이 0017로 재배치 필요(5.3/5.4/5.5 선례).** 코덱스 리뷰는 PR 오픈 직후 진행 예정."
+    last_updated: "07-27-2026 18:10"
+
   5-7-member-management-polish:
     stage: merged
     branch: story/5-7-member-management-polish

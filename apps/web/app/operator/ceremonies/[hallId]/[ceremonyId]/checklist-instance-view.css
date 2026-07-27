@@ -74,6 +74,55 @@
   border: 1px solid var(--color-brand);
 }
 
+/* Story 3.1(AC 1/2/3): 단계별 인라인 피드백 패널. 저장 확인은 초록(확정, Story 3.2
+   전용)이 아니라 주황(--color-warning) 톤 — DESIGN.md §2가 "피드백 임시저장"을 이 색의
+   용도로 명시한다. */
+.step-feedback {
+  margin-top: var(--space-sm);
+}
+
+.step-feedback__toggle {
+  min-height: 44px;
+  padding: var(--space-sm) var(--space-md);
+  font-size: 14px;
+}
+
+.step-feedback__panel {
+  margin-top: var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.step-feedback__textarea {
+  resize: vertical;
+  font-family: inherit;
+  min-height: 96px;
+}
+
+.step-feedback__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.step-feedback__save-btn {
+  min-width: 96px;
+  min-height: 44px;
+}
+
+.step-feedback__saved-hint {
+  color: var(--color-warning);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.step-feedback__error {
+  color: var(--color-error);
+  font-size: 14px;
+}
+
 /* UX-DR11: Tablet/iPad(768-1024px)에서 체크리스트+질의 고정 레이아웃 — 실행 화면은
    태블릿 네이티브 존이므로 이 너비대에서 뷰포트 높이에 맞춘 스크롤 컨테이너로 고정한다.
    .operator-shell(operator-nav.css)은 기본이 min-height라 자식이 넘치면 뷰포트보다

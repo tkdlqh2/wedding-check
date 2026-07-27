@@ -3,39 +3,84 @@ import type { CeremonyWithHallName } from "@/lib/services/ceremony";
 
 // KST 고정 표시 — 이 제품은 국내 단일 웨딩홀 대상이라 서버/브라우저 로컬 타임존과
 // 무관하게 항상 한국 표준시로 표시한다(actions.ts의 입력 파싱과 대칭).
-const ceremonyDateFormatter = new Intl.DateTimeFormat("ko-KR", {
+const timeFormatter = new Intl.DateTimeFormat("ko-KR", {
   timeZone: "Asia/Seoul",
-  month: "long",
-  day: "numeric",
   hour: "2-digit",
   minute: "2-digit",
   hour12: false,
 });
 
+const dateFormatter = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: "Asia/Seoul",
+  month: "long",
+  day: "numeric",
+  weekday: "short",
+});
+
+const CONTRACT_LABELS: Record<string, string> = {
+  requiresOfficiant: "주례 있음",
+  hasAdditionalEvent: "이벤트 추가",
+};
+
+// prototype/js/screens/WeddingScreen.js의 vals.contractLabel과 동일한 개념 —
+// 선택된 계약 형태를 한글 라벨로 이어붙이고, 아무것도 없으면 "기본 계약".
+function contractLabel(conditions: Record<string, boolean>): string {
+  const labels = Object.entries(conditions)
+    .filter(([, enabled]) => enabled)
+    .map(([key]) => CONTRACT_LABELS[key] ?? key);
+  return labels.length > 0 ? labels.join(" · ") : "기본 계약";
+}
+
+// [ASSUMPTION] 예식 진행 상태(예정/진행중/완료)를 오퍼레이터가 직접 바꾸는 FR은 아직
+// 없다(Story 2.1 Dev Notes에 이미 기록된 제약) — 여기서는 예식 일시와 현재 시각만
+// 비교한 단순 2단계(예정/완료) 표시로, 별도 저장 필드 없이 렌더링 시점에 계산한다.
+// 컴포넌트 본문 밖의 일반 함수로 분리 — Date.now()를 컴포넌트 렌더 본문에서 직접
+// 호출하면 react-hooks/purity 린트가 막는다.
+function computeIsDone(ceremonyAt: Date): boolean {
+  return ceremonyAt.getTime() <= Date.now();
+}
+
 export function CeremonyRow({ ceremony }: { ceremony: CeremonyWithHallName }) {
+  const isDone = computeIsDone(ceremony.ceremonyAt);
+
   return (
-    <li className="ceremony-card">
+    <li className={"ceremony-card" + (isDone ? " ceremony-card--done" : "")}>
       <div className="ceremony-card__body">
-        <span className="ceremony-card__hall">{ceremony.hallName}</span>
-        <span className="ceremony-card__time">
-          {ceremonyDateFormatter.format(ceremony.ceremonyAt)}
-        </span>
-        {ceremony.groomName && ceremony.brideName && (
-          <span className="ceremony-card__couple">
-            {ceremony.groomName} · {ceremony.brideName}
-          </span>
-        )}
+        <div className="ceremony-card__title">
+          <span className="ceremony-card__time">{timeFormatter.format(ceremony.ceremonyAt)}</span>
+          {ceremony.groomName && ceremony.brideName && (
+            <span className="ceremony-card__couple">
+              {ceremony.groomName} · {ceremony.brideName}
+            </span>
+          )}
+        </div>
+        <div className="ceremony-card__meta">
+          {dateFormatter.format(ceremony.ceremonyAt)} · {ceremony.hallName} ·{" "}
+          {contractLabel(ceremony.contractConditions)}
+        </div>
+        {/* Story 5.8 AC 8: 읽기 전용 — 배정 조작은 상세 화면(AC 7)에서만 가능하다. */}
+        <div className="ceremony-card__assignee-line">
+          담당{" "}
+          {ceremony.assignedOperatorName ?? (
+            <span className="ceremony-card__assignee-line--unassigned">미배정</span>
+          )}
+        </div>
       </div>
-      <span className="ceremony-card__item-count">체크리스트 항목 {ceremony.itemCount}개</span>
-      {/* Story 5.8 AC 8: 읽기 전용 — 배정 조작은 상세 화면(AC 7)에서만 가능하다. */}
-      {ceremony.assignedOperatorName ? (
-        <span className="ceremony-card__assignee">담당 {ceremony.assignedOperatorName}</span>
-      ) : (
-        <span className="ceremony-card__assignee ceremony-card__assignee--unassigned">미배정</span>
-      )}
-      <Link href={`/admin/ceremonies/${ceremony.hallId}/${ceremony.id}`} className="btn-secondary">
-        관리
-      </Link>
+
+      <div className="ceremony-card__side">
+        <div className="ceremony-card__checklist">
+          <span className="ceremony-card__checklist-label">체크리스트</span>
+          <span className="ceremony-card__checklist-count">{ceremony.itemCount}개</span>
+        </div>
+        <span
+          className={"ceremony-card__status-badge" + (isDone ? " ceremony-card__status-badge--done" : "")}
+        >
+          {isDone ? "완료" : "예정"}
+        </span>
+        <Link href={`/admin/ceremonies/${ceremony.hallId}/${ceremony.id}`} className="btn-secondary">
+          상세
+        </Link>
+      </div>
     </li>
   );
 }

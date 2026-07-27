@@ -257,15 +257,18 @@ export async function confirmFeedback(
 
   // AC 1/3: "5필드 모두 채워짐"이 확정 조건이다 — tags도 그 5개 중 하나이므로
   // situation/outcome/rationale과 동일하게 완결성 체크에 포함한다(코덱스 리뷰).
-  // outcome은 enum 멤버십까지 재확인한다(진입 경로가 늘어나도 이 시점에 한 번 더
-  // 방어 — DB에 CHECK 제약이 없으므로).
+  // outcome은 enum 멤버십까지, tags는 개수 상한(normalizeTags와 동일 기준)까지
+  // 재확인한다(진입 경로가 늘어나도 이 시점에 한 번 더 방어 — DB에 CHECK 제약이
+  // 없으므로. 코덱스 리뷰 2라운드: tags 하한만 보고 상한을 안 봐 outcome 검증과
+  // 비대칭이었다).
   if (
     !existing.situation ||
     existing.situation.trim().length === 0 ||
     !isOutcome(existing.outcome) ||
     !existing.rationale ||
     existing.rationale.trim().length === 0 ||
-    existing.tags.length === 0
+    existing.tags.length < TAGS_MIN ||
+    existing.tags.length > TAGS_MAX
   ) {
     throw new FeedbackValidationError("구조화를 먼저 완료하세요");
   }

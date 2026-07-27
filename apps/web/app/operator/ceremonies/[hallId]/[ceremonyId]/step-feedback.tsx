@@ -115,10 +115,12 @@ export function StepFeedback({
         return;
       }
       const data: { feedback: FeedbackDto } = await res.json();
-      // 구조화(structure)는 서버에 이미 저장된 draft 행이 있어야 의미가 있다 — 아직
-      // 저장 전인 textarea 내용만으로 구조화 버튼을 보여주면 실패할 액션을 노출하게
-      // 된다. 저장 성공 후 status가 실제로 채워져야 아래 구조화 섹션이 나타난다.
-      setStatus(data.feedback.status);
+      // 코덱스 리뷰 2라운드: status만 갱신하고 situation/outcome/rationale/tagsText를
+      // 그대로 두면, 서버가 content 변경을 감지해 구조화 필드를 무효화(null)했어도
+      // 화면은 낡은 값을 계속 보여준다 — 이 상태에서 "필드 저장"을 누르면 그 낡은
+      // 값을 새 content 위에 그대로 덮어써 AD-8 위반이 재발한다. applyFeedback으로
+      // 서버 응답(무효화됐다면 null, 아니면 보존된 값)을 그대로 반영한다.
+      applyFeedback(data.feedback);
       setSaveState("saved");
     } catch {
       setSaveState("error");

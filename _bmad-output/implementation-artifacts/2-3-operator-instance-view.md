@@ -177,6 +177,9 @@ Amelia (claude-sonnet-5)
 **코덱스 리뷰 4차(PR #10) — 1건 실결함, 수정·회귀 테스트 추가 후 확인:**
 - **[P2] `isValidCachedShape`가 최상위 셰이프만 확인하고 중첩 값은 검증하지 않음.** `items: [null]`이나 `ceremonyAt: "not-a-date"` 같은 값은 최상위 타입 체크(객체/배열 여부)는 통과하지만, 이후 렌더링에서 `item.id`/`item.stepName` 접근 시 크래시하거나 `Intl.DateTimeFormat.format(Invalid Date)`이 throw해 오프라인 폴백이라는 안전장치 자체가 화면을 깨뜨릴 수 있었다. `isValidCachedItem()`으로 각 항목의 `id`/`stepName`/`description`/`sortOrder` 타입을 검증하고, `ceremony.ceremonyAt`이 `new Date(...)`로 파싱 가능한지(`getTime()`이 `NaN`이 아닌지) 확인하도록 강화.
 
+**코덱스 리뷰 5차(PR #10) — 1건 실결함, 수정·회귀 테스트 추가 후 확인:**
+- **[P2] 60초보다 느린 응답이 겹치면 오래된 요청이 최신 상태를 덮어씀.** 요청이 폴링 간격(60초)보다 오래 걸리면(이 스토리가 다루는 바로 그 "불안정한 홀 와이파이" 상황) `setInterval`이 다음 요청을 겹쳐서 시작한다. 나중에 시작한 요청이 먼저 응답해 최신 데이터를 반영한 뒤, 먼저 시작됐던 요청이 뒤늦게 응답하면 그 낡은 데이터로 state와 캐시를 다시 덮어쓸 수 있었다. `useRef` 기반 요청 순번(`latestRequestIdRef`)을 도입해, 자신이 시작된 이후 더 최신 요청이 시작됐다면(순번이 더 이상 최신이 아니면) 성공/실패/오프라인 어느 결과든 state·캐시에 반영하지 않고 버리도록 수정. `resolveFirst`/`resolveSecond`를 수동 제어하는 컴포넌트 테스트로 순서 역전 상황을 직접 재현해 회귀 확인.
+
 ### Completion Notes List
 
 - AC 1: POS Tile 마크업(`checklist-tile`/`checklist-tile-grid`)이 실제 SSR HTML에 렌더링됨을 로컬 서버 HTTP 응답으로 확인. 탭 시 0ms 즉시 선택 상태 반영(트랜지션 없는 CSS)은 컴포넌트 테스트로 자동화 검증.

@@ -29,11 +29,18 @@ export function groupCandidatesByStep(
 
 // 코덱스 리뷰 P2: templateItemId가 null인(부모 단계가 삭제된) 항목이 여러 개 있으면
 // 전부 같은 null 키로 묶여, 서로 다른 삭제된 단계에서 온 항목들이 하나의 그룹으로
-// 합쳐지고 첫 항목의 stepName만 헤더에 표시되는 문제가 있었다. templateItemId가
-// null일 때는 각 항목의 고유 id를 키로 써서 절대 서로 합쳐지지 않게 한다(단일 항목
-// 그룹이 되더라도, 잘못된 그룹핑보다 안전하다 — 각자의 stepName은 정확히 유지됨).
+// 합쳐지고 첫 항목의 stepName만 헤더에 표시되는 문제가 있었다.
+//
+// 코덱스 리뷰 P1(2차): Story 5.8의 "이 예식에만" ad-hoc 단계는 templateItemId가 항상
+// null이지만 adHocGroupRootId로 같은 단계 소속임을 명시적으로 표시한다 — 이 값을 먼저
+// 확인해야 ad-hoc 단계에 항목을 여러 개 추가해도 하나의 그룹으로 표시된다. 정말
+// adHocGroupRootId조차 없는 경우(템플릿 단계가 삭제되어 templateItemId만 null이 된
+// 옛 데이터)에만 각 항목의 고유 id를 키로 써서 서로 합쳐지지 않게 한다.
 export function groupItemsByStep(
   items: ChecklistInstanceItem[],
 ): [string, ChecklistInstanceItem[]][] {
-  return groupSequentialByKey(items, (i) => i.templateItemId ?? `orphan:${i.id}`);
+  return groupSequentialByKey(
+    items,
+    (i) => i.templateItemId ?? i.adHocGroupRootId ?? `orphan:${i.id}`,
+  );
 }

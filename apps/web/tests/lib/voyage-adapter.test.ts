@@ -103,6 +103,23 @@ describe("VoyageEmbeddingAdapter", () => {
     );
   });
 
+  // 코덱스 리뷰 4라운드: 중복 index 테스트만으로는 범위(0..N-1) 검사 자체를
+  // 실제로 통과시켜야 하는 경로(중복은 없지만 범위를 벗어난 경우)가 검증되지
+  // 않았다 — 단일 텍스트 요청에 index: 5가 오는 경우를 별도로 확인한다.
+  it("index가 유효 범위(0..N-1)를 벗어나면 명확한 에러를 던진다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ data: [{ embedding: dummyEmbedding(1), index: 5 }] }),
+      }),
+    );
+
+    await expect(new VoyageEmbeddingAdapter().embed(["텍스트"])).rejects.toThrow(
+      /응답 형식이 올바르지 않습니다/,
+    );
+  });
+
   it("VOYAGE_API_KEY가 없으면 에러를 던진다", async () => {
     delete process.env.VOYAGE_API_KEY;
 

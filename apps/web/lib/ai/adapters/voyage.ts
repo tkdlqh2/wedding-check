@@ -19,7 +19,7 @@ export class VoyageEmbeddingAdapter implements EmbeddingPort {
         model: "voyage-3.5",
         input: texts,
         input_type: "document",
-        output_dimension: 1024,
+        output_dimension: EXPECTED_DIMENSIONS,
       }),
     });
 

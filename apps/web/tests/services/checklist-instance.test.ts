@@ -130,8 +130,12 @@ describe("addAdHocInstanceItem (Story 5.8) — '이 예식에만' 자유 서술 
 
   it("templateItemId를 넘기면 그 실제 템플릿 단계 소속으로 추가되고, stepName은 서버가 검증된 값으로 덮어쓴다", async () => {
     const hall = await createTestHall();
-    const { ceremonyId } = await createCeremony(hall.id);
+    // 단계+체크리스트 항목을 예식 생성보다 먼저 만들어야 ceremonyRepo.create()의 자동
+    // 조합으로 이 단계가 실제 인스턴스에 포함된다(existsForTemplateItem 검증을 통과하려면
+    // 필수 — 예식 생성 후에 만든 단계는 이 예식 체크리스트에 없는 것으로 취급된다).
     const step = await createTestTemplateItem(hall.id, { stepName: "실제 단계" });
+    await createTestChecklistItem(hall.id, step.id, { title: "기존 항목" });
+    const { ceremonyId } = await createCeremony(hall.id);
 
     const item = await addAdHocInstanceItem(hall.id, ceremonyId, {
       title: "이 단계의 자유 항목",
@@ -157,6 +161,23 @@ describe("addAdHocInstanceItem (Story 5.8) — '이 예식에만' 자유 서술 
         description: null,
         stepName: "무관",
         templateItemId: stepInHallB.id,
+      }),
+    ).rejects.toThrow(ChecklistInstanceValidationError);
+  });
+
+  it("같은 홀이어도 이 예식의 체크리스트에 포함되지 않은 단계면 거부된다 (코덱스 리뷰 P2)", async () => {
+    const hall = await createTestHall();
+    const { ceremonyId } = await createCeremony(hall.id);
+    // 예식 생성 이후에 만든 단계 — 자동 조합 시점에 존재하지 않았으므로 이 예식
+    // 인스턴스에는 포함되지 않는다. 조작된 요청이 이 단계를 지정해도 거부되어야 한다.
+    const stepNotInThisCeremony = await createTestTemplateItem(hall.id, { stepName: "나중에 만든 단계" });
+
+    await expect(
+      addAdHocInstanceItem(hall.id, ceremonyId, {
+        title: "항목",
+        description: null,
+        stepName: "무관",
+        templateItemId: stepNotInThisCeremony.id,
       }),
     ).rejects.toThrow(ChecklistInstanceValidationError);
   });

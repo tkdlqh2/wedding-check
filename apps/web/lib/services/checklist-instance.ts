@@ -137,6 +137,15 @@ export async function addAdHocInstanceItem(
     if (!step) {
       throw new ChecklistInstanceValidationError("존재하지 않는 단계입니다");
     }
+    // 코덱스 리뷰 P2: templateItemId가 같은 홀에 존재한다는 것만으로는 그 단계가 "이
+    // 예식"의 실제 체크리스트에 포함돼 있음을 보장하지 않는다(AD-9 계약 형태 조건부
+    // 포함으로 특정 단계가 이 예식 인스턴스에서 애초에 제외될 수 있음) — 조작된 요청이
+    // 체크리스트에 없던 단계를 다시 만들어 인스턴스 스냅샷 불변조건을 깰 수 있었다.
+    // Story 3.1이 동일한 목적으로 이미 추가한 existsForTemplateItem을 그대로 재사용.
+    const isIncluded = await instanceRepo.existsForTemplateItem(instance.id, step.id);
+    if (!isIncluded) {
+      throw new ChecklistInstanceValidationError("이 예식의 체크리스트에 포함되지 않은 단계입니다");
+    }
     stepId = step.id;
     stepName = step.stepName;
   } else if (input.groupRootId) {

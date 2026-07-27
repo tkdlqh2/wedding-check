@@ -108,11 +108,12 @@ export function CeremonyCalendar({
               }
             >
               <span>{day}</span>
+              {/* 점 마커는 실제로 예식이 있는 날에만 켠다 — 헤더 문구("● 표시가 예식이
+                  있는 날입니다")와 일치해야 한다. 선택 상태는 배경색으로 이미 표시되므로
+                  예식이 없는 날을 선택했다고 점까지 켜면 없는 예식을 있다고 보여주는
+                  꼴이 된다(코덱스 리뷰 P2). */}
               <span
-                className={
-                  "ceremony-calendar__dot" +
-                  (isSelected || hasCeremony ? " ceremony-calendar__dot--visible" : "")
-                }
+                className={"ceremony-calendar__dot" + (hasCeremony ? " ceremony-calendar__dot--visible" : "")}
               >
                 ●
               </span>

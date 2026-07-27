@@ -43,7 +43,7 @@ describe("createMember (Story 5.4 AC 2, 3)", () => {
     const member = await createMember({
       name: "신입 오퍼레이터",
       phoneNumber: "01044441111",
-      password: "operator-pw-1234",
+      password: "operator-pw-91234",
     });
 
     expect(member.name).toBe("신입 오퍼레이터");
@@ -51,7 +51,7 @@ describe("createMember (Story 5.4 AC 2, 3)", () => {
     expect(member.phoneNumber).toBe("01044441111");
 
     const signInResult = await auth.api.signInPhoneNumber({
-      body: { phoneNumber: "01044441111", password: "operator-pw-1234" },
+      body: { phoneNumber: "01044441111", password: "operator-pw-91234" },
     });
     expect(signInResult.user.id).toBe(member.id);
   });
@@ -60,7 +60,7 @@ describe("createMember (Story 5.4 AC 2, 3)", () => {
     const member = await createMember({
       name: "정규화 테스트",
       phoneNumber: "010-4444-2222",
-      password: "operator-pw-1234",
+      password: "operator-pw-91234",
     });
     expect(member.phoneNumber).toBe("01044442222");
   });
@@ -69,32 +69,38 @@ describe("createMember (Story 5.4 AC 2, 3)", () => {
     await createMember({
       name: "먼저 등록됨",
       phoneNumber: "01044443333",
-      password: "operator-pw-1234",
+      password: "operator-pw-91234",
     });
 
     await expect(
-      createMember({ name: "나중에 등록", phoneNumber: "01044443333", password: "pw-5678" }),
+      createMember({ name: "나중에 등록", phoneNumber: "01044443333", password: "pw-95678" }),
     ).rejects.toThrow("이미 등록된 전화번호입니다");
     await expect(
-      createMember({ name: "나중에 등록", phoneNumber: "010-4444-3333", password: "pw-5678" }),
+      createMember({ name: "나중에 등록", phoneNumber: "010-4444-3333", password: "pw-95678" }),
     ).rejects.toThrow(MemberValidationError);
   });
 
   it("이름이 비어있으면 거부된다", async () => {
     await expect(
-      createMember({ name: "  ", phoneNumber: "01044444444", password: "pw-1234" }),
+      createMember({ name: "  ", phoneNumber: "01044444444", password: "pw-91234" }),
     ).rejects.toThrow(MemberValidationError);
   });
 
   it("전화번호가 비어있으면 거부된다", async () => {
     await expect(
-      createMember({ name: "이름만있음", phoneNumber: "", password: "pw-1234" }),
+      createMember({ name: "이름만있음", phoneNumber: "", password: "pw-91234" }),
     ).rejects.toThrow(MemberValidationError);
   });
 
   it("비밀번호가 비어있으면 거부된다", async () => {
     await expect(
       createMember({ name: "이름만있음", phoneNumber: "01044445555", password: "  " }),
+    ).rejects.toThrow(MemberValidationError);
+  });
+
+  it("비밀번호가 8자 미만이면 거부된다 (코덱스 리뷰 4차 P2 — auth.api.createUser는 better-auth의 sign-up 최소 길이 정책을 직접 검사하지 않아, 검증 없이는 한 글자짜리 비밀번호도 그대로 발급될 수 있었다)", async () => {
+    await expect(
+      createMember({ name: "짧은비번", phoneNumber: "01044440000", password: "a" }),
     ).rejects.toThrow(MemberValidationError);
   });
 
@@ -121,7 +127,7 @@ describe("createMember (Story 5.4 AC 2, 3)", () => {
     await createMember({
       name: "먼저 등록됨",
       phoneNumber: "01044447777",
-      password: "operator-pw-1234",
+      password: "operator-pw-91234",
     });
 
     // findByPhoneNumber 사전 검사가 통과했다고 가정하기 위해 mock으로 우회 —
@@ -130,7 +136,7 @@ describe("createMember (Story 5.4 AC 2, 3)", () => {
     const spy = vi.spyOn(memberRepo, "findByPhoneNumber").mockResolvedValue(undefined);
     try {
       await expect(
-        createMember({ name: "경합 시도", phoneNumber: "01044447777", password: "pw-5678" }),
+        createMember({ name: "경합 시도", phoneNumber: "01044447777", password: "pw-95678" }),
       ).rejects.toThrow("이미 등록된 전화번호입니다");
     } finally {
       spy.mockRestore();
@@ -163,7 +169,7 @@ describe("createMember (Story 5.4 AC 2, 3)", () => {
     const spy = vi.spyOn(auth.api, "createUser").mockRejectedValue(drizzleWrappedError);
     try {
       await expect(
-        createMember({ name: "경합 시도2", phoneNumber: "01044449999", password: "pw-9999" }),
+        createMember({ name: "경합 시도2", phoneNumber: "01044449999", password: "pw-99999" }),
       ).rejects.toThrow("이미 등록된 전화번호입니다");
     } finally {
       spy.mockRestore();
@@ -181,14 +187,14 @@ describe("계정 비활성화/재활성화 — better-auth admin 플러그인 �
     const member = await createMember({
       name: "비활성화 대상",
       phoneNumber: "01055556666",
-      password: "operator-pw-1234",
+      password: "operator-pw-91234",
     });
 
     await auth.api.banUser({ body: { userId: member.id }, headers: adminHeaders });
 
     await expect(
       auth.api.signInPhoneNumber({
-        body: { phoneNumber: "01055556666", password: "operator-pw-1234" },
+        body: { phoneNumber: "01055556666", password: "operator-pw-91234" },
       }),
     ).rejects.toThrow();
   });
@@ -198,14 +204,14 @@ describe("계정 비활성화/재활성화 — better-auth admin 플러그인 �
     const member = await createMember({
       name: "재활성화 대상",
       phoneNumber: "01055557777",
-      password: "operator-pw-1234",
+      password: "operator-pw-91234",
     });
 
     await auth.api.banUser({ body: { userId: member.id }, headers: adminHeaders });
     await auth.api.unbanUser({ body: { userId: member.id }, headers: adminHeaders });
 
     const signInResult = await auth.api.signInPhoneNumber({
-      body: { phoneNumber: "01055557777", password: "operator-pw-1234" },
+      body: { phoneNumber: "01055557777", password: "operator-pw-91234" },
     });
     expect(signInResult.user.id).toBe(member.id);
   });
@@ -214,16 +220,16 @@ describe("계정 비활성화/재활성화 — better-auth admin 플러그인 �
     const operator = await createMember({
       name: "권한없는오퍼레이터",
       phoneNumber: "01055558888",
-      password: "operator-pw-1234",
+      password: "operator-pw-91234",
     });
     const target = await createMember({
       name: "대상계정",
       phoneNumber: "01055559999",
-      password: "operator-pw-1234",
+      password: "operator-pw-91234",
     });
 
     const signInResult = await auth.api.signInPhoneNumber({
-      body: { phoneNumber: "01055558888", password: "operator-pw-1234" },
+      body: { phoneNumber: "01055558888", password: "operator-pw-91234" },
       returnHeaders: true,
     });
     const cookie = signInResult.headers.get("set-cookie")?.split(";")[0];

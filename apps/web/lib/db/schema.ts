@@ -231,6 +231,11 @@ export const checklistInstanceItems = pgTable(
     // INSERT가 같은 max(sort_order)+1을 계산해 이 제약이 없으면 둘 다 그대로 성공,
     // 순서가 비결정적이 되고 같은 단계 항목이 비연속으로 흩어질 수 있었다. 위반 시
     // addItem()이 재시도(withConcurrencyRetry, template-item.ts와 동일 패턴)한다.
+    // 코덱스 리뷰 6차 P1: checklist_template_items/checklist_template_item_checks의
+    // 동류 제약과 마찬가지로 DEFERRABLE INITIALLY DEFERRED로 마이그레이션 SQL을 수기
+    // 수정해야 한다(0013) — addItem()의 "밀기" UPDATE가 한 문장 안에서 여러 행의
+    // sort_order를 +1씩 올릴 때, NOT DEFERRABLE이면 아직 갱신 전인 행과 일시적으로
+    // 충돌한다(moveAdjacent 스왑과 동일한 클래스의 문제).
     unique("checklist_instance_items_instance_id_sort_order_unique").on(
       table.instanceId,
       table.sortOrder,

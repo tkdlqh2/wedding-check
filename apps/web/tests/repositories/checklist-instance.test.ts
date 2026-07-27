@@ -160,6 +160,53 @@ describe("checklistInstanceRepo — addItem/removeItem", () => {
     expect(items.map((i) => i.title)).toEqual(["A-1", "A-2", "B-1"]);
   });
 
+  // 코덱스 리뷰 6차 P1: "밀기" UPDATE가 한 문장 안에서 3개 이상의 행을 동시에 +1 하면,
+  // (instance_id, sort_order) 제약이 DEFERRABLE이 아닐 때 아직 갱신 전인 행과 일시적으로
+  // 충돌한다(예: sortOrder 1→2로 바뀌는 순간 아직 2인 행이 남아있으면 위반) — 2행
+  // 스왑만으로는 이 계열의 버그가 드러나지 않아 3행 이상 밀리는 시나리오를 따로 고정한다.
+  it("3개 이상의 항목이 한 번에 밀려야 해도 충돌 없이 순서가 맞는다", async () => {
+    const hall = await createTestHall();
+    const { instanceId } = await createCeremonyWithNoItems(hall.id);
+    const stepA = await createTestTemplateItem(hall.id, { stepName: "단계A", sortOrder: 1 });
+    const stepC = await createTestTemplateItem(hall.id, { stepName: "단계C", sortOrder: 2 });
+    const itemA1 = await createTestChecklistItem(hall.id, stepA.id, { title: "A-1", sortOrder: 0 });
+    const itemA2 = await createTestChecklistItem(hall.id, stepA.id, { title: "A-2", sortOrder: 1 });
+    const itemsC = await Promise.all(
+      ["C-1", "C-2", "C-3"].map((title, i) =>
+        createTestChecklistItem(hall.id, stepC.id, { title, sortOrder: i }),
+      ),
+    );
+
+    await instanceRepo.addItem(hall.id, instanceId, {
+      id: itemA1.id,
+      title: itemA1.title,
+      description: itemA1.description,
+      stepId: stepA.id,
+      stepName: stepA.stepName,
+    });
+    for (const item of itemsC) {
+      await instanceRepo.addItem(hall.id, instanceId, {
+        id: item.id,
+        title: item.title,
+        description: item.description,
+        stepId: stepC.id,
+        stepName: stepC.stepName,
+      });
+    }
+    // 단계A-2를 나중에 추가 — 단계C의 3개 행(C-1, C-2, C-3)이 한 문장 안에서 전부
+    // sortOrder+1이 되어야 A-2가 A-1 바로 뒤에 끼어들 수 있다.
+    await instanceRepo.addItem(hall.id, instanceId, {
+      id: itemA2.id,
+      title: itemA2.title,
+      description: itemA2.description,
+      stepId: stepA.id,
+      stepName: stepA.stepName,
+    });
+
+    const items = await instanceRepo.listItems(hall.id, instanceId);
+    expect(items.map((i) => i.title)).toEqual(["A-1", "A-2", "C-1", "C-2", "C-3"]);
+  });
+
   it("다른 홀의 instanceId/itemId로는 제거되지 않는다 (홀 스코프 격리)", async () => {
     const hallA = await createTestHall({ name: "A홀" });
     const hallB = await createTestHall({ name: "B홀" });

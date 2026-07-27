@@ -10,10 +10,49 @@
   margin-bottom: var(--space-sm);
 }
 
-.ceremony-detail-page__couple {
+/* prototype/js/screens/WeddingDetailScreen.js 17~22행 — 시간+신랑신부 제목(28px/700)
+   + 상태 배지, 그 아래 날짜·홀 메타 줄(14px, muted). */
+.ceremony-detail-page__title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  margin-top: var(--space-md);
+}
+
+.ceremony-detail-page__title-row h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ceremony-detail-page__couple-inline {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.ceremony-detail-page__status-badge {
+  flex: none;
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border-light);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 3px 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ceremony-detail-page__status-badge--done {
+  background: var(--color-success);
+  border-color: transparent;
+  color: #ffffff;
+}
+
+.ceremony-detail-page__meta {
   font-size: 14px;
-  color: var(--color-text-muted);
-  margin: var(--space-xs) 0 0;
+  color: var(--color-text-secondary);
+  margin: 4px 0 0;
 }
 
 .ceremony-detail-page h2 {
@@ -77,54 +116,168 @@
   color: var(--color-error);
 }
 
-/* Story 5.8 AC 6: "포함된 항목"도 "추가 가능한 항목"과 동일한 단계별 그룹 구조를 쓴다
-   (page.tsx의 instance-candidate-groups/-group/-group__step-name 공용 클래스) — Story
-   5.5에서 이 클래스가 도입됐지만 실제 CSS가 없었던 것을 이번에 함께 채운다. */
-.instance-candidate-groups {
+/* 대표 피드백(2026-07-27): 담당자 지정을 오퍼레이터가 많을 때도 쓸 수 있도록 검색
+   가능한 대화상자로 — apps/web/app/admin/admin-nav.css의 .account-modal* 패턴
+   그대로 재사용(오버레이+motion-slow 진입 애니메이션+reduce-motion 대응). */
+.assignee-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(31, 31, 31, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md);
+  z-index: 100;
+}
+
+.assignee-modal {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-modal);
+  padding: var(--space-lg);
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  animation: assignee-modal-enter var(--motion-slow, 300ms) var(--ease-enter, cubic-bezier(0, 0, 0.2, 1));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .assignee-modal {
+    animation: none;
+  }
+}
+
+@keyframes assignee-modal-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.assignee-modal h2 {
+  font-size: 18px;
+  margin: 0;
+}
+
+.assignee-modal__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+}
+
+.assignee-modal__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  cursor: pointer;
+  background: var(--color-surface);
+  border: none;
+  border-bottom: 1px solid var(--color-border-light);
+  padding: var(--space-sm) var(--space-md);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  text-align: left;
+}
+
+.assignee-modal__list li:last-child .assignee-modal__option {
+  border-bottom: none;
+}
+
+.assignee-modal__option:hover {
+  background: var(--color-surface-soft);
+}
+
+.assignee-modal__option-check {
+  color: var(--color-brand);
+}
+
+.assignee-modal__empty {
+  padding: var(--space-md);
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.assignee-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Story 5.8 AC 6 + 대표 피드백: 예식 전용 체크리스트를 홀의 체크리스트 템플릿
+   (apps/web/app/admin/templates/[hallId]/templates.css .template-item-card*)과
+   최대한 같은 시각 언어로 — 번호 배지 헤더 + 58px 들여쓴 항목 목록. */
+.instance-step-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-md) 0 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-  margin-top: var(--space-md);
 }
 
-.instance-candidate-group {
+.instance-step-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
-.instance-candidate-group__step-name {
-  margin: 0;
-  padding: var(--space-sm) var(--space-md);
+.instance-step-card__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 14px 20px;
   background: var(--color-surface-soft);
   border-bottom: 1px solid var(--color-border-light);
-  font-size: 15px;
+}
+
+.instance-step-card__index {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.instance-step-card__name {
+  font-size: 17px;
   font-weight: 700;
   color: var(--color-text-primary);
 }
 
-.instance-candidate-group .instance-item-list {
-  gap: 0;
+.instance-step-card__item-count {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
 }
 
-.instance-candidate-group .instance-item-card {
-  border: none;
-  border-radius: 0;
-  border-bottom: 1px solid var(--color-border-light);
-}
-
-.instance-candidate-group .instance-item-card:last-child {
-  border-bottom: none;
+.instance-step-card__quick-add {
+  padding: 10px 20px 14px 58px;
 }
 
 .instance-item-list {
   list-style: none;
   padding: 0;
   margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
 }
 
 .instance-item-card {
@@ -132,16 +285,18 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-md);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
-  padding: var(--space-md);
+  padding: 12px 20px 12px 58px;
+  border-bottom: 1px solid var(--color-border-light);
   flex-wrap: wrap;
 }
 
+.instance-item-list > li:last-child {
+  border-bottom: none;
+}
+
 .instance-item-card__name {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 500;
   color: var(--color-text-primary);
   overflow-wrap: anywhere;
   min-width: 0;
@@ -163,6 +318,8 @@
    그대로 재사용(apps/web/app/admin/templates/[hallId]/templates.css 186~324행 참고). */
 .instance-item-card--editing {
   display: block;
+  padding: var(--space-md) 20px var(--space-md) 58px;
+  background: var(--color-surface-soft);
 }
 
 .instance-item-card__actions {

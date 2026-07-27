@@ -409,6 +409,82 @@
   font-size: 14px;
 }
 
+/* Story 3.2(FR-9, AD-8): 자동 구조화 초안 확인/수정/확정. */
+.step-feedback__structure-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.step-feedback__fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.step-feedback__field-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.step-feedback__outcome-toggle {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.step-feedback__outcome-option {
+  min-height: 44px;
+  padding: var(--space-sm) var(--space-md);
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-mid);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.step-feedback__outcome-option--selected {
+  background: var(--color-brand-tint);
+  border-color: var(--color-brand);
+}
+
+/* AC 3/4: 확정은 초록(--color-success)으로만 조용히 확인 — 축하 연출 없음(§14). */
+.step-feedback__confirmed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.step-feedback__confirmed-badge {
+  align-self: flex-start;
+  background: var(--color-success);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px var(--space-sm);
+  border-radius: var(--radius-sm);
+}
+
+.step-feedback__summary {
+  margin: 0;
+  font-size: 14px;
+}
+
+.step-feedback__summary dt {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-top: var(--space-sm);
+}
+
+.step-feedback__summary dd {
+  margin: 0;
+  color: var(--color-text-primary);
+}
+
 /* UX-DR11: Tablet/iPad(768-1024px) — 실행 화면은 태블릿 네이티브 존. .operator-shell을
    height로 고정해 하단 내비가 항상 화면 안에 머물고, 콘텐츠는 내부 스크롤(Story 2.3
    코덱스 리뷰 P2 반영 — .operator-content에 또 100dvh를 주면 내비가 밀려났다). */

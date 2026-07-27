@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 type FetchState = "idle" | "loading" | "error";
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -47,6 +47,11 @@ export function StepFeedback({
   const [fieldsSaveState, setFieldsSaveState] = useState<SaveState>("idle");
   const [confirmState, setConfirmState] = useState<ConfirmState>("idle");
   const [fieldsDirty, setFieldsDirty] = useState(false);
+  // 코덱스 리뷰: disabled={confirmState==="confirming"}만으로는 클릭과 리렌더 사이의
+  // 짧은 창에서 더블클릭이 fetch를 두 번 보낼 수 있다(DB는 원자적 CTE라 안전하지만
+  // Voyage 임베딩 API가 불필요하게 두 번 호출됨) — ref는 동기적으로 즉시 갱신되므로
+  // React 상태 업데이트를 기다리지 않고 재진입을 막는다.
+  const confirmingRef = useRef(false);
 
   const [content, setContent] = useState("");
   const [status, setStatus] = useState<string | null>(null);
@@ -174,6 +179,8 @@ export function StepFeedback({
   }
 
   async function handleConfirm() {
+    if (confirmingRef.current) return;
+    confirmingRef.current = true;
     setConfirmState("confirming");
     try {
       const res = await fetch(`${apiUrl}/confirm`, {
@@ -190,6 +197,8 @@ export function StepFeedback({
       setConfirmState("idle");
     } catch {
       setConfirmState("error");
+    } finally {
+      confirmingRef.current = false;
     }
   }
 
@@ -263,9 +272,10 @@ export function StepFeedback({
                     type="button"
                     className="btn-secondary"
                     onClick={handleStructure}
-                    disabled={structureState === "structuring"}
+                    disabled={structureState === "structuring" || fieldsDirty}
+                    title={fieldsDirty ? "필드 저장 후 다시 구조화할 수 있습니다" : undefined}
                   >
-                    {structureState === "structuring" ? "구조화 중…" : "자동 구조화"}
+                    {structureState === "structuring" ? "구조화 중…" : "구조화하기"}
                   </button>
                   {structureState === "error" ? (
                     <span className="step-feedback__error" role="status">
@@ -358,7 +368,8 @@ export function StepFeedback({
                             fieldsDirty ||
                             situation.trim().length === 0 ||
                             outcome === "" ||
-                            rationale.trim().length === 0
+                            rationale.trim().length === 0 ||
+                            parseTags(tagsText).length === 0
                           }
                         >
                           {confirmState === "confirming" ? "확정 중…" : "확정"}

@@ -161,7 +161,22 @@ export async function upsertDraft(input: {
       // 코덱스 리뷰 2차 P2: $onUpdate는 일반 db.update()에만 적용되고 onConflictDoUpdate의
       // 명시적 set에는 자동 반영되지 않는다 — updatedAt을 직접 넣지 않으면 재저장해도
       // 최초 생성 시각에 머물러 "언제 마지막으로 이어 썼는지"가 부정확해진다.
-      set: { content: input.content, updatedAt: new Date() },
+      //
+      // Story 3.2 코덱스 리뷰: 구조화 이후 원본 content가 실제로 바뀌어 재저장되면
+      // situation/outcome/rationale/tags는 더 이상 그 내용을 정확히 대변하지 않는다
+      // (AD-8 "근거는 신성하다") — content가 바뀐 경우에만 구조화 필드를 초기화해
+      // 재구조화를 강제한다. CASE 조건의 feedback.content는 이 UPDATE가 적용되기 전의
+      // 값이므로(단일 SQL 문 내에서 SET 절은 항상 이전 행 기준으로 평가됨) 안전하게
+      // "바뀌었는지"를 판정할 수 있다. 같은 내용으로 재저장(단순 재시도 등)하면 기존
+      // 구조화는 그대로 보존된다.
+      set: {
+        content: input.content,
+        updatedAt: new Date(),
+        situation: sql`case when ${feedback.content} = ${input.content} then ${feedback.situation} else null end`,
+        outcome: sql`case when ${feedback.content} = ${input.content} then ${feedback.outcome} else null end`,
+        rationale: sql`case when ${feedback.content} = ${input.content} then ${feedback.rationale} else null end`,
+        tags: sql`case when ${feedback.content} = ${input.content} then ${feedback.tags} else '[]'::jsonb end`,
+      },
       setWhere: eq(feedback.status, "draft"),
     })
     .returning();

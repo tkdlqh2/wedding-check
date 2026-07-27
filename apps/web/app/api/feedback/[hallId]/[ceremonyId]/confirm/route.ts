@@ -1,20 +1,9 @@
-import { requireSession } from "@/lib/auth-guard";
+import { requireSessionOr401 } from "@/lib/auth-guard";
 import { isValidUuid } from "@/lib/uuid";
 import { confirmFeedback, FeedbackValidationError } from "@/lib/services/feedback";
 
 // Story 3.2(AC 3, AD-8): draft -> confirmed 전환 + variable_case 생성. 실패(임베딩 API
 // 오류 등)는 구조화와 마찬가지로 502로 명확히 드러낸다(조용한 실패 금지, DESIGN.md §14).
-async function requireSessionOr401() {
-  try {
-    await requireSession();
-    return null;
-  } catch {
-    return Response.json(
-      { error: { code: "unauthorized", message: "로그인이 필요합니다" } },
-      { status: 401 },
-    );
-  }
-}
 
 export async function POST(
   request: Request,
@@ -50,6 +39,9 @@ export async function POST(
         { status: 400 },
       );
     }
+    // 코덱스 리뷰: 임베딩 API 예외 등 예상 밖 오류를 로그 없이 502로만 뭉개면 실제
+    // 버그와 일시적 장애를 구분할 수 없다(AD-10 원칙과 동일).
+    console.error("[api/feedback/confirm] 확정 실패", err);
     return Response.json(
       { error: { code: "confirm_failed", message: "확정에 실패했습니다. 다시 시도해주세요" } },
       { status: 502 },

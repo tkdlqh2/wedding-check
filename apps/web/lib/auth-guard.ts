@@ -22,3 +22,18 @@ export async function requireSession() {
   }
   return session;
 }
+
+// Story 3.1이 도입한 Route Handler 전용 401 응답 패턴(requireSession() 실패를 명시적
+// JSON 401로 변환) — feedback 관련 Route Handler 3개(route.ts, structure/route.ts,
+// confirm/route.ts)에 동일 코드가 복붙돼 있던 것을 코덱스 리뷰 후 여기로 추출했다.
+export async function requireSessionOr401(): Promise<Response | null> {
+  try {
+    await requireSession();
+    return null;
+  } catch {
+    return Response.json(
+      { error: { code: "unauthorized", message: "로그인이 필요합니다" } },
+      { status: 401 },
+    );
+  }
+}

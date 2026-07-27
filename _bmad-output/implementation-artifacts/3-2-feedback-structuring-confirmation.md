@@ -70,6 +70,28 @@ so that 내 표현이 정확한 근거로 다른 사람에게 전달된다.
   - [x] 구조화 요청 중 로딩 상태(버튼 너비 유지 + 스피너, 중복 요청 방지 — DESIGN.md §14 Loading 패턴, 3.1의 저장 버튼과 동일 관례)
   - [x] 구조화 실패(LLM 타임아웃/에러) 시 즉시 드러나는 에러 표시(조용한 실패 금지 — DESIGN.md §14 Error 패턴)
 
+### Review Findings
+
+- [x] [Review][Patch] tags가 5필드 완성 검증에서 빠져있음(AC 1/3 위반) — LLM 응답 파싱과 confirmFeedback 완결성 체크, UI 확정 버튼 disabled 조건 모두 tags를 확인하지 않음 [apps/web/lib/services/feedback.ts, apps/web/app/operator/ceremonies/[hallId]/[ceremonyId]/step-feedback.tsx]
+- [x] [Review][Patch] tags 배열 크기 상한 없음(프롬프트는 "1~5개"라고 명시하지만 서버가 강제하지 않음) [apps/web/lib/services/feedback.ts]
+- [x] [Review][Patch] "자동 구조화" 재실행이 저장 안 된 필드 수정을 조용히 덮어씀(fieldsDirty 무시) [apps/web/app/operator/ceremonies/[hallId]/[ceremonyId]/step-feedback.tsx]
+- [x] [Review][Patch] structure/confirm Route Handler의 예상치 못한 실패가 서버 로그에 전혀 남지 않음(502로만 뭉뚱그림) [apps/web/app/api/feedback/[hallId]/[ceremonyId]/structure/route.ts, .../confirm/route.ts]
+- [x] [Review][Patch] requireSessionOr401 구현이 route.ts/structure/confirm 3개 파일에 그대로 복붙됨(DRY 위반) [apps/web/app/api/feedback/[hallId]/[ceremonyId]/*]
+- [x] [Review][Patch] 확정 버튼이 React 재렌더 전 더블클릭으로 중복 요청될 수 있음(ref 가드 없음) [apps/web/app/operator/ceremonies/[hallId]/[ceremonyId]/step-feedback.tsx]
+- [x] [Review][Patch] VoyageEmbeddingAdapter가 응답 shape/길이를 검증하지 않아 malformed 응답 시 불명확한 에러로 이어짐 [apps/web/lib/ai/adapters/voyage.ts]
+- [x] [Review][Patch] updateStructuredFields의 "이미 confirmed" 방어가 서비스 레이어 테스트로 검증되지 않음(리포지토리 레벨만 있음) [apps/web/tests/services/feedback.test.ts]
+- [x] [Review][Patch] confirmFeedback의 outcome 완결성 체크가 enum 멤버십이 아닌 truthy 체크뿐 [apps/web/lib/services/feedback.ts]
+- [x] [Review][Patch] updateStructuredFields에서 tags 문자열이 trim되지 않음(situation/rationale과 불일치) [apps/web/lib/services/feedback.ts]
+- [x] [Review][Patch] 구조화 이후 원본 content를 다시 저장해도 situation/outcome/rationale/tags가 무효화되지 않아, 내용과 어긋난 구조화 결과가 그대로 확정될 수 있음(AD-8 "근거는 신성하다" 위반 소지) [apps/web/lib/db/repositories/feedback.ts::upsertDraft]
+- [x] [Review][Patch] 구조화 버튼 라벨이 Task 11 명시 문구("구조화하기")와 다름("자동 구조화") [apps/web/app/operator/ceremonies/[hallId]/[ceremonyId]/step-feedback.tsx]
+- [x] [Review][Defer] LLMPort.generate의 모델 선택이 responseSchema 유무로 암묵적으로 갈림(포트 추상화 우회 소지) — 스파인의 Sonnet/Haiku 모델 분리 근거와 일치하는 설계라 지금은 결함 아님, 3.3/3.4에서 structured+sonnet 조합이 필요해지면 재검토
+- [x] [Review][Defer] Anthropic structured outputs 요청 형태에 대한 자동화된 벤더 계약 테스트 없음 — Dev Notes에 이미 범위 밖으로 명시된 결정, 벤더 실키 없이는 CI에서 검증 불가
+- [x] [Review][Defer] LLM outcome 판단이 오�터레이터 자기 서술에만 의존(대필/편향 가능성) — 오퍼레이터는 이미 updateStructuredFields로 outcome을 직접 편집할 수 있는 정당한 권한이 있어 새로운 보안 경계 침해가 아님
+- [x] [Review][Defer] embedding 텍스트가 stepName/outcome을 포함하지 않아 3.3/3.4 검색 품질에 영향 가능 — 이번 스토리의 AC 범위 밖(검색은 3.3/3.4)
+- [x] [Review][Defer] variable_cases.outcome에 DB CHECK 제약 없음 — feedback.status 등 기존 컬럼과 동일한 이 프로젝트의 확립된 컨벤션(plain text + 앱 레이어 검증), 새로운 편차 아님
+- [x] [Review][Defer] updateStructuredFields PATCH가 4필드 전체를 요구해 Task 8 원문("일부/전부 수정")과 문구가 다름 — 현재 UI가 4필드를 항상 함께 보내 실질적 기능 격차 없음, 부분 업데이트 지원은 이번 스토리 범위 밖의 과설계
+- [x] [Review][Defer] AD-6에 따라 variable_cases가 홀 간 검색 격리 없이 사업체 전체를 대상으로 함 — 스파인 AD-6에 이미 명시적으로 결정된 사항, 이번 스토리가 새로 만든 리스크 아님
+
 ## Dev Notes
 
 ### AD-1 포트 시그니처는 이미 스파인에서 고정됨 — 재발명 금지
@@ -178,6 +200,7 @@ claude-sonnet-5
 - Anthropic Structured Outputs(`output_config.format`, 베타 헤더 불필요)는 설치된 `@anthropic-ai/sdk@0.115.0`의 타입 정의(`JSONOutputFormat`, `messages.create`)로 실제 지원 여부를 코드베이스에서 직접 확인 후 반영(웹 검증과 SDK 타입이 일치함을 재확인).
 - `variable_cases` 마이그레이션(0017)은 3.1과 동일하게 `npx drizzle-kit generate`가 비TTY로 실패해 `0016_snapshot.json` 기반으로 Python 스크립트로 `0017_snapshot.json`을 직접 구성하고, `CREATE EXTENSION IF NOT EXISTS vector;`를 포함한 `0017_variable-cases.sql`을 손으로 작성 — `drizzle-kit check`로 스냅샷 체인 검증 후 dev/test DB 양쪽에 직접 적용.
 - vitest 200건(신규 18건 — repo 4건, service 10건, component 4건) 전체 통과, tsc/lint/build 전부 클린. VOYAGE_API_KEY/ANTHROPIC_API_KEY가 `.env.local`에 비어있는 상태에서도(실제 벤더 키 미보유) confirm이 502로 명확히 실패하고 feedback이 draft로 남으며 variable_cases가 생성되지 않음을 실서버+실DB로 확인 — AD-8의 핵심 안전 경계가 코드가 아니라 실제 SQL 실행 수준에서 보장됨을 실증.
+- **코덱스 리뷰(1라운드, Blind Hunter + Edge Case Hunter + Acceptance Auditor 병렬)**: 12건 실결함 발견 후 전부 수정, 7건은 defer(사유는 각 항목에 기록). 실결함 중 가장 중요한 2건: (1) AC 1이 명시한 "5필드 모두 채워짐"에서 tags가 빠져 있어(LLM 응답 파싱/confirmFeedback 완결성 체크/UI 확정 버튼 모두) tags가 빈 배열이어도 확정될 수 있었음 — 4곳 전부 tags 1~5개 검증 추가(`normalizeTags` 공용 헬퍼). (2) 구조화 이후 원본 content를 다시 저장해도 situation/outcome/rationale/tags가 무효화되지 않아 내용과 어긋난 구조화 결과가 그대로 확정될 수 있었음(AD-8 "근거는 신성하다" 위반 소지) — `upsertDraft`의 `onConflictDoUpdate`에 `CASE WHEN 기존 content = 새 content THEN 기존값 ELSE null END` SQL을 추가해 content가 실제로 바뀐 경우에만 구조화 필드를 초기화(같은 내용 재저장은 보존). 그 외: "구조화하기" 재실행이 fieldsDirty 상태의 저장 안 된 수정을 조용히 덮어쓰는 문제(버튼에 fieldsDirty 가드 추가), 확정 버튼 더블클릭 경합(ref 가드 추가), Voyage 응답 shape/길이 미검증(검증 추가 + 전용 어댑터 테스트 4건 신설), structure/confirm Route Handler의 예상치 못한 실패가 로그 없이 502로만 뭉개짐(console.error 추가), requireSessionOr401 3파일 중복(lib/auth-guard.ts로 추출), confirmFeedback의 outcome 완결성 체크가 truthy뿐이라 enum 밖 값 방어 안 됨(isOutcome 재확인 추가), tags trim 누락, updateStructuredFields의 "이미 confirmed" 방어가 서비스 레이어에서 테스트되지 않음(테스트 추가), 버튼 라벨이 Task 11 명시 문구와 다름("자동 구조화"→"구조화하기"). 수정 후 vitest 214건(신규 14건) 전체 통과, tsc/lint/build 재확인, 실서버+실DB로 tags 완결성 검증과 content 재저장 시 구조화 필드 초기화/보존 양쪽 케이스 재확인.
 
 ### File List
 
@@ -201,10 +224,13 @@ claude-sonnet-5
 - `apps/web/tests/repositories/feedback.test.ts` (MODIFY) — `updateStructuredFields`/`confirmAndCreateVariableCase` 테스트
 - `apps/web/tests/services/feedback.test.ts` (MODIFY) — `structureFeedback`/`updateStructuredFields`/`confirmFeedback` 테스트(가짜 AI 포트 주입)
 - `apps/web/tests/components/step-feedback.test.tsx` (MODIFY) — 구조화/확정 UI 테스트
+- `apps/web/lib/auth-guard.ts` (MODIFY) — `requireSessionOr401()` 추가(3개 route.ts에 복붙돼 있던 것을 추출)
+- `apps/web/tests/lib/voyage-adapter.test.ts` (NEW) — Voyage 어댑터 응답 파싱/검증 테스트
 
 ## Change Log
 
 - 2026-07-27: 스토리 최초 작성 (create-story, Epic 3 두 번째 스토리 — 이 프로젝트 최초로 실제 AI(LLM+임베딩) 벤더를 연동하는 스토리).
-- 2026-07-27: 구현 완료 (dev) — AC 1~4 전부 구현. AI 포트를 스파인 확정 시그니처로 승격하고 Anthropic/Voyage 어댑터 실장, `feedback` 구조화 필드 + `variable_cases`(pgvector) 마이그레이션, 구조화/확정 서비스+Route Handler, 오퍼레이터 화면 구조화 확인/수정/확정 UI. 설계 편차 2건(변수 케이스 생성 경로 단일화, db.transaction() 대신 단일 CTE)을 Dev Notes/Task에 기록. vitest 200건 통과, tsc/lint/build 클린, 실서버+실DB로 AD-8 원자성 실증(임베딩 실패 시에도 draft 유지·variable_cases 미생성). Status → review.
+- 2026-07-27: 구현 완료 (dev) — AC 1~4 전부 구현. AI 포트를 스파인 확정 시그니처로 승격하고 Anthropic/Voyage 어댑터 실장, `feedback` 구조화 필드 + `variable_cases`(pgvector) 마이그레이션, 구조화/확정 서비스+Route Handler, 오퍼레이터 화면 구조화 확인/수정/확정 UI. 설계 편차 2건(변수 케이스 생성 경로 단일화, db.transaction() 대신 단일 CTE)을 Dev Notes/Task에 기록. vitest 200건 통과, tsc/lint/build 클린, 실서버+실DB로 AD-8 원자성 실증(임베딩 실패 시에도 draft 유지·variable_cases 미생성).
+- 2026-07-27: 코덱스 리뷰 1라운드(Blind Hunter + Edge Case Hunter + Acceptance Auditor 병렬) — 실결함 12건 발견 후 전부 수정(핵심: tags 완결성 검증 누락, 구조화 후 content 재저장 시 결과 무효화 안 됨), 7건 defer. vitest 214건 재확인, tsc/lint/build 클린, 실서버+실DB로 수정 사항 재검증. Status → review.
 
 - 2026-07-27: 스토리 최초 작성 (create-story, Epic 3 두 번째 스토리 — 이 프로젝트 최초로 실제 AI(LLM+임베딩) 벤더를 연동하는 스토리).

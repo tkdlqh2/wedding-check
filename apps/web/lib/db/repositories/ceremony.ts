@@ -111,6 +111,19 @@ export async function findById(hallId: string, id: string): Promise<Ceremony | u
   });
 }
 
+// Story 5.8 AC 7: 담당 오퍼레이터 단일 배정/해제(operatorId === null이면 해제).
+// AD-2: hallId 스코프 WHERE 필수.
+export async function assignOperator(
+  hallId: string,
+  id: string,
+  operatorId: string | null,
+): Promise<void> {
+  await db
+    .update(ceremonies)
+    .set({ assignedOperatorId: operatorId })
+    .where(and(eq(ceremonies.id, id), eq(ceremonies.hallId, hallId)));
+}
+
 // Story 5.2: 날짜 필터 없는 전체 목록(페이지네이션용). findByHallForDateRange와 동일한
 // JOIN/그룹핑에서 날짜 WHERE절만 뺀 것 — 페이지 슬라이스는 서비스 레이어에서 여러 홀
 // 결과를 병합한 뒤 메모리에서 수행한다(AD-2: 리포지토리는 hallId 스코프 쿼리만 담당).

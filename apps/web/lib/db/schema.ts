@@ -162,6 +162,14 @@ export const ceremonies = pgTable("ceremonies", {
     .$type<Record<string, boolean>>()
     .notNull()
     .default({}),
+  // Story 5.8(FR-18): 담당 오퍼레이터 단일 배정(복수 아님 — epics.md AC가 단수로 명시,
+  // 프로토타입의 배열 기반 다중 배정과 의도적으로 다름). user.id는 uuid가 아니라 text다
+  // (better-auth가 자체 id 포맷을 생성) — 다른 FK처럼 uuid()를 쓰면 안 된다. 계정이
+  // 비활성화(banned)돼도 실제 삭제는 없어 onDelete는 실질적으로 발동하지 않지만
+  // 방어적으로 set null을 둔다.
+  assignedOperatorId: text("assigned_operator_id").references(() => user.id, {
+    onDelete: "set null",
+  }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()

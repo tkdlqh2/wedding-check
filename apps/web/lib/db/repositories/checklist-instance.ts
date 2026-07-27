@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { eq, and, asc, notInArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "../index";
 import {
+  ceremonies,
   checklistInstances,
   checklistInstanceItems,
   checklistTemplateItems,
@@ -48,6 +49,19 @@ async function withConcurrencyRetry<T>(run: () => Promise<T>): Promise<T> {
     }
   }
   throw new Error("unreachable");
+}
+
+// 코덱스 리뷰 P1(TOCTOU): 서비스의 편집 가능(status = 'upcoming') 확인과 실제 변경
+// 쿼리 사이에 오퍼레이터가 예식을 시작할 수 있다 — "예정이 아닌 예식은 수정 불가"
+// 불변조건을 변경 쿼리 자체의 WHERE에 원자적으로 내장한다(같은 문장의 스냅샷 안에서
+// 평가되므로 별도 확인-후-변경 창이 없다). 조건이 거짓이면 변경은 0행으로 끝나고,
+// 서비스가 상태를 재확인해 사용자 오류로 번역한다.
+function ceremonyUpcomingGuard(instanceId: string) {
+  return sql`exists (
+    select 1 from ${checklistInstances} ci
+    join ${ceremonies} c on c.id = ci.ceremony_id
+    where ci.id = ${instanceId} and c.status = 'upcoming'
+  )`;
 }
 
 export async function findByCeremony(
@@ -128,7 +142,7 @@ export async function addItem(
     stepId: string;
     stepName: string;
   },
-): Promise<ChecklistInstanceItem> {
+): Promise<ChecklistInstanceItem | undefined> {
   const result = await withConcurrencyRetry(async () =>
     await db.execute<ChecklistInstanceItem>(sql`
       with target as (
@@ -145,6 +159,7 @@ export async function addItem(
         set sort_order = sort_order + 1
         where instance_id = ${instanceId}
           and sort_order > (select base from target)
+          and ${ceremonyUpcomingGuard(instanceId)}
         returning id
       )
       insert into checklist_instance_items
@@ -160,6 +175,7 @@ export async function addItem(
       -- 스칼라 서브쿼리라 INSERT ... SELECT의 카디널리티에 영향을 주지 않으면서 강제로
       -- 실행시키는 표준적인 우회: 항상 참인 조건에 COUNT(*)를 넣는다.
       where (select count(*) from shifted) >= 0
+        and ${ceremonyUpcomingGuard(instanceId)}
       on conflict (instance_id, template_item_check_id) do nothing
       -- db.execute()의 raw SQL은 drizzle의 camelCase 매핑을 거치지 않으므로(그냥
       -- pg 드라이버가 돌려주는 컬럼명 그대로) ChecklistInstanceItem 타입(camelCase
@@ -180,15 +196,14 @@ export async function addItem(
   const inserted = result.rows[0];
   if (inserted) return inserted;
 
+  // 0행: (a) UNIQUE 충돌(이미 추가됨) — 기존 행 반환, (b) upcoming 가드 차단 —
+  // undefined 반환(서비스가 상태를 재확인해 사용자 오류로 번역).
   const existing = await db.query.checklistInstanceItems.findFirst({
     where: and(
       eq(checklistInstanceItems.instanceId, instanceId),
       eq(checklistInstanceItems.templateItemCheckId, checklistItem.id),
     ),
   });
-  if (!existing) {
-    throw new Error("addItem: 충돌 처리 후에도 기존 행을 찾지 못했습니다");
-  }
   return existing;
 }
 
@@ -208,7 +223,7 @@ export async function addAdHocItem(
     stepId: string | null;
     groupRootId: string | null;
   },
-): Promise<ChecklistInstanceItem> {
+): Promise<ChecklistInstanceItem | undefined> {
   const newGroupRootId = input.stepId || input.groupRootId ? null : randomUUID();
   const rowGroupRootId = input.groupRootId ?? newGroupRootId;
 
@@ -237,6 +252,7 @@ export async function addAdHocItem(
         set sort_order = sort_order + 1
         where instance_id = ${instanceId} and hall_id = ${hallId}
           and sort_order > (select base from target)
+          and ${ceremonyUpcomingGuard(instanceId)}
         returning id
       )
       insert into checklist_instance_items
@@ -247,6 +263,7 @@ export async function addAdHocItem(
         (select base from target) + 1
       -- addItem()과 동일한 이유로 shifted를 강제 참조(§addItem 주석 참고).
       where (select count(*) from shifted) >= 0
+        and ${ceremonyUpcomingGuard(instanceId)}
       returning
         id,
         hall_id as "hallId",
@@ -260,11 +277,8 @@ export async function addAdHocItem(
         sort_order as "sortOrder",
         created_at as "createdAt"
     `);
-    const inserted = result.rows[0];
-    if (!inserted) {
-      throw new Error("addAdHocItem: 삽입 후 반환된 행이 없습니다");
-    }
-    return inserted;
+    // 0행 = upcoming 가드 차단 — 서비스가 상태를 재확인해 사용자 오류로 번역한다.
+    return result.rows[0];
   });
 }
 
@@ -284,6 +298,7 @@ export async function updateItem(
         eq(checklistInstanceItems.id, itemId),
         eq(checklistInstanceItems.instanceId, instanceId),
         eq(checklistInstanceItems.hallId, hallId),
+        ceremonyUpcomingGuard(instanceId),
       ),
     )
     .returning();
@@ -325,6 +340,7 @@ export async function renameStepGroup(
         eq(checklistInstanceItems.instanceId, instanceId),
         eq(checklistInstanceItems.hallId, hallId),
         stepGroupCondition(key),
+        ceremonyUpcomingGuard(instanceId),
       ),
     )
     .returning();
@@ -345,6 +361,7 @@ export async function deleteStepGroup(
         eq(checklistInstanceItems.instanceId, instanceId),
         eq(checklistInstanceItems.hallId, hallId),
         stepGroupCondition(key),
+        ceremonyUpcomingGuard(instanceId),
       ),
     )
     .returning();
@@ -364,6 +381,7 @@ export async function removeItem(
         eq(checklistInstanceItems.id, itemId),
         eq(checklistInstanceItems.instanceId, instanceId),
         eq(checklistInstanceItems.hallId, hallId),
+        ceremonyUpcomingGuard(instanceId),
       ),
     );
 }

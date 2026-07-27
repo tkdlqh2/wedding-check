@@ -65,6 +65,21 @@ async function requireEditableCeremony(hallId: string, ceremonyId: string): Prom
   }
 }
 
+// 코덱스 리뷰 P1(TOCTOU): 리포지토리 변경 쿼리에 내장된 upcoming 가드가 경합에서
+// 차단하면 0행/undefined가 돌아온다 — 실제 상태를 재확인해, 그 사이 예식이 시작된
+// 것이면 잠금 오류로, 아니면 대상 없음 오류로 번역한다.
+async function throwLockedOrMissing(
+  hallId: string,
+  ceremonyId: string,
+  missingMessage: string,
+): Promise<never> {
+  const ceremony = await ceremonyRepo.findById(hallId, ceremonyId);
+  if (ceremony && !isEditableStatus(ceremony.status)) {
+    throw new ChecklistInstanceValidationError("진행 중이거나 종료된 예식은 수정할 수 없습니다");
+  }
+  throw new ChecklistInstanceValidationError(missingMessage);
+}
+
 export type OperatorInstanceItem = ChecklistInstanceItemWithVideo;
 
 export type OperatorInstanceView = {
@@ -128,13 +143,17 @@ export async function addInstanceItem(
   if (!step) {
     throw new ChecklistInstanceValidationError("존재하지 않는 단계입니다");
   }
-  return instanceRepo.addItem(hallId, instance.id, {
+  const added = await instanceRepo.addItem(hallId, instance.id, {
     id: checklistItem.id,
     title: checklistItem.title,
     description: checklistItem.description,
     stepId: step.id,
     stepName: step.stepName,
   });
+  if (!added) {
+    return throwLockedOrMissing(hallId, ceremonyId, "존재하지 않는 체크리스트 항목입니다");
+  }
+  return added;
 }
 
 export async function removeInstanceItem(
@@ -204,13 +223,17 @@ export async function addAdHocInstanceItem(
     throw new ChecklistInstanceValidationError("단계 이름을 입력해주세요");
   }
 
-  return instanceRepo.addAdHocItem(hallId, instance.id, {
+  const added = await instanceRepo.addAdHocItem(hallId, instance.id, {
     stepName,
     title,
     description,
     stepId,
     groupRootId,
   });
+  if (!added) {
+    return throwLockedOrMissing(hallId, ceremonyId, "체크 항목을 추가하지 못했습니다");
+  }
+  return added;
 }
 
 // 프로토타입 WeddingDetailScreen.js 단계 헤더의 "수정"/"단계 삭제" — 이 예식 스냅샷의
@@ -231,7 +254,7 @@ export async function renameInstanceStep(
   const instance = await requireInstance(hallId, ceremonyId);
   const updated = await instanceRepo.renameStepGroup(hallId, instance.id, key, trimmed);
   if (updated === 0) {
-    throw new ChecklistInstanceValidationError("존재하지 않는 단계입니다");
+    return throwLockedOrMissing(hallId, ceremonyId, "존재하지 않는 단계입니다");
   }
 }
 
@@ -244,7 +267,7 @@ export async function deleteInstanceStep(
   const instance = await requireInstance(hallId, ceremonyId);
   const deleted = await instanceRepo.deleteStepGroup(hallId, instance.id, key);
   if (deleted === 0) {
-    throw new ChecklistInstanceValidationError("존재하지 않는 단계입니다");
+    return throwLockedOrMissing(hallId, ceremonyId, "존재하지 않는 단계입니다");
   }
 }
 
@@ -265,7 +288,7 @@ export async function updateInstanceItem(
   const instance = await requireInstance(hallId, ceremonyId);
   const updated = await instanceRepo.updateItem(hallId, instance.id, itemId, { title, description });
   if (!updated) {
-    throw new ChecklistInstanceValidationError("존재하지 않는 체크리스트 항목입니다");
+    return throwLockedOrMissing(hallId, ceremonyId, "존재하지 않는 체크리스트 항목입니다");
   }
   return updated;
 }

@@ -480,8 +480,9 @@ describe("listMembersPaginated (Story 5.7 AC 4, 5)", () => {
     expect(result.members[0].name).toBe("Jane Doe");
   });
 
-  it("검색어와 일치하는 회원이 없으면 카운트도 0이지만 activeAdminCount는 검색과 무관하게 전체 기준이다", async () => {
+  it("검색어와 일치하는 회원이 없어도 요약 카운트는 검색과 무관하게 전체 회원 기준으로 유지된다 (코덱스 리뷰 P2)", async () => {
     await signInAsAdmin({ phoneNumber: "01088884444" });
+    await createMember({ name: "박영희", phoneNumber: "01088885555", password: "pw-91234" });
 
     const result = await listMembersPaginated({
       page: 1,
@@ -491,7 +492,8 @@ describe("listMembersPaginated (Story 5.7 AC 4, 5)", () => {
     });
 
     expect(result.members).toHaveLength(0);
-    expect(result.totalCount).toBe(0);
+    expect(result.totalCount).toBe(2); // signInAsAdmin이 만든 관리자 + 박영희, 검색과 무관
+    expect(result.activeCount).toBe(2);
     expect(result.activeAdminCount).toBe(1);
   });
 });

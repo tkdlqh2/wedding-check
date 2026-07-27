@@ -43,13 +43,11 @@ export type PaginatedMembers = {
   activeAdminCount: number;
 };
 
-// Story 5.7 AC 4, 5: 전체/활성/비활성 카운트는 항상 전체 목록 기준(showInactive 필터와
-// 무관)이고, 페이지네이션·정렬만 필터 이후 결과에 적용한다. 페이지 clamp는
-// listCeremoniesPaginated(lib/services/ceremony.ts)와 동일한 패턴.
-// 이름 검색(search)이 있으면 요약 카운트(total/active/inactive)는 검색 결과 기준으로
-// 좁혀진다 — 화면에 보이는 숫자와 실제 표시되는 목록이 항상 일치해야 하기 때문이다.
-// activeAdminCount만은 예외로, 검색어와 무관하게 항상 전체 목록 기준이다 — 마지막 활성
-// 관리자 보호(setMemberRole)를 위한 안전 계산값이지 화면 통계가 아니다.
+// Story 5.7 AC 4, 5: 전체/활성/비활성 카운트는 항상 "전체 회원 목록" 기준이다(코덱스
+// 리뷰 P2 — 이름 검색(search)이 있어도 이 요약 숫자는 검색 범위로 좁혀지지 않는다. AC 4가
+// 요구하는 "전체 N명 · 활성 N명 · 비활성 N명"은 검색과 무관한 전체 회원 현황이고, 검색은
+// 그 아래 목록·페이지네이션에만 영향을 준다). activeAdminCount도 동일하게 항상 전체
+// 목록 기준 — 마지막 활성 관리자 보호(setMemberRole)를 위한 안전 계산값이다.
 export async function listMembersPaginated(input: {
   page: number;
   pageSize: number;
@@ -58,15 +56,14 @@ export async function listMembersPaginated(input: {
 }): Promise<PaginatedMembers> {
   const all = await memberRepo.findAll();
   const activeAdminCount = all.filter((m) => m.role === "admin" && !m.banned).length;
+  const totalCount = all.length;
+  const activeCount = all.filter((m) => !m.banned).length;
+  const inactiveCount = totalCount - activeCount;
 
   const searchTerm = input.search?.trim().toLowerCase();
   const searched = searchTerm
     ? all.filter((m) => m.name.toLowerCase().includes(searchTerm))
     : all;
-
-  const totalCount = searched.length;
-  const activeCount = searched.filter((m) => !m.banned).length;
-  const inactiveCount = totalCount - activeCount;
 
   // Array.prototype.sort는 안정 정렬(ECMA2019+)이라, banned 기준으로만 정렬해도
   // findAll()의 기존 createdAt desc 순서가 각 그룹(활성/비활성) 내부에서 유지된다.

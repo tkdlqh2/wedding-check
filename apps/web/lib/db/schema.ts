@@ -148,23 +148,35 @@ export const checklistInstances = pgTable(
 // 라이브 참조로 남겨 매번 JOIN하면 이후 관리자가 템플릿 항목을 수정/삭제할 때 이미 만들어진
 // 예식의 체크리스트가 조용히 바뀌거나(Story 1.4의 FK 삭제 차단 버그와 같은 클래스로) 삭제가
 // 막힌다. templateItemId는 onDelete: "set null"인 소프트 참조로만 남긴다.
-export const checklistInstanceItems = pgTable("checklist_instance_items", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  hallId: uuid("hall_id")
-    .notNull()
-    .references(() => halls.id),
-  instanceId: uuid("instance_id")
-    .notNull()
-    .references(() => checklistInstances.id, { onDelete: "cascade" }),
-  templateItemId: uuid("template_item_id").references(
-    () => checklistTemplateItems.id,
-    { onDelete: "set null" },
-  ),
-  stepName: text("step_name").notNull(),
-  description: text("description"),
-  sortOrder: integer("sort_order").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const checklistInstanceItems = pgTable(
+  "checklist_instance_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    hallId: uuid("hall_id")
+      .notNull()
+      .references(() => halls.id),
+    instanceId: uuid("instance_id")
+      .notNull()
+      .references(() => checklistInstances.id, { onDelete: "cascade" }),
+    templateItemId: uuid("template_item_id").references(
+      () => checklistTemplateItems.id,
+      { onDelete: "set null" },
+    ),
+    stepName: text("step_name").notNull(),
+    description: text("description"),
+    sortOrder: integer("sort_order").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    // Story 2.2 코덱스 리뷰 P2: 재전송/두 탭 동시 제출로 같은 항목이 인스턴스에 중복
+    // 추가되는 것을 막는다. templateItemId가 NULL인 행(원본 삭제됨)끼리는 Postgres가
+    // NULL을 서로 다른 값으로 취급해 이 제약에 걸리지 않는다 — 의도된 동작.
+    unique("checklist_instance_items_instance_id_template_item_id_unique").on(
+      table.instanceId,
+      table.templateItemId,
+    ),
+  ],
+);
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),

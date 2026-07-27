@@ -10,6 +10,7 @@ import {
 } from "@/lib/services/template";
 import { requireAdminSession } from "@/lib/auth-guard";
 import { isValidUuid } from "@/lib/uuid";
+import { readContractConditions } from "./contract-conditions";
 
 export type TemplateItemFormState = { error?: string };
 
@@ -18,15 +19,6 @@ export type TemplateItemFormState = { error?: string };
 // 조작된 값이 들어와도 여기서 조용히 걸러지게 한다(코덱스 리뷰 6차 P2 반영).
 function isMalformedId(...ids: string[]): boolean {
   return ids.some((id) => !isValidUuid(id));
-}
-
-// ceremony-form.tsx의 contractConditions와 동일한 두 키 — Story 2.2 Dev Notes
-// "계약 형태 키 대칭" 참고. 여기서 형식을 벗어나면 부분집합 매칭이 조용히 어긋난다.
-function readContractConditions(formData: FormData): Record<string, boolean> {
-  return {
-    requiresOfficiant: formData.get("requiresOfficiant") === "on",
-    hasAdditionalEvent: formData.get("hasAdditionalEvent") === "on",
-  };
 }
 
 export async function createTemplateItemAction(

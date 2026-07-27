@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { assignOperatorAction } from "./actions";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { assignOperatorAction, type AssignOperatorFormState } from "./actions";
+
+const initialState: AssignOperatorFormState = {};
 
 // Story 5.8 AC 7 + 대표 피드백(2026-07-27): 오퍼레이터가 많을 때를 대비해 검색
 // 가능한 대화상자로 배정한다 — apps/web/app/admin/account-menu.tsx의 모달 패턴
@@ -24,6 +26,22 @@ export function AssigneePicker({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  // 코덱스 리뷰 P2: 화면 렌더링과 제출 사이에 오퍼레이터가 비활성화/역할 변경되면
+  // assignOperator가 거부할 수 있다 — 모든 배정/해제 폼이 같은 액션 상태를 공유해,
+  // 실패 시 대화상자를 닫지 않고 오류를 보여준다(성공했을 때만 조용히 닫음).
+  const [state, formAction, isPending] = useActionState(assignOperatorAction, initialState);
+  const wasPending = useRef(false);
+
+  useEffect(() => {
+    if (wasPending.current && !isPending) {
+      // 액션 완료 직후 setState를 이펙트 본문에서 동기 호출하면
+      // react-hooks/set-state-in-effect 린트가 막는다 — 마이크로태스크로 미뤄
+      // React의 렌더 사이클과 분리한다(다음 틱에 실행되어 캐스케이딩 렌더 경고를 피함).
+      const hasError = Boolean(state.error);
+      queueMicrotask(() => setOpen(hasError));
+    }
+    wasPending.current = isPending;
+  }, [isPending, state.error]);
 
   useEffect(() => {
     if (!open) return;
@@ -44,7 +62,7 @@ export function AssigneePicker({
       <span className="ceremony-detail-page__assignee-label">담당</span>
 
       {assignedOperatorName ? (
-        <form action={assignOperatorAction} onSubmit={() => setOpen(false)}>
+        <form action={formAction}>
           <input type="hidden" name="hallId" value={hallId} />
           <input type="hidden" name="ceremonyId" value={ceremonyId} />
           <input type="hidden" name="operatorId" value="" />
@@ -77,6 +95,11 @@ export function AssigneePicker({
             onClick={(e) => e.stopPropagation()}
           >
             <h2 id="assignee-modal-title">담당 오퍼레이터 지정</h2>
+            {state.error && (
+              <p className="field-error" role="alert">
+                {state.error}
+              </p>
+            )}
             <input
               ref={inputRef}
               type="search"
@@ -91,11 +114,11 @@ export function AssigneePicker({
               ) : (
                 filtered.map((operator) => (
                   <li key={operator.id}>
-                    <form action={assignOperatorAction} onSubmit={() => setOpen(false)}>
+                    <form action={formAction}>
                       <input type="hidden" name="hallId" value={hallId} />
                       <input type="hidden" name="ceremonyId" value={ceremonyId} />
                       <input type="hidden" name="operatorId" value={operator.id} />
-                      <button type="submit" className="assignee-modal__option">
+                      <button type="submit" className="assignee-modal__option" disabled={isPending}>
                         {operator.name}
                         {operator.id === assignedOperatorId && (
                           <span className="assignee-modal__option-check">✓</span>

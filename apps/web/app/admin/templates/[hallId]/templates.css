@@ -35,6 +35,35 @@
   font-family: inherit;
 }
 
+.template-item-form__conditions {
+  display: flex;
+  gap: var(--space-md);
+}
+
+.template-item-form__checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.template-item-card__conditions {
+  display: flex;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+/* 조건 태그는 상태 배지(UX-DR8)가 아니라 메타 정보라 상태색을 쓰지 않는다. */
+.condition-tag {
+  background: var(--color-surface-soft);
+  color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .template-item-list {
   list-style: none;
   padding: 0;

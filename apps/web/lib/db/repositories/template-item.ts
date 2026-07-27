@@ -51,7 +51,11 @@ async function withConcurrencyRetry<T>(run: () => Promise<T>): Promise<T> {
 
 export async function create(
   hallId: string,
-  input: { stepName: string; description?: string | null },
+  input: {
+    stepName: string;
+    description?: string | null;
+    applicableContractConditions?: Record<string, boolean>;
+  },
 ): Promise<TemplateItem> {
   // INSERT 문 하나 안에서 sortOrder를 계산해 별도 SELECT 후 INSERT하는 두 번의 왕복(그
   // 사이에 다른 요청이 끼어들 틈)을 없앤다. 그래도 두 INSERT가 동시에 같은 max(sort_order)를
@@ -64,6 +68,7 @@ export async function create(
         hallId,
         stepName: input.stepName,
         description: input.description ?? null,
+        applicableContractConditions: input.applicableContractConditions ?? {},
         sortOrder: sql<number>`coalesce((select max(${checklistTemplateItems.sortOrder}) from ${checklistTemplateItems} where ${checklistTemplateItems.hallId} = ${hallId}), -1) + 1`,
       })
       .returning();
@@ -87,11 +92,19 @@ export async function findById(hallId: string, id: string): Promise<TemplateItem
 export async function update(
   hallId: string,
   id: string,
-  input: { stepName: string; description?: string | null },
+  input: {
+    stepName: string;
+    description?: string | null;
+    applicableContractConditions?: Record<string, boolean>;
+  },
 ): Promise<TemplateItem> {
   const [item] = await db
     .update(checklistTemplateItems)
-    .set({ stepName: input.stepName, description: input.description ?? null })
+    .set({
+      stepName: input.stepName,
+      description: input.description ?? null,
+      applicableContractConditions: input.applicableContractConditions ?? {},
+    })
     .where(and(eq(checklistTemplateItems.id, id), eq(checklistTemplateItems.hallId, hallId)))
     .returning();
   return item;

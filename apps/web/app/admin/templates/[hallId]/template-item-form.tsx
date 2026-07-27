@@ -15,7 +15,12 @@ export function TemplateItemForm({
   onSuccess,
 }: {
   hallId: string;
-  item?: { id: string; stepName: string; description: string | null };
+  item?: {
+    id: string;
+    stepName: string;
+    description: string | null;
+    applicableContractConditions?: Record<string, boolean>;
+  };
   onSuccess?: () => void;
 }) {
   const action = item ? updateTemplateItemAction : createTemplateItemAction;
@@ -60,6 +65,25 @@ export function TemplateItemForm({
         rows={3}
         placeholder="이 단계에서 해야 할 일을 설명하세요"
       />
+
+      <div className="template-item-form__conditions">
+        <label className="template-item-form__checkbox">
+          <input
+            type="checkbox"
+            name="requiresOfficiant"
+            defaultChecked={item?.applicableContractConditions?.requiresOfficiant === true}
+          />
+          주례 관련
+        </label>
+        <label className="template-item-form__checkbox">
+          <input
+            type="checkbox"
+            name="hasAdditionalEvent"
+            defaultChecked={item?.applicableContractConditions?.hasAdditionalEvent === true}
+          />
+          이벤트 추가 관련
+        </label>
+      </div>
 
       <button type="submit" className="btn-primary" disabled={isPending}>
         {isPending ? "저장 중..." : item ? "수정 저장" : "항목 등록하기"}

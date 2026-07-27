@@ -24,11 +24,19 @@ async function assertHallExists(hallId: string): Promise<void> {
 
 export async function createTemplateItem(
   hallId: string,
-  input: { stepName: string; description?: string | null },
+  input: {
+    stepName: string;
+    description?: string | null;
+    applicableContractConditions?: Record<string, boolean>;
+  },
 ): Promise<TemplateItem> {
   await assertHallExists(hallId);
   const stepName = assertValidStepName(input.stepName);
-  return templateItemRepo.create(hallId, { stepName, description: input.description });
+  return templateItemRepo.create(hallId, {
+    stepName,
+    description: input.description,
+    applicableContractConditions: input.applicableContractConditions,
+  });
 }
 
 export async function listTemplateItems(hallId: string): Promise<TemplateItem[]> {
@@ -38,14 +46,22 @@ export async function listTemplateItems(hallId: string): Promise<TemplateItem[]>
 export async function updateTemplateItem(
   hallId: string,
   id: string,
-  input: { stepName: string; description?: string | null },
+  input: {
+    stepName: string;
+    description?: string | null;
+    applicableContractConditions?: Record<string, boolean>;
+  },
 ): Promise<TemplateItem> {
   // 비활성화된 홀은 관리 화면(notFound())에서 더 이상 접근할 수 없지만, 이미 열려있던
   // 페이지나 재전송된 Server Action 요청으로는 여전히 수정이 시도될 수 있다 — 생성뿐
   // 아니라 모든 쓰기 작업에서 활성 홀인지 검증한다(코덱스 리뷰 P2 반영).
   await assertHallExists(hallId);
   const stepName = assertValidStepName(input.stepName);
-  return templateItemRepo.update(hallId, id, { stepName, description: input.description });
+  return templateItemRepo.update(hallId, id, {
+    stepName,
+    description: input.description,
+    applicableContractConditions: input.applicableContractConditions,
+  });
 }
 
 export async function deleteTemplateItem(hallId: string, id: string): Promise<void> {

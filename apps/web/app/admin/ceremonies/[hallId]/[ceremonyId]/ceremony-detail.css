@@ -489,19 +489,17 @@
   margin: 0;
 }
 
-/* VideoUpload 컴포넌트(템플릿 공용)가 렌더링하는 클래스 — templates.css와 동일 정의
-   (이 페이지는 templates.css를 로드하지 않으므로 여기서 한 번 더 정의). */
-.video-upload {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  flex-wrap: wrap;
-}
-
-.video-upload__notice {
+/* 영상은 홀 공용 자산 — 이 화면에서는 재생만, 등록/교체는 템플릿 편집기 링크로 안내
+   (코덱스 리뷰 P1: "이 예식에만 반영" 약속과 어긋나는 공용 자산 변경 컨트롤 제거). */
+.instance-item-form-panel__video-hint {
   color: var(--color-text-muted);
   font-size: 12px;
   margin: 0;
+}
+
+.instance-item-form-panel__video-hint a {
+  color: var(--color-info);
+  font-weight: 600;
 }
 
 .instance-item-form {

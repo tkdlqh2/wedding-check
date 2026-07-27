@@ -303,6 +303,27 @@ describe("setMemberRole — 마지막 활성 관리자 보호 (Story 5.7 AC 2)",
     expect(stillAdmin?.role).toBe("admin");
   });
 
+  it("두 관리자가 동시에 자기 자신을 강등하면 하나만 성공하고 활성 관리자가 최소 1명 유지된다 (코덱스 리뷰 P2 — TOCTOU 경합 방지)", async () => {
+    const adminA = await signInAsAdmin({ phoneNumber: "01099991111" });
+    const adminB = await signInAsAdmin({ phoneNumber: "01099992222" });
+
+    const results = await Promise.allSettled([
+      setMemberRole(adminA.userId, adminA.userId, "operator"),
+      setMemberRole(adminB.userId, adminB.userId, "operator"),
+    ]);
+
+    const fulfilled = results.filter((r) => r.status === "fulfilled");
+    const rejected = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0].reason).toBeInstanceOf(MemberValidationError);
+
+    const remainingAdmins = (await memberRepo.findAll()).filter(
+      (m) => m.role === "admin" && !m.banned,
+    );
+    expect(remainingAdmins).toHaveLength(1);
+  });
+
   it("본인을 다시 admin으로 지정하는 요청은(role 변화 없음) 마지막 관리자 보호에 걸리지 않고 setRole 호출부까지 도달한다", async () => {
     const { userId } = await signInAsAdmin();
     // 보호 조건은 target.role === "admin" && role !== "admin"일 때만 걸린다 — role이

@@ -19,13 +19,11 @@ export function InstanceItemRow({
   hallId,
   ceremonyId,
   item,
-  blobEnabled,
   readOnly,
 }: {
   hallId: string;
   ceremonyId: string;
   item: InstanceItemRowItem;
-  blobEnabled: boolean;
   // 종료된 예식(2026-07-27 대표 지시) — 수정/삭제 버튼을 숨긴다(서비스도 거부).
   readOnly?: boolean;
 }) {
@@ -38,7 +36,6 @@ export function InstanceItemRow({
           hallId={hallId}
           ceremonyId={ceremonyId}
           item={item}
-          blobEnabled={blobEnabled}
           onSuccess={() => setEditing(false)}
           onCancel={() => setEditing(false)}
         />

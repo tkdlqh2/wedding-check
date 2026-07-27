@@ -6,8 +6,6 @@ import {
   updateInstanceItemAction,
   type InstanceItemFormState,
 } from "./actions";
-import { VideoUpload } from "../../../templates/[hallId]/video-upload";
-
 const initialState: InstanceItemFormState = {};
 
 // Story 5.8: apps/web/app/admin/templates/[hallId]/checklist-item-form.tsx와 동일한
@@ -19,7 +17,6 @@ export function InstanceItemForm({
   hallId,
   ceremonyId,
   item,
-  blobEnabled,
   stepContext,
   isNewStep,
   onSuccess,
@@ -34,7 +31,6 @@ export function InstanceItemForm({
     templateItemCheckId?: string | null;
     videoUrl?: string | null;
   };
-  blobEnabled?: boolean;
   stepContext?: { templateItemId?: string | null; groupRootId?: string | null };
   isNewStep?: boolean;
   onSuccess?: () => void;
@@ -90,10 +86,10 @@ export function InstanceItemForm({
         </form>
 
         {/* 템플릿 편집기(checklist-item-form.tsx)와 동일한 시연 영상 섹션 — 영상은
-            템플릿의 체크리스트 항목(demo_videos)에 붙으므로, 원본 항목이 살아 있는
-            (templateItemCheckId 유지) 항목만 재생/업로드할 수 있다. 여기서 업로드하면
-            홀 템플릿의 해당 항목 영상이 교체된다(영상은 예식별 사본이 아닌 공용 자산).
-            VideoUpload는 자체 <form>을 렌더링하므로 위 편집 폼 밖에 둔다. */}
+            템플릿의 체크리스트 항목(demo_videos)에 붙는 공용 자산이라, 이 화면("이
+            예식에만 반영" 약속)에서 업로드/교체를 노출하면 모든 예식의 영상이 조용히
+            바뀐다(코덱스 리뷰 P1) — 여기서는 재생만 제공하고, 등록/교체는 홀 템플릿
+            편집기로 안내한다. */}
         <div className="instance-item-form-panel__video">
           <span className="instance-item-form-panel__video-label">시연 영상</span>
           {item.videoUrl ? (
@@ -106,12 +102,11 @@ export function InstanceItemForm({
             </p>
           )}
           {item.templateItemCheckId && (
-            <VideoUpload
-              hallId={hallId}
-              checklistItemId={item.templateItemCheckId}
-              blobEnabled={Boolean(blobEnabled)}
-              currentVideoUrl={item.videoUrl ?? undefined}
-            />
+            <p className="instance-item-form-panel__video-hint">
+              영상은 홀 공용 자산이라 여기서는 재생만 됩니다 — 등록/교체는{" "}
+              <a href={`/admin/templates/${hallId}`}>홀 체크리스트 템플릿</a>에서 하세요
+              (모든 예식에 함께 반영됩니다).
+            </p>
           )}
         </div>
 

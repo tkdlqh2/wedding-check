@@ -71,13 +71,24 @@ export default async function OperatorHomePage({
   searchParams: Promise<{ date?: string; year?: string; month?: string }>;
 }) {
   const params = await searchParams;
-  // 프로토타입은 항상 날짜가 하나 선택돼 있다(opDate 기본 오늘) — date 파라미터가
-  // 없거나 잘못됐으면 오늘로 되돌린다.
-  const selectedDate = parseDateParam(params.date) ?? todayKstDateString();
-  const { year, month } = parseYearMonthParams(params.year, params.month, {
-    year: Number(selectedDate.slice(0, 4)),
-    month: Number(selectedDate.slice(5, 7)),
-  });
+  const today = todayKstDateString();
+  const dateParam = parseDateParam(params.date);
+  // 유효한 date가 있으면 그 date의 연/월을 신뢰한다(admin/ceremonies/page.tsx 코덱스
+  // 리뷰 P2 선례 — date와 year/month가 다른 달을 가리키는 URL 불일치 방지).
+  const { year, month } = dateParam
+    ? { year: Number(dateParam.slice(0, 4)), month: Number(dateParam.slice(5, 7)) }
+    : parseYearMonthParams(params.year, params.month, {
+        year: Number(today.slice(0, 4)),
+        month: Number(today.slice(5, 7)),
+      });
+  // 프로토타입은 항상 날짜가 하나 선택돼 있다(opDate 기본 오늘). 코덱스 리뷰 P2:
+  // 월 이동 링크는 year/month만 실으므로, 이동한 달과 무관하게 오늘로 되돌리면
+  // 캘린더는 다른 달을 보여주면서 목록은 오늘 예식을 보여주는 불일치가 생긴다 —
+  // 오늘이 속한 달이면 오늘을, 다른 달이면 그 달의 1일을 선택한다.
+  const isTodaysMonth =
+    year === Number(today.slice(0, 4)) && month === Number(today.slice(5, 7));
+  const selectedDate =
+    dateParam ?? (isTodaysMonth ? today : `${year}-${String(month).padStart(2, "0")}-01`);
 
   const [markedDates, ceremonies] = await Promise.all([
     listCeremonyDatesForMonth(year, month),

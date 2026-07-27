@@ -5,7 +5,6 @@ import { getCeremonyDetail, ChecklistInstanceValidationError } from "@/lib/servi
 import { listCeremonyAssignees } from "@/lib/services/ceremony";
 import { listMembers } from "@/lib/services/member";
 import { isValidUuid } from "@/lib/uuid";
-import { isBlobStorageConfigured } from "@/lib/storage/video-storage";
 import { InstanceItemRow } from "./instance-item-row";
 import { InstanceItemForm } from "./instance-item-form";
 import { InstanceStepHeader } from "./instance-step-header";
@@ -74,7 +73,6 @@ export default async function CeremonyDetailPage({
   const status = asCeremonyStatus(ceremony.status);
   // 대표 지시(2026-07-27): 예정이 아닌 예식(진행중·종료)은 전체 읽기 전용.
   const readOnly = status !== "upcoming";
-  const blobEnabled = isBlobStorageConfigured();
 
   return (
     <section className="ceremony-detail-page">
@@ -153,7 +151,6 @@ export default async function CeremonyDetailPage({
                       hallId={hallId}
                       ceremonyId={ceremonyId}
                       item={item}
-                      blobEnabled={blobEnabled}
                       readOnly={readOnly}
                     />
                   ))}

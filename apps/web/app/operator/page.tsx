@@ -3,10 +3,15 @@ import { listTodaysCeremonies } from "@/lib/services/ceremony";
 import "./operator-home.css";
 
 // KST 고정 표시 — admin/ceremonies/ceremony-row.tsx와 동일한 포맷터.
-const ceremonyDateFormatter = new Intl.DateTimeFormat("ko-KR", {
+const dateFormatter = new Intl.DateTimeFormat("ko-KR", {
   timeZone: "Asia/Seoul",
   month: "long",
   day: "numeric",
+  weekday: "short",
+});
+
+const timeFormatter = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: "Asia/Seoul",
   hour: "2-digit",
   minute: "2-digit",
   hour12: false,
@@ -14,7 +19,8 @@ const ceremonyDateFormatter = new Intl.DateTimeFormat("ko-KR", {
 
 // 오퍼레이터는 특정 홀에 소속되지 않는다(user 테이블에 hallId 없음) — 관리자 화면과
 // 동일하게 홀 전체를 교차하는 오늘 예식 목록에서 직접 고른다(Story 2.1 listTodaysCeremonies
-// 재사용, Story 2.3 Dev Notes "오퍼레이터가 어떤 예식을 보는지" 참고).
+// 재사용). 카드 위계는 예식 목록 카드와 동일 — 시간+신랑신부가 제일 크게, 그 아래
+// 날짜·홀·항목 수, 담당자가 배정돼 있으면 함께 표시.
 export default async function OperatorHomePage() {
   const ceremonies = await listTodaysCeremonies();
 
@@ -32,13 +38,24 @@ export default async function OperatorHomePage() {
                 href={`/operator/ceremonies/${ceremony.hallId}/${ceremony.id}`}
                 className="operator-ceremony-card__link"
               >
-                <span className="operator-ceremony-card__hall">{ceremony.hallName}</span>
-                <span className="operator-ceremony-card__time">
-                  {ceremonyDateFormatter.format(ceremony.ceremonyAt)}
+                <span className="operator-ceremony-card__title">
+                  {timeFormatter.format(ceremony.ceremonyAt)}
+                  {ceremony.groomName && ceremony.brideName && (
+                    <span className="operator-ceremony-card__couple">
+                      {" "}
+                      {ceremony.groomName} · {ceremony.brideName}
+                    </span>
+                  )}
                 </span>
-                <span className="operator-ceremony-card__item-count">
-                  체크리스트 항목 {ceremony.itemCount}개
+                <span className="operator-ceremony-card__meta">
+                  {dateFormatter.format(ceremony.ceremonyAt)} · {ceremony.hallName} · 체크리스트{" "}
+                  {ceremony.itemCount}개
                 </span>
+                {ceremony.assignees.length > 0 && (
+                  <span className="operator-ceremony-card__assignees">
+                    담당 {ceremony.assignees.map((a) => a.name).join(", ")}
+                  </span>
+                )}
               </Link>
             </li>
           ))}

@@ -27,6 +27,12 @@ export function CeremonyRow({ ceremony }: { ceremony: CeremonyWithHallName }) {
         )}
       </div>
       <span className="ceremony-card__item-count">체크리스트 항목 {ceremony.itemCount}개</span>
+      {/* Story 5.8 AC 8: 읽기 전용 — 배정 조작은 상세 화면(AC 7)에서만 가능하다. */}
+      {ceremony.assignedOperatorName ? (
+        <span className="ceremony-card__assignee">담당 {ceremony.assignedOperatorName}</span>
+      ) : (
+        <span className="ceremony-card__assignee ceremony-card__assignee--unassigned">미배정</span>
+      )}
       <Link href={`/admin/ceremonies/${ceremony.hallId}/${ceremony.id}`} className="btn-secondary">
         관리
       </Link>

@@ -26,6 +26,86 @@
   font-size: 14px;
 }
 
+/* Story 5.8 AC 7: 담당자 배정 — 활성 오퍼레이터 pill 토글(회원 등록 폼의 역할 pill,
+   apps/web/app/admin/members/members.css의 .member-form__role-pill*와 동일 패턴). */
+.ceremony-detail-page__assignee-section {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+  margin-top: var(--space-md);
+}
+
+.ceremony-detail-page__assignee-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.ceremony-detail-page__assignee-pill {
+  cursor: pointer;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-mid);
+  border-radius: var(--radius-full);
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.ceremony-detail-page__assignee-pill--active {
+  background: var(--color-brand-tint);
+  border-color: var(--color-brand);
+  color: var(--color-brand);
+}
+
+.ceremony-detail-page__assignee-unassigned {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-error);
+}
+
+/* Story 5.8 AC 6: "포함된 항목"도 "추가 가능한 항목"과 동일한 단계별 그룹 구조를 쓴다
+   (page.tsx의 instance-candidate-groups/-group/-group__step-name 공용 클래스) — Story
+   5.5에서 이 클래스가 도입됐지만 실제 CSS가 없었던 것을 이번에 함께 채운다. */
+.instance-candidate-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+
+.instance-candidate-group {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.instance-candidate-group__step-name {
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface-soft);
+  border-bottom: 1px solid var(--color-border-light);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.instance-candidate-group .instance-item-list {
+  gap: 0;
+}
+
+.instance-candidate-group .instance-item-card {
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.instance-candidate-group .instance-item-card:last-child {
+  border-bottom: none;
+}
+
 .instance-item-list {
   list-style: none;
   padding: 0;
@@ -44,12 +124,15 @@
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
   padding: var(--space-md);
+  flex-wrap: wrap;
 }
 
 .instance-item-card__name {
   font-size: 16px;
   font-weight: 600;
   color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 .instance-item-card__add-form {

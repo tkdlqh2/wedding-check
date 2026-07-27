@@ -122,7 +122,12 @@ export default async function CeremoniesPage({
           )}
 
           {!selectedDate && (
-            <CeremonyPagination page={listResult.page} totalPages={listResult.totalPages} />
+            <CeremonyPagination
+              year={year}
+              month={month}
+              page={listResult.page}
+              totalPages={listResult.totalPages}
+            />
           )}
         </div>
       </div>

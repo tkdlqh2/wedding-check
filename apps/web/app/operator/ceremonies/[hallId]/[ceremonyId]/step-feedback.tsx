@@ -4,10 +4,31 @@ import { useState } from "react";
 
 type FetchState = "idle" | "loading" | "error";
 type SaveState = "idle" | "saving" | "saved" | "error";
+type StructureState = "idle" | "structuring" | "error";
+type ConfirmState = "idle" | "confirming" | "error";
+
+type Outcome = "well_handled" | "mishandled" | "";
+
+interface FeedbackDto {
+  content: string;
+  status: string;
+  situation: string | null;
+  outcome: string | null;
+  rationale: string | null;
+  tags: string[];
+}
+
+function parseTags(text: string): string[] {
+  return text
+    .split(",")
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+}
 
 // Story 3.1(FR-8, AC 1/2/3): 단계 그룹마다 인라인으로 붙는 피드백 입력 패널.
-// [ASSUMPTION] 별도 페이지/폼 대신 인라인으로 둔다 — URL이 이미 예식을 특정하고
-// 그룹이 이미 단계를 특정하므로 "예식/단계 선택"(AC 1)이 화면 이동 없이 충족된다.
+// Story 3.2(FR-9, AD-8): draft 저장 이후 자동 구조화 -> 필드 확인/수정 -> 확정까지
+// 같은 패널 안에서 이어진다. confirmed 이후에는 모든 필드가 읽기 전용으로 바뀐다
+// (AD-8 — 확정된 피드백은 이미 변수 케이스/임베딩이 생성됐으므로 조용히 고칠 수 없다).
 // templateItemId가 없으면(원본 단계가 삭제된 뒤 스냅샷만 남은 드문 경우) 저장할 대상이
 // 없으므로 호출부가 아예 렌더링하지 않는다(checklist-instance-view.tsx 참고).
 export function StepFeedback({
@@ -22,9 +43,31 @@ export function StepFeedback({
   const [expanded, setExpanded] = useState(false);
   const [fetchState, setFetchState] = useState<FetchState>("idle");
   const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [structureState, setStructureState] = useState<StructureState>("idle");
+  const [fieldsSaveState, setFieldsSaveState] = useState<SaveState>("idle");
+  const [confirmState, setConfirmState] = useState<ConfirmState>("idle");
+  const [fieldsDirty, setFieldsDirty] = useState(false);
+
   const [content, setContent] = useState("");
+  const [status, setStatus] = useState<string | null>(null);
+  const [situation, setSituation] = useState("");
+  const [outcome, setOutcome] = useState<Outcome>("");
+  const [rationale, setRationale] = useState("");
+  const [tagsText, setTagsText] = useState("");
 
   const apiUrl = `/api/feedback/${hallId}/${ceremonyId}`;
+  const confirmed = status === "confirmed";
+  const hasStructuredDraft = situation.trim().length > 0 || outcome !== "" || rationale.trim().length > 0;
+
+  function applyFeedback(data: FeedbackDto | null) {
+    setContent(data?.content ?? "");
+    setStatus(data?.status ?? null);
+    setSituation(data?.situation ?? "");
+    setOutcome((data?.outcome as Outcome) ?? "");
+    setRationale(data?.rationale ?? "");
+    setTagsText((data?.tags ?? []).join(", "));
+    setFieldsDirty(false);
+  }
 
   async function handleExpand() {
     if (expanded) {
@@ -41,18 +84,16 @@ export function StepFeedback({
         setFetchState("error");
         return;
       }
-      const data: { feedback: { content: string } | null } = await res.json();
-      setContent(data.feedback?.content ?? "");
+      const data: { feedback: FeedbackDto | null } = await res.json();
+      applyFeedback(data.feedback);
       setFetchState("idle");
     } catch {
       setFetchState("error");
     }
   }
 
-  function handleChange(value: string) {
+  function handleContentChange(value: string) {
     setContent(value);
-    // 저장 후 다시 편집을 시작하면 "임시저장됨" 표시가 최신 상태를 오해하게 두지
-    // 않는다 — 편집이 시작되는 즉시 표시를 지운다.
     if (saveState === "saved") setSaveState("idle");
   }
 
@@ -68,9 +109,87 @@ export function StepFeedback({
         setSaveState("error");
         return;
       }
+      const data: { feedback: FeedbackDto } = await res.json();
+      // 구조화(structure)는 서버에 이미 저장된 draft 행이 있어야 의미가 있다 — 아직
+      // 저장 전인 textarea 내용만으로 구조화 버튼을 보여주면 실패할 액션을 노출하게
+      // 된다. 저장 성공 후 status가 실제로 채워져야 아래 구조화 섹션이 나타난다.
+      setStatus(data.feedback.status);
       setSaveState("saved");
     } catch {
       setSaveState("error");
+    }
+  }
+
+  async function handleStructure() {
+    setStructureState("structuring");
+    try {
+      const res = await fetch(`${apiUrl}/structure`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateItemId }),
+      });
+      if (!res.ok) {
+        setStructureState("error");
+        return;
+      }
+      const data: { feedback: FeedbackDto } = await res.json();
+      applyFeedback(data.feedback);
+      setStructureState("idle");
+    } catch {
+      setStructureState("error");
+    }
+  }
+
+  function handleFieldChange<T>(setter: (v: T) => void) {
+    return (value: T) => {
+      setter(value);
+      setFieldsDirty(true);
+      if (fieldsSaveState === "saved") setFieldsSaveState("idle");
+    };
+  }
+
+  async function handleSaveFields() {
+    setFieldsSaveState("saving");
+    try {
+      const res = await fetch(apiUrl, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          templateItemId,
+          situation,
+          outcome,
+          rationale,
+          tags: parseTags(tagsText),
+        }),
+      });
+      if (!res.ok) {
+        setFieldsSaveState("error");
+        return;
+      }
+      setFieldsSaveState("saved");
+      setFieldsDirty(false);
+    } catch {
+      setFieldsSaveState("error");
+    }
+  }
+
+  async function handleConfirm() {
+    setConfirmState("confirming");
+    try {
+      const res = await fetch(`${apiUrl}/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateItemId }),
+      });
+      if (!res.ok) {
+        setConfirmState("error");
+        return;
+      }
+      const data: { feedback: FeedbackDto } = await res.json();
+      applyFeedback(data.feedback);
+      setConfirmState("idle");
+    } catch {
+      setConfirmState("error");
     }
   }
 
@@ -91,6 +210,22 @@ export function StepFeedback({
             <p className="step-feedback__error" role="status">
               불러오지 못했습니다 — 다시 시도해주세요.
             </p>
+          ) : confirmed ? (
+            <div className="step-feedback__confirmed">
+              <span className="step-feedback__confirmed-badge" role="status">
+                확정됨
+              </span>
+              <dl className="step-feedback__summary">
+                <dt>상황 설명</dt>
+                <dd>{situation}</dd>
+                <dt>대처 결과</dt>
+                <dd>{outcome === "well_handled" ? "잘 대처됨" : "잘못 대처됨"}</dd>
+                <dt>사후 판단</dt>
+                <dd>{rationale}</dd>
+                <dt>태그</dt>
+                <dd>{tagsText || "—"}</dd>
+              </dl>
+            </div>
           ) : (
             <>
               <textarea
@@ -98,7 +233,7 @@ export function StepFeedback({
                 rows={4}
                 placeholder="있었던 일을 그대로 적으세요"
                 value={content}
-                onChange={(e) => handleChange(e.target.value)}
+                onChange={(e) => handleContentChange(e.target.value)}
                 disabled={fetchState === "loading"}
               />
               <div className="step-feedback__actions">
@@ -121,6 +256,123 @@ export function StepFeedback({
                   </span>
                 ) : null}
               </div>
+
+              {status === "draft" ? (
+                <div className="step-feedback__structure-section">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={handleStructure}
+                    disabled={structureState === "structuring"}
+                  >
+                    {structureState === "structuring" ? "구조화 중…" : "자동 구조화"}
+                  </button>
+                  {structureState === "error" ? (
+                    <span className="step-feedback__error" role="status">
+                      구조화하지 못했습니다 — 다시 시도해주세요.
+                    </span>
+                  ) : null}
+
+                  {hasStructuredDraft ? (
+                    <div className="step-feedback__fields">
+                      <label className="step-feedback__field-label" htmlFor={`situation-${templateItemId}`}>
+                        상황 설명
+                      </label>
+                      <textarea
+                        id={`situation-${templateItemId}`}
+                        className="input step-feedback__textarea"
+                        rows={3}
+                        value={situation}
+                        onChange={(e) => handleFieldChange(setSituation)(e.target.value)}
+                      />
+
+                      <span className="step-feedback__field-label">대처 결과</span>
+                      <div className="step-feedback__outcome-toggle">
+                        <button
+                          type="button"
+                          className={`step-feedback__outcome-option${
+                            outcome === "well_handled" ? " step-feedback__outcome-option--selected" : ""
+                          }`}
+                          onClick={() => handleFieldChange(setOutcome)("well_handled")}
+                        >
+                          잘 대처됨
+                        </button>
+                        <button
+                          type="button"
+                          className={`step-feedback__outcome-option${
+                            outcome === "mishandled" ? " step-feedback__outcome-option--selected" : ""
+                          }`}
+                          onClick={() => handleFieldChange(setOutcome)("mishandled")}
+                        >
+                          잘못 대처됨
+                        </button>
+                      </div>
+
+                      <label className="step-feedback__field-label" htmlFor={`rationale-${templateItemId}`}>
+                        사후 판단
+                      </label>
+                      <textarea
+                        id={`rationale-${templateItemId}`}
+                        className="input step-feedback__textarea"
+                        rows={3}
+                        value={rationale}
+                        onChange={(e) => handleFieldChange(setRationale)(e.target.value)}
+                      />
+
+                      <label className="step-feedback__field-label" htmlFor={`tags-${templateItemId}`}>
+                        태그(콤마로 구분)
+                      </label>
+                      <input
+                        id={`tags-${templateItemId}`}
+                        className="input"
+                        value={tagsText}
+                        onChange={(e) => handleFieldChange(setTagsText)(e.target.value)}
+                      />
+
+                      <div className="step-feedback__actions">
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={handleSaveFields}
+                          disabled={fieldsSaveState === "saving"}
+                        >
+                          {fieldsSaveState === "saving" ? "저장 중…" : "필드 저장"}
+                        </button>
+                        {fieldsSaveState === "saved" ? (
+                          <span className="step-feedback__saved-hint" role="status">
+                            임시저장됨
+                          </span>
+                        ) : null}
+                        {fieldsSaveState === "error" ? (
+                          <span className="step-feedback__error" role="status">
+                            저장하지 못했습니다 — 다시 시도해주세요.
+                          </span>
+                        ) : null}
+
+                        <button
+                          type="button"
+                          className="btn-primary"
+                          onClick={handleConfirm}
+                          disabled={
+                            confirmState === "confirming" ||
+                            fieldsDirty ||
+                            situation.trim().length === 0 ||
+                            outcome === "" ||
+                            rationale.trim().length === 0
+                          }
+                        >
+                          {confirmState === "confirming" ? "확정 중…" : "확정"}
+                        </button>
+                        {confirmState === "error" ? (
+                          <span className="step-feedback__error" role="status">
+                            확정하지 못했습니다 — 다시 시도해주세요.
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </>
           )}
         </div>

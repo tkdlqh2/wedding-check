@@ -6,3 +6,36 @@
 export function normalizePhoneNumber(phoneNumber: string): string {
   return phoneNumber.replace(/\D/g, "");
 }
+
+/**
+ * Story 5.7 AC 3: 회원 목록 표시 전용 포맷 — 저장/조회는 계속 숫자만(normalizePhoneNumber)
+ * 쓰고, 이 함수는 화면 표시 직전에만 적용한다. 11자리(휴대전화)는 3-4-4, 10자리(구형
+ * 번호대)는 3-3-4로 나눈다. 그 외 길이는 원본을 그대로 반환한다(방어적 폴백 — 저장된
+ * 값을 훼손하지 않음).
+ *
+ * 코덱스 리뷰 P2: 서울 지역번호(02)는 2자리라 일반 3자리 지역번호 규칙(3-3-4)을 그대로
+ * 적용하면 틀린다(예: 0212345678 → "021-234-5678"은 잘못됨, 실제로는 "02-1234-5678") —
+ * "02"로 시작하는 9자리/10자리는 별도로 2자리 지역번호 기준(2-3-4/2-4-4)으로 나눈다.
+ */
+export function formatPhoneNumberDisplay(phoneNumber: string | null | undefined): string {
+  if (!phoneNumber) return "전화번호 미등록";
+  const digits = normalizePhoneNumber(phoneNumber);
+
+  if (digits.startsWith("02")) {
+    if (digits.length === 9) {
+      return `${digits.slice(0, 2)}-${digits.slice(2, 5)}-${digits.slice(5)}`;
+    }
+    if (digits.length === 10) {
+      return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6)}`;
+    }
+    return phoneNumber;
+  }
+
+  if (digits.length === 11) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  return phoneNumber;
+}

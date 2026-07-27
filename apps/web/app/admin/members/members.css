@@ -20,6 +20,83 @@
   margin-top: var(--space-lg);
 }
 
+/* Story 5.7 AC 6: 폼 카드가 좁은 화면(태블릿 이하)에서 컨테이너 밖으로 밀리지 않도록
+   단일 컬럼으로 전환. DESIGN.md §8 Tablet 브레이크포인트(768~1024px) 기준. */
+@media (max-width: 1024px) {
+  .members-page__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.members-page__list-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+/* Story 5.7: 이름 검색 — GET 폼으로 쿼리 파라미터(q)를 그대로 URL에 실어, 이 프로젝트의
+   기존 필터 패턴(showInactive, ceremonies의 date/year/month)과 동일하게 서버에서
+   처리한다(클라이언트 상태 없음). */
+.members-page__search {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.members-page__search-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-mid);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.members-page__search-input:focus {
+  outline: none;
+  border-color: var(--color-brand);
+}
+
+/* Story 5.7 AC 4: 전체/활성/비활성 요약 + 비활성 보기/숨기기 토글. */
+.members-page__summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface-soft);
+  border-radius: var(--radius-md);
+}
+
+.members-page__summary-total {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.members-page__summary-breakdown {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.members-page__summary-toggle {
+  margin-left: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-mid);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.members-page__summary-toggle:hover {
+  background: var(--color-surface-soft);
+}
+
 .members-page__form-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border-light);
@@ -52,6 +129,29 @@
   margin: 0;
 }
 
+/* Story 5.7 AC 1: 회원 등록 폼의 역할 선택 pill 토글 — prototype/js/screens/
+   MemberScreen.js 45~49행 시각 참고, 색상은 토큰으로 치환. */
+.member-form__role-toggle {
+  display: flex;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.member-form__role-pill {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-mid);
+  border-radius: var(--radius-full);
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.member-form__role-pill--active {
+  background: var(--color-brand-tint);
+  border-color: var(--color-brand);
+}
+
 .member-list {
   list-style: none;
   margin: 0;
@@ -68,6 +168,7 @@
   gap: var(--space-md);
   padding: var(--space-md) var(--space-lg);
   border-bottom: 1px solid var(--color-border-light);
+  flex-wrap: wrap;
 }
 
 .member-row:last-child {
@@ -105,12 +206,14 @@
   display: flex;
   align-items: center;
   gap: var(--space-xs);
+  flex-wrap: wrap;
 }
 
 .member-row__name {
   font-size: 16px;
   font-weight: 600;
   color: var(--color-text-primary);
+  overflow-wrap: anywhere;
 }
 
 .member-row__role-badge {
@@ -145,9 +248,134 @@
 
 .member-row__actions {
   flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
 }
 
-.member-row__self-hint {
+.member-row__self-badge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  height: 32px;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--color-text-muted);
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-full);
+  padding: 0 10px;
+}
+
+/* prototype/js/screens/MemberScreen.js 76~80행 참고 — 흰 배경에 액션 의미를 색으로
+   표시(비활성화=error, 다시 활성화=success). 기존 .btn-secondary(중립 회색)와 달리
+   이 두 버튼은 되돌릴 수 있는지 여부가 갈리는 위험 액션이라 상태색을 그대로 쓴다. */
+.member-row__deactivate-btn {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  height: 32px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-sm);
+  padding: 0 14px;
   font-size: 13px;
+  font-weight: 600;
+  color: var(--color-error);
+}
+
+.member-row__deactivate-btn:hover {
+  background: var(--color-surface-soft);
+}
+
+.member-row__reactivate-btn {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  height: 32px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-success);
+  border-radius: var(--radius-sm);
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-success);
+}
+
+.member-row__reactivate-btn:hover {
+  background: var(--color-surface-soft);
+}
+
+/* Story 5.7 AC 2: 오퍼레이터/관리자 세그먼트 컨트롤 — prototype/js/screens/
+   MemberScreen.js 71~75행의 다크 세그먼트 시각을 토큰으로 치환. */
+.member-row__role-segment {
+  display: flex;
+  border: 1px solid var(--color-border-mid);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.member-row__role-segment-btn {
+  border: none;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+}
+
+.member-row__role-segment-btn:hover {
+  background: var(--color-surface-soft);
+}
+
+.member-row__role-segment-btn--active {
+  background: var(--color-text-primary);
+  color: #ffffff;
+}
+
+.member-row__role-locked-hint {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  max-width: 160px;
+}
+
+/* Story 5.7 AC 5 — apps/web/app/admin/ceremonies/ceremonies.css의
+   .ceremony-pagination* 클래스와 동일한 스타일 값(파일이 달라 클래스는 복제). */
+.member-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+}
+
+.member-pagination__btn {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-mid);
+  border-radius: var(--radius-md);
+  padding: 8px var(--space-md);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.member-pagination__btn:hover {
+  background: var(--color-surface-soft);
+}
+
+.member-pagination__btn--disabled {
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
+.member-pagination__status {
+  font-size: 13px;
+  color: var(--color-text-muted);
 }

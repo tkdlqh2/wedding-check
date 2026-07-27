@@ -22,7 +22,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <header className="admin-nav">
         <div className="admin-nav__logo">웨딩체크</div>
         <nav className="admin-nav__links">
-          <span className="admin-nav__link admin-nav__link--placeholder">템플릿</span>
+          <Link href="/admin/halls" className="admin-nav__link">
+            홀
+          </Link>
+          <Link href="/admin/halls" className="admin-nav__link">
+            템플릿
+          </Link>
           <Link href="/admin/ceremonies" className="admin-nav__link">
             예식
           </Link>

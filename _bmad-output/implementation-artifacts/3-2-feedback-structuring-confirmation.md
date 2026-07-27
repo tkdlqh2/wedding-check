@@ -4,7 +4,7 @@ baseline_commit: 4108d43
 
 # Story 3.2: 자동 구조화 및 확정 (FR-9, AD-8)
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 

@@ -52,6 +52,83 @@
   color: var(--color-text-disabled);
 }
 
+/* Story 5.6 — "새 예식 등록" CTA(예식 탭과 중복 경로) 대신 계정 메뉴(비밀번호 변경/로그아웃). */
+.admin-nav__account {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.admin-nav__account .btn-secondary {
+  padding: 10px var(--space-md);
+  font-size: 14px;
+}
+
+.account-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(31, 31, 31, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md);
+  z-index: 100;
+}
+
+.account-modal {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-modal);
+  padding: var(--space-lg);
+  width: 100%;
+  max-width: 360px;
+  animation: account-modal-enter var(--motion-slow, 300ms) var(--ease-enter, cubic-bezier(0, 0, 0.2, 1));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account-modal {
+    animation: none;
+  }
+}
+
+@keyframes account-modal-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.account-modal h2 {
+  font-size: 18px;
+  margin: 0 0 var(--space-md);
+}
+
+.account-modal__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.account-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.account-modal__success {
+  color: var(--color-success);
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 var(--space-md);
+}
+
 .admin-content {
   min-height: 0;
 }

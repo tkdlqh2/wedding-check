@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { listCeremoniesForDate, listCeremonyDatesForMonth } from "@/lib/services/ceremony";
 import { CeremonyCalendar } from "../admin/ceremonies/ceremony-calendar";
-import { isCeremonyDone } from "@/lib/ceremony-status";
+import { asCeremonyStatus, CEREMONY_STATUS_LABELS } from "@/lib/ceremony-status";
 import "../admin/ceremonies/ceremonies.css";
 import "./operator-home.css";
 
@@ -108,14 +108,9 @@ export default async function OperatorHomePage({
       ) : (
         <ul className="operator-ceremony-list">
           {ceremonies.map((ceremony) => {
-            const isDone = isCeremonyDone(ceremony.ceremonyAt);
+            const status = asCeremonyStatus(ceremony.status);
             return (
-              <li
-                key={ceremony.id}
-                className={
-                  "operator-ceremony-card" + (isDone ? " operator-ceremony-card--done" : "")
-                }
-              >
+              <li key={ceremony.id} className={"operator-ceremony-card operator-ceremony-card--" + status}>
                 <div className="operator-ceremony-card__body">
                   <span className="operator-ceremony-card__title">
                     {timeFormatter.format(ceremony.ceremonyAt)}
@@ -138,11 +133,11 @@ export default async function OperatorHomePage({
                 <div className="operator-ceremony-card__side">
                   <span
                     className={
-                      "operator-ceremony-card__status-badge" +
-                      (isDone ? " operator-ceremony-card__status-badge--done" : "")
+                      "operator-ceremony-card__status-badge operator-ceremony-card__status-badge--" +
+                      status
                     }
                   >
-                    {isDone ? "완료" : "예정"}
+                    {CEREMONY_STATUS_LABELS[status]}
                   </span>
                   <Link
                     href={`/operator/ceremonies/${ceremony.hallId}/${ceremony.id}`}

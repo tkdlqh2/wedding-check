@@ -160,6 +160,11 @@
   border-left-color: var(--color-success);
 }
 
+/* 진행중 — DESIGN.md §2 상태색(주황 = 진행중), 배지 텍스트는 #1F1F1F(§4 Status Badge). */
+.ceremony-card--ongoing {
+  border-left-color: var(--color-warning);
+}
+
 .ceremony-card__body {
   display: flex;
   flex-direction: column;
@@ -244,6 +249,12 @@
   background: var(--color-success);
   border-color: transparent;
   color: #ffffff;
+}
+
+.ceremony-card__status-badge--ongoing {
+  background: var(--color-warning);
+  border-color: transparent;
+  color: var(--color-text-primary);
 }
 
 /* Story 5.2 — 예식 날짜 필터 캘린더. prototype/js/screens/WeddingScreen.js와 동일한

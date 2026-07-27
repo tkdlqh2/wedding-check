@@ -52,6 +52,12 @@
   color: #ffffff;
 }
 
+.ceremony-detail-page__status-badge--ongoing {
+  background: var(--color-warning);
+  border-color: transparent;
+  color: var(--color-text-primary);
+}
+
 .ceremony-detail-page__meta {
   font-size: 14px;
   color: var(--color-text-secondary);
@@ -406,8 +412,8 @@
   min-width: 0;
 }
 
-/* "긴 설명" 태그 — 템플릿 편집기 .checklist-item-card__tag와 동일 톤(설명 전문은
-   "수정"을 눌러야 나타난다). */
+/* "긴 설명"/"▶ 시연 영상" 태그 — 템플릿 편집기 .checklist-item-card__tag와 동일 톤
+   (설명 전문과 영상은 "수정"을 눌러야 나타난다). */
 .instance-item-card__tag {
   background: var(--color-surface-soft);
   border: 1px solid var(--color-border-light);
@@ -417,6 +423,12 @@
   font-size: 12px;
   font-weight: 600;
   flex-shrink: 0;
+}
+
+.instance-item-card__tag--video {
+  background: color-mix(in srgb, var(--color-info) 10%, white);
+  border-color: transparent;
+  color: var(--color-info);
 }
 
 .instance-item-card--editing {
@@ -451,6 +463,45 @@
   display: flex;
   justify-content: flex-end;
   gap: var(--space-sm);
+}
+
+/* 시연 영상 섹션 — 템플릿 편집기(checklist-item-form-panel)의 영상 패턴 그대로. */
+.instance-item-form-panel__video {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.instance-item-form-panel__video-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.instance-item-form-panel__video video {
+  max-width: 100%;
+  border-radius: var(--radius-md);
+}
+
+.instance-item-form-panel__video-empty {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+/* VideoUpload 컴포넌트(템플릿 공용)가 렌더링하는 클래스 — templates.css와 동일 정의
+   (이 페이지는 templates.css를 로드하지 않으므로 여기서 한 번 더 정의). */
+.video-upload {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.video-upload__notice {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  margin: 0;
 }
 
 .instance-item-form {

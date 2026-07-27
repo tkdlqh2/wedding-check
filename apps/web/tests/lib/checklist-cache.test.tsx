@@ -19,6 +19,7 @@ describe("checklist-cache", () => {
         contractConditions: {},
         groomName: "김신랑",
         brideName: "이신부",
+        status: "upcoming",
       },
       items: [
         {
@@ -50,6 +51,7 @@ describe("checklist-cache", () => {
         contractConditions: {},
         groomName: null,
         brideName: null,
+        status: "upcoming",
       },
       items: [],
     });
@@ -60,6 +62,7 @@ describe("checklist-cache", () => {
         contractConditions: {},
         groomName: null,
         brideName: null,
+        status: "upcoming",
       },
       items: [],
     });

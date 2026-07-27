@@ -141,6 +141,13 @@
       "when": 1785225601000,
       "tag": "0019_ceremony-assignees",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1785225602000,
+      "tag": "0020_ceremony-status",
+      "breakpoints": true
     }
   ]
 }

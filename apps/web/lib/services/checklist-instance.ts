@@ -3,7 +3,7 @@ import * as templateItemRepo from "../db/repositories/template-item";
 import * as checklistItemRepo from "../db/repositories/checklist-item";
 import * as ceremonyRepo from "../db/repositories/ceremony";
 import * as demoVideoRepo from "../db/repositories/demo-video";
-import { isCeremonyDone } from "../ceremony-status";
+import { isEditableStatus } from "../ceremony-status";
 import type { Ceremony } from "../db/repositories/ceremony";
 import type {
   ChecklistInstance,
@@ -13,10 +13,34 @@ import type {
 
 export class ChecklistInstanceValidationError extends Error {}
 
+// 시연 영상은 템플릿의 체크리스트 항목(demo_videos.checklistItemId)에 붙는다 — 인스턴스
+// 항목은 templateItemCheckId 소프트 참조로 그 영상을 조회해 함께 보여준다(관리자 상세
+// 편집 폼과 오퍼레이터 실행 화면 둘 다). 원본이 삭제됐거나 영상이 없으면 null.
+export type ChecklistInstanceItemWithVideo = ChecklistInstanceItem & {
+  videoUrl: string | null;
+};
+
+async function withVideoUrls(
+  hallId: string,
+  items: ChecklistInstanceItem[],
+): Promise<ChecklistInstanceItemWithVideo[]> {
+  const checkIds = items
+    .map((item) => item.templateItemCheckId)
+    .filter((id): id is string => id !== null);
+  const videos = await demoVideoRepo.findByChecklistItemIds(hallId, checkIds);
+  const videoByCheckId = new Map(videos.map((v) => [v.checklistItemId, v.videoUrl]));
+  return items.map((item) => ({
+    ...item,
+    videoUrl: item.templateItemCheckId
+      ? (videoByCheckId.get(item.templateItemCheckId) ?? null)
+      : null,
+  }));
+}
+
 export type CeremonyDetail = {
   ceremony: Ceremony;
   instance: ChecklistInstance;
-  items: ChecklistInstanceItem[];
+  items: ChecklistInstanceItemWithVideo[];
   candidates: CandidateChecklistItem[];
 };
 
@@ -28,25 +52,20 @@ async function requireInstance(hallId: string, ceremonyId: string): Promise<Chec
   return instance;
 }
 
-// 대표 지시(2026-07-27) + 프로토타입 WeddingDetailScreen.js의 editable = status !== 'done'
-// 원칙: 종료된(예식 일시가 지난) 예식의 체크리스트는 수정할 수 없다 — 이 예식의 기록은
-// 그대로 보존되어야 한다. 모든 변경 계열 함수가 이 가드를 거친다(조회는 무관).
+// 대표 지시(2026-07-27): 예정이 아닌 예식(진행중·종료)의 체크리스트는 수정할 수 없다 —
+// 라이브 예식과 지난 예식의 기록은 그대로 보존되어야 한다. 모든 변경 계열 함수가 이
+// 가드를 거친다(조회는 무관).
 async function requireEditableCeremony(hallId: string, ceremonyId: string): Promise<void> {
   const ceremony = await ceremonyRepo.findById(hallId, ceremonyId);
   if (!ceremony) {
     throw new ChecklistInstanceValidationError("존재하지 않는 예식입니다");
   }
-  if (isCeremonyDone(ceremony.ceremonyAt)) {
-    throw new ChecklistInstanceValidationError("종료된 예식은 수정할 수 없습니다");
+  if (!isEditableStatus(ceremony.status)) {
+    throw new ChecklistInstanceValidationError("진행 중이거나 종료된 예식은 수정할 수 없습니다");
   }
 }
 
-export type OperatorInstanceItem = ChecklistInstanceItem & {
-  // 실행 화면 "상세" 펼침에서 재생할 시연 영상(FR-3) — 인스턴스 항목의
-  // templateItemCheckId(원본 체크리스트 항목 소프트 참조)로 demo_videos를 조회해
-  // 병합한다. 원본이 삭제됐거나 영상이 없으면 null.
-  videoUrl: string | null;
-};
+export type OperatorInstanceItem = ChecklistInstanceItemWithVideo;
 
 export type OperatorInstanceView = {
   ceremony: Ceremony;
@@ -66,20 +85,7 @@ export async function getOperatorInstanceView(
   }
   const instance = await requireInstance(hallId, ceremonyId);
   const items = await instanceRepo.listItems(hallId, instance.id);
-  const checkIds = items
-    .map((item) => item.templateItemCheckId)
-    .filter((id): id is string => id !== null);
-  const videos = await demoVideoRepo.findByChecklistItemIds(hallId, checkIds);
-  const videoByCheckId = new Map(videos.map((v) => [v.checklistItemId, v.videoUrl]));
-  return {
-    ceremony,
-    items: items.map((item) => ({
-      ...item,
-      videoUrl: item.templateItemCheckId
-        ? (videoByCheckId.get(item.templateItemCheckId) ?? null)
-        : null,
-    })),
-  };
+  return { ceremony, items: await withVideoUrls(hallId, items) };
 }
 
 export async function getCeremonyDetail(hallId: string, ceremonyId: string): Promise<CeremonyDetail> {
@@ -97,7 +103,7 @@ export async function getCeremonyDetail(hallId: string, ceremonyId: string): Pro
     instanceRepo.listItems(hallId, instance.id),
     instanceRepo.listCandidateChecklistItems(hallId, instance.id),
   ]);
-  return { ceremony, instance, items, candidates };
+  return { ceremony, instance, items: await withVideoUrls(hallId, items), candidates };
 }
 
 // AD-2 2-hop 재검증: instanceId만으로 항목 추가를 허용하지 않는다. instance와

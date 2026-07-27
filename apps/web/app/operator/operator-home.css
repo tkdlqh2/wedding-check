@@ -54,6 +54,10 @@
   border-left-color: var(--color-success);
 }
 
+.operator-ceremony-card--ongoing {
+  border-left-color: var(--color-warning);
+}
+
 .operator-ceremony-card__body {
   display: flex;
   flex-direction: column;
@@ -105,6 +109,12 @@
   background: var(--color-success);
   border-color: transparent;
   color: #ffffff;
+}
+
+.operator-ceremony-card__status-badge--ongoing {
+  background: var(--color-warning);
+  border-color: transparent;
+  color: var(--color-text-primary);
 }
 
 /* ≥44px 탭 타깃(태블릿, DESIGN.md §5) */

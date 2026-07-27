@@ -116,6 +116,30 @@ export async function findById(hallId: string, id: string): Promise<Ceremony | u
   });
 }
 
+// 예식 진행 상태 변경 — 서비스가 전환 규칙(upcoming→ongoing→done)을 검증한 뒤
+// 기대하는 현재 상태(expectedCurrent)와 함께 호출한다. WHERE에 현재 상태를 포함해
+// 두 오퍼레이터가 동시에 같은 전환을 눌러도 한 번만 적용된다(TOCTOU 방지 — 갱신된
+// 행 수를 반환해 서비스가 경합 패배를 감지할 수 있게 한다). AD-2 hallId 스코프.
+export async function updateStatus(
+  hallId: string,
+  id: string,
+  expectedCurrent: string,
+  nextStatus: string,
+): Promise<number> {
+  const rows = await db
+    .update(ceremonies)
+    .set({ status: nextStatus })
+    .where(
+      and(
+        eq(ceremonies.id, id),
+        eq(ceremonies.hallId, hallId),
+        eq(ceremonies.status, expectedCurrent),
+      ),
+    )
+    .returning();
+  return rows.length;
+}
+
 // FR-18 다중 배정(2026-07-27): ceremony_assignees 조인 테이블 기반. AD-2 — 모든
 // 쿼리에 hall_id 스코프.
 

@@ -6,6 +6,7 @@ import {
   updateInstanceItemAction,
   type InstanceItemFormState,
 } from "./actions";
+import { VideoUpload } from "../../../templates/[hallId]/video-upload";
 
 const initialState: InstanceItemFormState = {};
 
@@ -18,6 +19,7 @@ export function InstanceItemForm({
   hallId,
   ceremonyId,
   item,
+  blobEnabled,
   stepContext,
   isNewStep,
   onSuccess,
@@ -25,7 +27,14 @@ export function InstanceItemForm({
 }: {
   hallId: string;
   ceremonyId: string;
-  item?: { id: string; title: string; description: string | null };
+  item?: {
+    id: string;
+    title: string;
+    description: string | null;
+    templateItemCheckId?: string | null;
+    videoUrl?: string | null;
+  };
+  blobEnabled?: boolean;
   stepContext?: { templateItemId?: string | null; groupRootId?: string | null };
   isNewStep?: boolean;
   onSuccess?: () => void;
@@ -79,6 +88,33 @@ export function InstanceItemForm({
             placeholder="필요하면 자세한 설명을 남기세요"
           />
         </form>
+
+        {/* 템플릿 편집기(checklist-item-form.tsx)와 동일한 시연 영상 섹션 — 영상은
+            템플릿의 체크리스트 항목(demo_videos)에 붙으므로, 원본 항목이 살아 있는
+            (templateItemCheckId 유지) 항목만 재생/업로드할 수 있다. 여기서 업로드하면
+            홀 템플릿의 해당 항목 영상이 교체된다(영상은 예식별 사본이 아닌 공용 자산).
+            VideoUpload는 자체 <form>을 렌더링하므로 위 편집 폼 밖에 둔다. */}
+        <div className="instance-item-form-panel__video">
+          <span className="instance-item-form-panel__video-label">시연 영상</span>
+          {item.videoUrl ? (
+            <video controls preload="metadata" src={item.videoUrl} />
+          ) : (
+            <p className="instance-item-form-panel__video-empty">
+              {item.templateItemCheckId
+                ? "영상 없음"
+                : "영상 없음 — 이 예식에만 추가된 항목은 시연 영상을 붙일 수 없습니다"}
+            </p>
+          )}
+          {item.templateItemCheckId && (
+            <VideoUpload
+              hallId={hallId}
+              checklistItemId={item.templateItemCheckId}
+              blobEnabled={Boolean(blobEnabled)}
+              currentVideoUrl={item.videoUrl ?? undefined}
+            />
+          )}
+        </div>
+
         <div className="instance-item-form-panel__footer">
           <button type="button" className="btn-secondary" onClick={onCancel}>
             취소

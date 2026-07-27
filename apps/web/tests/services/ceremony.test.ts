@@ -8,6 +8,7 @@ import {
   listCeremonyDatesForMonth,
   toggleAssignee,
   listCeremonyAssignees,
+  setCeremonyStatus,
   CeremonyValidationError,
 } from "@/lib/services/ceremony";
 import { createMember } from "@/lib/services/member";
@@ -484,12 +485,41 @@ describe("toggleAssignee — 담당 오퍼레이터 다중 배정 (FR-18)", () =
   });
 });
 
-describe("toggleAssignee — 종료된 예식 수정 금지 (2026-07-27 대표 지시)", () => {
+describe("setCeremonyStatus — 오퍼레이터의 예식 시작/종료 (2026-07-27 대표 지시)", () => {
   beforeEach(async () => {
     await resetDb();
   });
 
-  it("종료된(예식 일시가 지난) 예식에는 담당자를 배정/해제할 수 없다", async () => {
+  it("upcoming → ongoing → done 순방향 전환만 허용된다", async () => {
+    const hall = await createTestHall();
+    const ceremony = await createCeremony({
+      hallId: hall.id,
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+    expect(ceremony.status).toBe("upcoming");
+
+    // 예정 상태에서 곧바로 done으로 건너뛸 수 없다.
+    await expect(setCeremonyStatus(hall.id, ceremony.id, "done")).rejects.toThrow(
+      CeremonyValidationError,
+    );
+
+    await setCeremonyStatus(hall.id, ceremony.id, "ongoing");
+    await setCeremonyStatus(hall.id, ceremony.id, "done");
+
+    const updated = await (await import("@/lib/db/repositories/ceremony")).findById(
+      hall.id,
+      ceremony.id,
+    );
+    expect(updated?.status).toBe("done");
+
+    // 종료된 예식은 되돌릴 수 없다.
+    await expect(setCeremonyStatus(hall.id, ceremony.id, "ongoing")).rejects.toThrow(
+      CeremonyValidationError,
+    );
+  });
+
+  it("진행중/종료 상태의 예식에는 담당자를 배정/해제할 수 없다", async () => {
     const hall = await createTestHall();
     const operator = await createMember({
       name: "오퍼레이터H",
@@ -498,12 +528,13 @@ describe("toggleAssignee — 종료된 예식 수정 금지 (2026-07-27 대표 �
     });
     const ceremony = await createCeremony({
       hallId: hall.id,
-      ceremonyAt: new Date("2020-01-01T05:00:00.000Z"),
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
       contractConditions: {},
     });
+    await setCeremonyStatus(hall.id, ceremony.id, "ongoing");
 
     await expect(toggleAssignee(hall.id, ceremony.id, operator.id)).rejects.toThrow(
-      "종료된 예식은 수정할 수 없습니다",
+      "진행 중이거나 종료된 예식은 수정할 수 없습니다",
     );
   });
 });

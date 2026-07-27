@@ -18,18 +18,18 @@ function nextMonth(year: number, month: number): { year: number; month: number }
 // 버튼 둘 다에 쓰인다. 월 이동이 선택된 날짜를 그대로 유지하면, 목록은 여전히 원래
 // 날짜로 필터링된 채인데 캘린더는 그 날짜가 보이지도 않는 달을 보여주는 상태가
 // 된다(코덱스 리뷰 P2) — 그래서 월 이동도 항상 날짜 필터를 초기화한다.
-function monthHref(year: number, month: number): string {
+function monthHref(basePath: string, year: number, month: number): string {
   const params = new URLSearchParams({ year: String(year), month: String(month) });
-  return `/admin/ceremonies?${params.toString()}`;
+  return `${basePath}?${params.toString()}`;
 }
 
-function dateHref(year: number, month: number, day: number): string {
+function dateHref(basePath: string, year: number, month: number, day: number): string {
   const params = new URLSearchParams({
     year: String(year),
     month: String(month),
     date: `${year}-${pad2(month)}-${pad2(day)}`,
   });
-  return `/admin/ceremonies?${params.toString()}`;
+  return `${basePath}?${params.toString()}`;
 }
 
 // Story 5.2 AC 1, 2, 4: 예식 등록 폼 오른쪽 월간 캘린더. 예식이 있는 날짜는 점으로 표시하고,
@@ -42,11 +42,15 @@ export function CeremonyCalendar({
   month,
   selectedDate,
   markedDates,
+  // 오퍼레이터 "담당 예식 일정"(/operator)도 동일 캘린더를 재사용한다 — 링크 목적지만
+  // 다르다(prototype ScheduleScreen.js의 캘린더와 동일 구조).
+  basePath = "/admin/ceremonies",
 }: {
   year: number;
   month: number;
   selectedDate?: string;
   markedDates: Set<string>;
+  basePath?: string;
 }) {
   const prev = prevMonth(year, month);
   const next = nextMonth(year, month);
@@ -64,14 +68,14 @@ export function CeremonyCalendar({
         <span className="ceremony-calendar__title">날짜로 필터</span>
         <span className="ceremony-calendar__hint">● 표시가 예식이 있는 날입니다</span>
         {selectedDate && (
-          <Link href={monthHref(year, month)} className="ceremony-calendar__clear">
+          <Link href={monthHref(basePath, year, month)} className="ceremony-calendar__clear">
             {month}월 {Number(selectedDate.slice(8))}일 ✕ 전체 보기
           </Link>
         )}
       </div>
       <div className="ceremony-calendar__nav">
         <Link
-          href={monthHref(prev.year, prev.month)}
+          href={monthHref(basePath, prev.year, prev.month)}
           className="ceremony-calendar__nav-btn"
           aria-label="이전 달"
         >
@@ -81,7 +85,7 @@ export function CeremonyCalendar({
           {year}년 {month}월
         </span>
         <Link
-          href={monthHref(next.year, next.month)}
+          href={monthHref(basePath, next.year, next.month)}
           className="ceremony-calendar__nav-btn"
           aria-label="다음 달"
         >
@@ -102,7 +106,7 @@ export function CeremonyCalendar({
           return (
             <Link
               key={iso}
-              href={isSelected ? monthHref(year, month) : dateHref(year, month, day)}
+              href={isSelected ? monthHref(basePath, year, month) : dateHref(basePath, year, month, day)}
               className={
                 "ceremony-calendar__cell" + (isSelected ? " ceremony-calendar__cell--selected" : "")
               }

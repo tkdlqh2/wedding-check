@@ -3,6 +3,7 @@ import * as templateItemRepo from "../db/repositories/template-item";
 import * as checklistItemRepo from "../db/repositories/checklist-item";
 import * as ceremonyRepo from "../db/repositories/ceremony";
 import * as demoVideoRepo from "../db/repositories/demo-video";
+import { isCeremonyDone } from "../ceremony-status";
 import type { Ceremony } from "../db/repositories/ceremony";
 import type {
   ChecklistInstance,
@@ -25,6 +26,19 @@ async function requireInstance(hallId: string, ceremonyId: string): Promise<Chec
     throw new ChecklistInstanceValidationError("존재하지 않는 예식입니다");
   }
   return instance;
+}
+
+// 대표 지시(2026-07-27) + 프로토타입 WeddingDetailScreen.js의 editable = status !== 'done'
+// 원칙: 종료된(예식 일시가 지난) 예식의 체크리스트는 수정할 수 없다 — 이 예식의 기록은
+// 그대로 보존되어야 한다. 모든 변경 계열 함수가 이 가드를 거친다(조회는 무관).
+async function requireEditableCeremony(hallId: string, ceremonyId: string): Promise<void> {
+  const ceremony = await ceremonyRepo.findById(hallId, ceremonyId);
+  if (!ceremony) {
+    throw new ChecklistInstanceValidationError("존재하지 않는 예식입니다");
+  }
+  if (isCeremonyDone(ceremony.ceremonyAt)) {
+    throw new ChecklistInstanceValidationError("종료된 예식은 수정할 수 없습니다");
+  }
 }
 
 export type OperatorInstanceItem = ChecklistInstanceItem & {
@@ -98,6 +112,7 @@ export async function addInstanceItem(
   ceremonyId: string,
   checklistItemId: string,
 ): Promise<ChecklistInstanceItem> {
+  await requireEditableCeremony(hallId, ceremonyId);
   const instance = await requireInstance(hallId, ceremonyId);
   const checklistItem = await checklistItemRepo.findById(hallId, checklistItemId);
   if (!checklistItem) {
@@ -121,6 +136,7 @@ export async function removeInstanceItem(
   ceremonyId: string,
   itemId: string,
 ): Promise<void> {
+  await requireEditableCeremony(hallId, ceremonyId);
   const instance = await requireInstance(hallId, ceremonyId);
   await instanceRepo.removeItem(hallId, instance.id, itemId);
 }
@@ -147,6 +163,7 @@ export async function addAdHocInstanceItem(
   }
   const description = input.description?.trim() || null;
 
+  await requireEditableCeremony(hallId, ceremonyId);
   const instance = await requireInstance(hallId, ceremonyId);
 
   let stepId: string | null = null;
@@ -204,6 +221,7 @@ export async function renameInstanceStep(
   if (!trimmed) {
     throw new ChecklistInstanceValidationError("단계 이름을 입력해주세요");
   }
+  await requireEditableCeremony(hallId, ceremonyId);
   const instance = await requireInstance(hallId, ceremonyId);
   const updated = await instanceRepo.renameStepGroup(hallId, instance.id, key, trimmed);
   if (updated === 0) {
@@ -216,6 +234,7 @@ export async function deleteInstanceStep(
   ceremonyId: string,
   key: instanceRepo.StepGroupKey,
 ): Promise<void> {
+  await requireEditableCeremony(hallId, ceremonyId);
   const instance = await requireInstance(hallId, ceremonyId);
   const deleted = await instanceRepo.deleteStepGroup(hallId, instance.id, key);
   if (deleted === 0) {
@@ -236,6 +255,7 @@ export async function updateInstanceItem(
   }
   const description = input.description?.trim() || null;
 
+  await requireEditableCeremony(hallId, ceremonyId);
   const instance = await requireInstance(hallId, ceremonyId);
   const updated = await instanceRepo.updateItem(hallId, instance.id, itemId, { title, description });
   if (!updated) {

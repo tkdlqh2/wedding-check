@@ -1,6 +1,7 @@
 import * as ceremonyRepo from "../db/repositories/ceremony";
 import * as hallRepo from "../db/repositories/hall";
 import * as memberRepo from "../db/repositories/member";
+import { isCeremonyDone } from "../ceremony-status";
 import type { Ceremony, CeremonyWithItemCount } from "../db/repositories/ceremony";
 
 export type { Ceremony, CeremonyWithItemCount };
@@ -105,6 +106,11 @@ export async function toggleAssignee(
   const ceremony = await ceremonyRepo.findById(hallId, ceremonyId);
   if (!ceremony) {
     throw new CeremonyValidationError("존재하지 않는 예식입니다");
+  }
+  // 대표 지시(2026-07-27): 예정이 아닌(종료된) 예식은 수정 불가 — 담당 배정도 그
+  // 예식의 기록이므로 잠근다(UI도 완료 예식 카드에서는 읽기 전용 표시).
+  if (isCeremonyDone(ceremony.ceremonyAt)) {
+    throw new CeremonyValidationError("종료된 예식은 수정할 수 없습니다");
   }
   const current = await ceremonyRepo.findAssigneesByCeremony(hallId, ceremonyId);
   if (current.some((a) => a.operatorId === operatorId)) {

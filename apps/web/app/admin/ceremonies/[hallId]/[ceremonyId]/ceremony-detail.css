@@ -63,6 +63,192 @@
   font-weight: 600;
 }
 
+/* 담당자 섹션 — 배정된 이름은 읽기 전용, 배정/해제는 검색+체크박스 대화상자(2026-07-27
+   대표 피드백). */
+.assignee-section {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  margin-top: var(--space-md);
+}
+
+.assignee-section__label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.assignee-section__names {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.assignee-section__unassigned {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-error);
+}
+
+.assignee-section__open {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+/* 담당자 지정 대화상자 — account-menu의 .account-modal* 패턴(오버레이+motion-slow 진입
+   +reduce-motion 대응)과 동일. */
+.assignee-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(31, 31, 31, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md);
+  z-index: 100;
+}
+
+.assignee-modal {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-modal);
+  padding: var(--space-lg);
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  animation: assignee-modal-enter var(--motion-slow, 300ms) var(--ease-enter, cubic-bezier(0, 0, 0.2, 1));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .assignee-modal {
+    animation: none;
+  }
+}
+
+@keyframes assignee-modal-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.assignee-modal h2 {
+  font-size: 18px;
+  margin: 0;
+}
+
+.assignee-modal__hint {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.assignee-modal__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+}
+
+/* 체크박스 행 — 행 전체가 ≥44px 탭 타깃, 체크 시 브랜드 틴트로 상태를 분명히. */
+.assignee-modal__option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  min-height: 48px;
+  cursor: pointer;
+  background: var(--color-surface);
+  border: none;
+  border-bottom: 1px solid var(--color-border-light);
+  padding: var(--space-sm) var(--space-md);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  text-align: left;
+}
+
+.assignee-modal__list li:last-child .assignee-modal__option {
+  border-bottom: none;
+}
+
+.assignee-modal__option:hover:not(:disabled) {
+  background: var(--color-surface-soft);
+}
+
+.assignee-modal__option--checked {
+  background: var(--color-brand-tint);
+}
+
+.assignee-modal__option--checked:hover:not(:disabled) {
+  background: var(--color-brand-tint);
+}
+
+.assignee-modal__option:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.assignee-modal__checkbox {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--color-border-mid);
+  background: var(--color-surface);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.assignee-modal__checkbox--checked {
+  border-color: var(--color-brand);
+  background: var(--color-brand);
+}
+
+.assignee-modal__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* 배정 후 비활성화/역할 변경된 계정 — 정리 필요 상태를 warning 톤 태그로 표시하되
+   체크 해제는 계속 가능(해제 수단 보존). */
+.assignee-modal__stale-tag {
+  margin-left: auto;
+  flex: none;
+  background: color-mix(in srgb, var(--color-warning) 12%, white);
+  border: 1px solid var(--color-warning);
+  color: var(--color-warning);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.assignee-modal__empty {
+  padding: var(--space-md);
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.assignee-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
 /* 프로토타입 25행 — "이 예식에만 반영" 경고 톤 안내 박스. 프로토타입의 옅은 주황
    배경은 DESIGN.md 팔레트에 없어, 임의 hex 대신 승인된 warning 토큰에서 파생한다. */
 .ceremony-detail-page__notice {
@@ -78,6 +264,13 @@
 
 .ceremony-detail-page__notice strong {
   color: var(--color-text-primary);
+}
+
+/* 종료된 예식(읽기 전용) — 프로토타입 27행의 중립 톤 안내. */
+.ceremony-detail-page__notice--readonly {
+  background: var(--color-surface-soft);
+  border-color: var(--color-border-light);
+  color: var(--color-text-muted);
 }
 
 .ceremony-detail-page__empty {

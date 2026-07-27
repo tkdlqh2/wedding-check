@@ -11,10 +11,13 @@ export function InstanceItemRow({
   hallId,
   ceremonyId,
   item,
+  readOnly,
 }: {
   hallId: string;
   ceremonyId: string;
   item: { id: string; title: string; description: string | null };
+  // 종료된 예식(2026-07-27 대표 지시) — 수정/삭제 버튼을 숨긴다(서비스도 거부).
+  readOnly?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
 
@@ -38,6 +41,7 @@ export function InstanceItemRow({
         <span className="instance-item-card__name">{item.title}</span>
         {item.description && <span className="instance-item-card__tag">긴 설명</span>}
       </div>
+      {readOnly ? null : (
       <div className="instance-item-card__actions">
         <button type="button" className="btn-secondary" onClick={() => setEditing(true)}>
           수정
@@ -58,6 +62,7 @@ export function InstanceItemRow({
           </button>
         </form>
       </div>
+      )}
     </li>
   );
 }

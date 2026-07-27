@@ -477,3 +477,59 @@ describe("renameInstanceStep / deleteInstanceStep — 이 예식 스냅샷의 �
     expect(items).toHaveLength(0);
   });
 });
+
+describe("종료된 예식 수정 금지 (2026-07-27 대표 지시)", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  async function createDoneCeremony(hallId: string) {
+    // 예식 일시가 과거 — isCeremonyDone 기준 종료 상태.
+    return ceremonyRepo.create(hallId, {
+      ceremonyAt: new Date("2020-01-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+  }
+
+  it("종료된 예식에는 ad-hoc 항목을 추가할 수 없다", async () => {
+    const hall = await createTestHall();
+    const { ceremonyId } = await createDoneCeremony(hall.id);
+
+    await expect(
+      addAdHocInstanceItem(hall.id, ceremonyId, {
+        title: "항목",
+        description: null,
+        stepName: "새 단계",
+      }),
+    ).rejects.toThrow("종료된 예식은 수정할 수 없습니다");
+  });
+
+  it("종료된 예식의 항목은 수정/삭제할 수 없다", async () => {
+    const hall = await createTestHall();
+    const step = await createTestTemplateItem(hall.id, { stepName: "개식사" });
+    await createTestChecklistItem(hall.id, step.id, { title: "조명" });
+    const { ceremonyId, instanceId } = await createDoneCeremony(hall.id);
+    const [item] = await instanceRepo.listItems(hall.id, instanceId);
+
+    await expect(
+      updateInstanceItem(hall.id, ceremonyId, item.id, { title: "변경", description: null }),
+    ).rejects.toThrow("종료된 예식은 수정할 수 없습니다");
+    await expect(removeInstanceItem(hall.id, ceremonyId, item.id)).rejects.toThrow(
+      "종료된 예식은 수정할 수 없습니다",
+    );
+  });
+
+  it("종료된 예식의 단계는 이름 변경/삭제할 수 없다", async () => {
+    const hall = await createTestHall();
+    const step = await createTestTemplateItem(hall.id, { stepName: "개식사" });
+    await createTestChecklistItem(hall.id, step.id, { title: "조명" });
+    const { ceremonyId } = await createDoneCeremony(hall.id);
+
+    await expect(
+      renameInstanceStep(hall.id, ceremonyId, { templateItemId: step.id }, "새 이름"),
+    ).rejects.toThrow("종료된 예식은 수정할 수 없습니다");
+    await expect(
+      deleteInstanceStep(hall.id, ceremonyId, { templateItemId: step.id }),
+    ).rejects.toThrow("종료된 예식은 수정할 수 없습니다");
+  });
+});

@@ -409,23 +409,12 @@
   font-size: 14px;
 }
 
-/* UX-DR11: Tablet/iPad(768-1024px) — 실행 화면은 태블릿 네이티브 존. .operator-shell을
-   height로 고정해 하단 내비가 항상 화면 안에 머물고, 콘텐츠는 내부 스크롤(Story 2.3
-   코덱스 리뷰 P2 반영 — .operator-content에 또 100dvh를 주면 내비가 밀려났다). */
+/* UX-DR11: Tablet/iPad(768-1024px) — 실행 화면은 태블릿 네이티브 존. 하단 내비 제거
+   (2026-07-27 대표 피드백) 후에는 상단 스티키 헤더 + 일반 문서 스크롤로 충분해, 기존의
+   .operator-shell 높이 고정/내부 스크롤 장치(하단 내비를 화면 안에 붙잡아두던 용도)는
+   함께 제거했다. 이 breakpoint에서는 콘텐츠 폭만 넓게 쓴다. */
 @media (min-width: 768px) and (max-width: 1024px) {
-  .operator-shell {
-    height: 100dvh;
-  }
-
-  .operator-content {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
   .operator-instance-page {
-    flex: 1;
-    overflow-y: auto;
     max-width: none;
   }
 }

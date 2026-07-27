@@ -64,8 +64,8 @@ so that 정해진 폼을 채우는 부담 없이 겪은 변수 상황을 기록�
     - `POST`: body `{ templateItemId: string, content: string }`. 나머지 가드는 GET과 동일. `saveDraftFeedback` 호출 → `{ feedback: result }`. `FeedbackValidationError`는 400(`{ error: { code: "invalid_input", message } }`) — 존재하지 않는 예식/단계는 404가 더 정확하지만, 이 라우트는 URL의 hallId/ceremonyId가 이미 페이지 진입 시점에 검증된 값이라 실무상 거의 항상 "빈 내용" 케이스만 발생한다. 코드 값으로 구분하고 싶으면 에러 메시지 매칭 대신 `FeedbackValidationError`에 `code` 필드를 추가해도 되지만 과설계이므로 하지 않는다 — 메시지를 그대로 노출해 400 하나로 통일.
     - API 오류 응답 형식은 스파인 Consistency Conventions의 `{ error: { code, message } }` 단일 봉투를 그대로 따른다.
 
-- [ ] Task 5: 오퍼레이터 화면에 피드백 입력 UI 추가 (AC: 1, 2, 3)
-  - [ ] `apps/web/app/operator/ceremonies/[hallId]/[ceremonyId]/checklist-instance-view.tsx` 수정: 각 단계 그룹(`<section className="checklist-step-group">`) 안, 체크리스트 타일 그리드 아래에 피드백 진입 UI를 추가한다. **[ASSUMPTION] 별도 페이지/폼 대신 각 단계 그룹에 인라인으로 붙인다** — URL이 이미 예식을 특정하고(`ceremonyId`), 그룹이 이미 단계를 특정하므로(`templateItemId`) "예식/단계 선택"(AC 1)이 화면 이동 없이 자연스럽게 충족된다(DESIGN.md 원칙 1 "헤매거나 긴 글을 읽게 하지 않는다"와 부합).
+- [x] Task 5: 오퍼레이터 화면에 피드백 입력 UI 추가 (AC: 1, 2, 3)
+  - [x] `apps/web/app/operator/ceremonies/[hallId]/[ceremonyId]/checklist-instance-view.tsx` 수정: 각 단계 그룹(`<section className="checklist-step-group">`) 안, 체크리스트 타일 그리드 아래에 피드백 진입 UI를 추가한다. **[ASSUMPTION] 별도 페이지/폼 대신 각 단계 그룹에 인라인으로 붙인다** — URL이 이미 예식을 특정하고(`ceremonyId`), 그룹이 이미 단계를 특정하므로(`templateItemId`) "예식/단계 선택"(AC 1)이 화면 이동 없이 자연스럽게 충족된다(DESIGN.md 원칙 1 "헤매거나 긴 글을 읽게 하지 않는다"와 부합).
     - 그룹의 `templateItemId`(=groupKey, `item.templateItemId ?? item.stepName`로 널 가능)가 실제 uuid가 아니면(=원본 단계가 삭제된 뒤 스냅샷만 남은 드문 경우) 피드백 입력 UI를 렌더링하지 않는다 — 저장할 유효한 `templateItemId`가 없으므로.
     - 새 하위 컴포넌트(같은 파일 또는 `step-feedback.tsx` 신규 — 파일이 200줄을 넘기면 분리) `StepFeedback({ hallId, ceremonyId, templateItemId })`:
       - 기본 상태는 접힌 "피드백 남기기" 아웃라인 버튼(DESIGN.md §4 Secondary 스타일, ≥44px, DESIGN.md §8 iPad 탭 타깃).
@@ -74,7 +74,7 @@ so that 정해진 폼을 채우는 부담 없이 겪은 변수 상황을 기록�
       - 저장 버튼(Primary, "저장"): `POST /api/feedback/${hallId}/${ceremonyId}` body `{ templateItemId, content }`. 저장 중 버튼은 너비 유지 + 비활성 + 스피너(DESIGN.md §14 Loading 패턴, 중복 제출 방지 — 체크리스트 질의 버튼과 동일 원칙을 재사용).
       - 저장 성공 시: **초록(`#1FA463`) 확정 톤이 아니라 주황(`#F5A623`) "임시저장" 톤으로 조용히 확인**(DESIGN.md §2 Warning 색 정의 — "피드백 임시저장(선임이 나중에 이어 쓰기로 한 상태)"이 정확히 이 색의 용도로 명시돼 있다. 초록은 Story 3.2의 "확정" 전용이므로 여기서 쓰면 색 의미가 어긋난다). 축하 연출 없음(DESIGN.md §14 Success 원칙).
       - 저장 실패 시: DESIGN.md §14 "Error(질의 응답 실패)"와 동일하게 즉시 드러나는 오류 + 재시도 문구(조용한 실패 금지).
-  - [ ] `checklist-instance-view.css`에 스타일 추가(새 CSS 파일 만들지 않는다 — 이미 이 화면 전용 CSS 파일이 있음): `.step-feedback`, `.step-feedback__toggle`, `.step-feedback__textarea`, `.step-feedback__save-btn`, `.step-feedback__saved-hint`(주황 톤) 등. 색상/라운딩/스페이싱은 `design-tokens.css` 변수만 사용(Story 5.7 Dev Notes에서 이미 확립된 전역 `box-sizing: border-box` 리셋 덕분에 textarea `width: 100%` + padding이 카드 밖으로 밀려나오지 않는다 — 별도 처리 불필요).
+  - [x] `checklist-instance-view.css`에 스타일 추가(새 CSS 파일 만들지 않는다 — 이미 이 화면 전용 CSS 파일이 있음): `.step-feedback`, `.step-feedback__toggle`, `.step-feedback__textarea`, `.step-feedback__save-btn`, `.step-feedback__saved-hint`(주황 톤) 등. 색상/라운딩/스페이싱은 `design-tokens.css` 변수만 사용(Story 5.7 Dev Notes에서 이미 확립된 전역 `box-sizing: border-box` 리셋 덕분에 textarea `width: 100%` + padding이 카드 밖으로 밀려나오지 않는다 — 별도 처리 불필요).
 
 - [ ] Task 6: 테스트 (AC: 1, 2, 3, 4)
   - [ ] `apps/web/tests/repositories/feedback.test.ts`(NEW): `create`/`findByCeremonyAndStep`(존재/미존재)/`updateContent` 기본 CRUD.

@@ -10,8 +10,16 @@ describe("formatPhoneNumberDisplay (Story 5.7 AC 3)", () => {
     expect(formatPhoneNumberDisplay("010-1234-5678")).toBe("010-1234-5678");
   });
 
-  it("10자리 번호는 3-3-4 형식으로 표시된다", () => {
-    expect(formatPhoneNumberDisplay("0212345678")).toBe("021-234-5678");
+  it("02가 아닌 10자리 번호(3자리 지역번호)는 3-3-4 형식으로 표시된다", () => {
+    expect(formatPhoneNumberDisplay("0311234567")).toBe("031-123-4567");
+  });
+
+  it("서울(02) 10자리 번호는 2-4-4 형식으로 표시된다 (코덱스 리뷰 P2)", () => {
+    expect(formatPhoneNumberDisplay("0212345678")).toBe("02-1234-5678");
+  });
+
+  it("서울(02) 9자리 번호는 2-3-4 형식으로 표시된다 (코덱스 리뷰 P2)", () => {
+    expect(formatPhoneNumberDisplay("021234567")).toBe("02-123-4567");
   });
 
   it("null이면 미등록 문구를 반환한다", () => {

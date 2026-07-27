@@ -8,11 +8,11 @@ const initialState: InstanceItemFormState = {};
 export function AddItemButton({
   hallId,
   ceremonyId,
-  templateItemId,
+  checklistItemId,
 }: {
   hallId: string;
   ceremonyId: string;
-  templateItemId: string;
+  checklistItemId: string;
 }) {
   const [state, formAction, isPending] = useActionState(addInstanceItemAction, initialState);
 
@@ -20,7 +20,7 @@ export function AddItemButton({
     <form action={formAction} className="instance-item-card__add-form">
       <input type="hidden" name="hallId" value={hallId} />
       <input type="hidden" name="ceremonyId" value={ceremonyId} />
-      <input type="hidden" name="templateItemId" value={templateItemId} />
+      <input type="hidden" name="checklistItemId" value={checklistItemId} />
       <button type="submit" className="btn-secondary" disabled={isPending}>
         {isPending ? "추가 중..." : "추가"}
       </button>

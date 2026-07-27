@@ -3,7 +3,7 @@ import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { revalidatePath } from "next/cache";
 import { requireAdminSession } from "@/lib/auth-guard";
 import { isValidUuid } from "@/lib/uuid";
-import { saveDemoVideo, assertTemplateItemOwnedByHall } from "@/lib/services/demo-video";
+import { saveDemoVideo, assertChecklistItemOwnedByHall } from "@/lib/services/demo-video";
 import { ALLOWED_VIDEO_CONTENT_TYPE, MAX_VIDEO_SIZE_BYTES } from "@/lib/storage/video-storage";
 
 // Story 1.4 AD-4 경로 — BLOB_READ_WRITE_TOKEN이 설정된 환경(프로덕션)에서만 클라이언트가
@@ -26,7 +26,7 @@ export async function POST(
       if (!isValidUuid(hallId) || !isValidUuid(itemId)) {
         throw new Error("잘못된 요청입니다");
       }
-      await assertTemplateItemOwnedByHall(hallId, itemId);
+      await assertChecklistItemOwnedByHall(hallId, itemId);
 
       const fileSize =
         typeof clientPayload === "string"
@@ -37,14 +37,14 @@ export async function POST(
         allowedContentTypes: [ALLOWED_VIDEO_CONTENT_TYPE],
         maximumSizeInBytes: MAX_VIDEO_SIZE_BYTES,
         addRandomSuffix: true,
-        tokenPayload: JSON.stringify({ hallId, templateItemId: itemId, fileSize }),
+        tokenPayload: JSON.stringify({ hallId, checklistItemId: itemId, fileSize }),
       };
     },
     onUploadCompleted: async ({ blob, tokenPayload }) => {
       if (!tokenPayload) return;
-      const { hallId: payloadHallId, templateItemId } = JSON.parse(tokenPayload) as {
+      const { hallId: payloadHallId, checklistItemId } = JSON.parse(tokenPayload) as {
         hallId: string;
-        templateItemId: string;
+        checklistItemId: string;
         fileSize?: number;
       };
 
@@ -53,7 +53,7 @@ export async function POST(
       // 믿지 않는다" 원칙을 크기 필드에도 동일 적용 — PutBlobResult에는 size가 없다).
       const verified = await head(blob.url);
 
-      await saveDemoVideo(payloadHallId, templateItemId, {
+      await saveDemoVideo(payloadHallId, checklistItemId, {
         videoUrl: blob.url,
         fileName: blob.pathname,
         fileSizeBytes: verified.size,

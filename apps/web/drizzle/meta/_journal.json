@@ -71,6 +71,34 @@
       "when": 1785113013350,
       "tag": "0009_curly_fallen_one",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785123098728,
+      "tag": "0010_checklist-two-level-structure",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1785126282581,
+      "tag": "0011_checklist-instance-items-step-id",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1785127314934,
+      "tag": "0012_checklist-instance-items-sort-order-unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1785128536134,
+      "tag": "0013_checklist-instance-items-sort-order-unique-deferrable",
+      "breakpoints": true
     }
   ]
 }

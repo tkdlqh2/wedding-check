@@ -21,8 +21,8 @@ so that 정해진 폼을 채우는 부담 없이 겪은 변수 상황을 기록�
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: `feedback` 테이블 스키마 + 마이그레이션 (AC: 1, 2, 4)
-  - [ ] `apps/web/lib/db/schema.ts`에 `feedback` 테이블 추가(스파인 Naming 컨벤션 — 테이블명은 `feedback` 단수, `variable_cases`와 짝):
+- [x] Task 1: `feedback` 테이블 스키마 + 마이그레이션 (AC: 1, 2, 4)
+  - [x] `apps/web/lib/db/schema.ts`에 `feedback` 테이블 추가(스파인 Naming 컨벤션 — 테이블명은 `feedback` 단수, `variable_cases`와 짝):
     - `id uuid pk defaultRandom`
     - `hallId uuid notNull references halls.id` — AD-6에 따라 격리용이 아니라 **표시용 태그**로 ceremony에서 데이만 저장(checklist_instances/demo_videos와 동일한 "JOIN 대체 금지" 원칙 적용, 이 스토리에서 직접 조회 필터로는 안 쓰지만 3.2/3.4의 홀 태그 표시를 위해 지금 저장해둔다).
     - `ceremonyId uuid notNull references ceremonies.id` — 예식 삭제 기능이 없는 엔티티라 onDelete 정책 불필요.
@@ -32,8 +32,8 @@ so that 정해진 폼을 채우는 부담 없이 겪은 변수 상황을 기록�
     - `status text notNull default 'draft'` — AD-8: `'draft' | 'confirmed'` 두 값만, `user.role`처럼 pgEnum 대신 plain text + 앱 레이어 검증(이 프로젝트 기존 컨벤션). **이 스토리는 draft만 다룬다 — confirmed로의 전환(Story 3.2, FR-9)은 이 스토리 범위 밖이지만 컬럼은 AD-8이 요구하는 최종 스키마를 미리 갖춘다(3.2에서 별도 마이그레이션 불필요하게).**
     - `createdAt`/`updatedAt` timestamp — 다른 테이블과 동일 패턴(`defaultNow()`, `updatedAt`은 `$onUpdate`).
     - Unique 제약: `unique("feedback_ceremony_id_template_item_id_unique").on(table.ceremonyId, table.templateItemId)` — 예식 1건의 같은 단계에는 피드백이 최대 1건만 존재(재방문 시 "이어 쓰기"가 자연스럽게 같은 행을 가리키게 하는 핵심 불변조건). `templateItemId`가 NULL인 행끼리는 Postgres가 서로 다른 값으로 취급해 이 제약에 걸리지 않는다(checklist_instance_items와 동일한 이미 검증된 동작 — 드문 엣지케이스라 별도 방어 불필요).
-  - [ ] `npx drizzle-kit generate`로 마이그레이션 생성(다음 번호는 `0016_*`, 최신 스냅샷은 `drizzle/meta/0015_snapshot.json`). 신규 테이블 추가라 컬럼 rename/drop 충돌이 없어 보통 비대화형으로 끝난다 — 그래도 인터랙티브 프롬프트가 뜨면(과거 스토리에서 반복된 이 환경의 알려진 이슈) 0015 스냅샷을 베이스로 `feedback` 테이블 CREATE만 담은 `0016_snapshot.json`을 직접 구성하고 격리 DB에 0000~0016 전체를 새로 적용해 검증(Story 5.4 Dev Notes의 해결 절차와 동일).
-  - [ ] `npm run db:test:migrate`로 테스트 DB에 적용, 로컬 개발 DB에도 적용해 실제 동작 확인.
+  - [x] `npx drizzle-kit generate`로 마이그레이션 생성 시도 — 예상대로 인터랙티브 프롬프트(`promptColumnsConflicts`)가 떠서 비대화형 환경에서 실패(Story 5.4와 동일한 알려진 이슈). `0015_snapshot.json`을 베이스로 `feedback` 테이블 CREATE만 추가한 `0016_snapshot.json`을 직접 구성하고 대응하는 `0016_natural-language-feedback.sql`을 손으로 작성, `drizzle/meta/_journal.json`에 엔트리 추가. `npx drizzle-kit check`로 스냅샷 체인 정합성 확인(`Everything's fine`).
+  - [x] `db:test:migrate` 스크립트는 "빈 DB만 대상"(증분 미지원, 스크립트 주석에 명시)이라 이미 0000~0015가 적용된 공유 테스트 DB에는 쓸 수 없었다 — `docker exec wedding-check-db psql`로 `0016_natural-language-feedback.sql` 단독 적용(테스트 DB `wedding_check_test`, 로컬 개발 DB `wedding_check` 둘 다) 후 `\dt`로 `feedback` 테이블 생성 확인.
 
 - [ ] Task 2: 리포지토리 레이어 (AC: 1, 2)
   - [ ] `apps/web/lib/db/repositories/feedback.ts`(NEW):

@@ -133,6 +133,17 @@ describe("listCeremoniesForDate (Story 5.2 AC 2)", () => {
     await createTestHall();
     expect(await listCeremoniesForDate("2026-08-01")).toEqual([]);
   });
+
+  it("비활성화된 홀의 예식도 포함한다 (코덱스 리뷰 P2 — 홀 비활성화로 과거 예식이 사라지면 안 됨)", async () => {
+    const hall = await createTestHall({ isActive: false });
+    await createCeremony({
+      hallId: hall.id,
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+
+    expect(await listCeremoniesForDate("2026-08-01")).toHaveLength(1);
+  });
 });
 
 describe("listCeremonyDatesForMonth (Story 5.2 AC 1)", () => {
@@ -174,6 +185,17 @@ describe("listCeremonyDatesForMonth (Story 5.2 AC 1)", () => {
   it("해당 월에 예식이 없으면 빈 Set을 반환한다", async () => {
     await createTestHall();
     expect(await listCeremonyDatesForMonth(2026, 8)).toEqual(new Set());
+  });
+
+  it("비활성화된 홀의 예식도 점 마커에 포함한다 (코덱스 리뷰 P2)", async () => {
+    const hall = await createTestHall({ isActive: false });
+    await createCeremony({
+      hallId: hall.id,
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+
+    expect(await listCeremonyDatesForMonth(2026, 8)).toEqual(new Set(["2026-08-01"]));
   });
 });
 
@@ -278,5 +300,18 @@ describe("listCeremoniesPaginated (Story 5.2 AC 3)", () => {
     const result = await listCeremoniesPaginated({ page: 1, pageSize: 10 });
 
     expect(result.ceremonies.map((c) => c.hallName).sort()).toEqual(["A홀", "B홀"]);
+  });
+
+  it("비활성화된 홀의 예식도 목록에 포함한다 (코덱스 리뷰 P2)", async () => {
+    const hall = await createTestHall({ isActive: false });
+    await createCeremony({
+      hallId: hall.id,
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+
+    const result = await listCeremoniesPaginated({ page: 1, pageSize: 10 });
+
+    expect(result.totalCount).toBe(1);
   });
 });

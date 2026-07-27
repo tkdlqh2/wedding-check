@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   resetDb,
   createTestHall,
@@ -8,11 +8,25 @@ import {
 import * as ceremonyRepo from "@/lib/db/repositories/ceremony";
 import * as feedbackRepo from "@/lib/db/repositories/feedback";
 import { db } from "@/lib/db";
-import { feedback } from "@/lib/db/schema";
+import { feedback, variableCases } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+
+// Story 3.2: LLM/임베딩은 실제 벤더를 호출하지 않고 가짜 포트를 주입해 검증한다
+// (Dev Notes 테스트 전략 — 어댑터 자체의 벤더 계약 테스트는 범위 밖, 수동 검증으로 대체).
+// vi.mock은 파일 상단으로 호이스팅되므로 아래 static import보다 먼저 적용된다.
+const generateMock = vi.fn();
+const embedMock = vi.fn();
+vi.mock("@/lib/ai", () => ({
+  getLLMPort: () => ({ generate: generateMock, generateStream: vi.fn() }),
+  getEmbeddingPort: () => ({ embed: embedMock }),
+}));
+
 import {
   saveDraftFeedback,
   getDraftFeedback,
+  structureFeedback,
+  updateStructuredFields,
+  confirmFeedback,
   FeedbackValidationError,
 } from "@/lib/services/feedback";
 
@@ -193,6 +207,173 @@ describe("getDraftFeedback (AC 2)", () => {
     const stepInHallB = await createTestTemplateItem(hallB.id);
 
     await expect(getDraftFeedback(hallB.id, ceremonyId, stepInHallB.id)).rejects.toThrow(
+      FeedbackValidationError,
+    );
+  });
+});
+
+describe("structureFeedback (AC 1, 4)", () => {
+  beforeEach(async () => {
+    await resetDb();
+    generateMock.mockReset();
+    embedMock.mockReset();
+  });
+
+  it("LLMPort.generate 결과로 4개 필드를 채운 초안을 저장한다", async () => {
+    const { hall, ceremonyId, step } = await setupCeremonyWithStep();
+    await saveDraftFeedback(hall.id, ceremonyId, step.id, "주례자가 순서를 바꿨다");
+    generateMock.mockResolvedValue({
+      text: JSON.stringify({
+        situation: "주례자가 사전 협의 없이 순서를 바꿨다",
+        outcome: "well_handled",
+        rationale: "당황하지 않고 다음 순서를 안내했다",
+        tags: ["주례자", "순서변경"],
+      }),
+    });
+
+    const result = await structureFeedback(hall.id, ceremonyId, step.id);
+
+    expect(result.situation).toBe("주례자가 사전 협의 없이 순서를 바꿨다");
+    expect(result.outcome).toBe("well_handled");
+    expect(result.tags).toEqual(["주례자", "순서변경"]);
+    expect(result.status).toBe("draft");
+    // NFR-1: 결정성 확보를 위해 temperature 등은 어댑터 책임 — 서비스는 5필드 스키마를
+    // 넘겼는지만 확인한다(어댑터 자체는 실제 API 호출이라 단위 테스트 범위 밖).
+    expect(generateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ responseSchema: expect.any(Object) }),
+    );
+  });
+
+  it("LLM 응답이 유효한 JSON이 아니면 에러를 던진다", async () => {
+    const { hall, ceremonyId, step } = await setupCeremonyWithStep();
+    await saveDraftFeedback(hall.id, ceremonyId, step.id, "내용");
+    generateMock.mockResolvedValue({ text: "not json" });
+
+    await expect(structureFeedback(hall.id, ceremonyId, step.id)).rejects.toThrow();
+  });
+
+  it("LLM 응답의 outcome이 허용된 값이 아니면 에러를 던진다(AD-8 방어)", async () => {
+    const { hall, ceremonyId, step } = await setupCeremonyWithStep();
+    await saveDraftFeedback(hall.id, ceremonyId, step.id, "내용");
+    generateMock.mockResolvedValue({
+      text: JSON.stringify({
+        situation: "상황",
+        outcome: "완벽함", // 스키마 밖 값 — LLM이 스키마를 어겼다고 가정
+        rationale: "판단",
+        tags: [],
+      }),
+    });
+
+    await expect(structureFeedback(hall.id, ceremonyId, step.id)).rejects.toThrow();
+  });
+
+  it("draft 피드백이 없으면 거부된다", async () => {
+    const { hall, ceremonyId, step } = await setupCeremonyWithStep();
+
+    await expect(structureFeedback(hall.id, ceremonyId, step.id)).rejects.toThrow(
+      FeedbackValidationError,
+    );
+  });
+});
+
+describe("updateStructuredFields (AC 2)", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("오퍼레이터가 수정한 값을 최종본으로 저장한다", async () => {
+    const { hall, ceremonyId, step } = await setupCeremonyWithStep();
+    await saveDraftFeedback(hall.id, ceremonyId, step.id, "내용");
+
+    const result = await updateStructuredFields(hall.id, ceremonyId, step.id, {
+      situation: "직접 수정한 상황 설명",
+      outcome: "mishandled",
+      rationale: "직접 수정한 사후 판단",
+      tags: ["수정태그"],
+    });
+
+    expect(result.situation).toBe("직접 수정한 상황 설명");
+    expect(result.outcome).toBe("mishandled");
+    expect(result.tags).toEqual(["수정태그"]);
+  });
+
+  it("situation이 빈 값이면 거부된다", async () => {
+    const { hall, ceremonyId, step } = await setupCeremonyWithStep();
+    await saveDraftFeedback(hall.id, ceremonyId, step.id, "내용");
+
+    await expect(
+      updateStructuredFields(hall.id, ceremonyId, step.id, {
+        situation: "   ",
+        outcome: "well_handled",
+        rationale: "판단",
+        tags: [],
+      }),
+    ).rejects.toThrow(FeedbackValidationError);
+  });
+
+  it("outcome이 허용된 값이 아니면 거부된다", async () => {
+    const { hall, ceremonyId, step } = await setupCeremonyWithStep();
+    await saveDraftFeedback(hall.id, ceremonyId, step.id, "내용");
+
+    await expect(
+      updateStructuredFields(hall.id, ceremonyId, step.id, {
+        situation: "상황",
+        outcome: "invalid",
+        rationale: "판단",
+        tags: [],
+      }),
+    ).rejects.toThrow(FeedbackValidationError);
+  });
+});
+
+describe("confirmFeedback (AC 3, AD-8)", () => {
+  beforeEach(async () => {
+    await resetDb();
+    embedMock.mockReset();
+  });
+
+  it("5필드가 모두 채워진 draft를 confirmed로 바꾸고 variable_case를 생성한다", async () => {
+    const { hall, ceremonyId, step } = await setupCeremonyWithStep();
+    await saveDraftFeedback(hall.id, ceremonyId, step.id, "내용");
+    await updateStructuredFields(hall.id, ceremonyId, step.id, {
+      situation: "상황 설명",
+      outcome: "well_handled",
+      rationale: "사후 판단",
+      tags: ["태그"],
+    });
+    embedMock.mockResolvedValue([Array.from({ length: 1024 }, () => 0.1)]);
+
+    const result = await confirmFeedback(hall.id, ceremonyId, step.id);
+
+    expect(result.status).toBe("confirmed");
+    expect(embedMock).toHaveBeenCalledWith(["상황 설명 사후 판단"]);
+    const cases = await db.select().from(variableCases).where(eq(variableCases.feedbackId, result.id));
+    expect(cases).toHaveLength(1);
+  });
+
+  it("구조화가 안 된(situation 등이 비어있는) draft는 확정을 거부한다", async () => {
+    const { hall, ceremonyId, step } = await setupCeremonyWithStep();
+    await saveDraftFeedback(hall.id, ceremonyId, step.id, "내용");
+
+    await expect(confirmFeedback(hall.id, ceremonyId, step.id)).rejects.toThrow(
+      FeedbackValidationError,
+    );
+    expect(embedMock).not.toHaveBeenCalled();
+  });
+
+  it("이미 confirmed인 피드백은 다시 확정할 수 없다", async () => {
+    const { hall, ceremonyId, step } = await setupCeremonyWithStep();
+    await saveDraftFeedback(hall.id, ceremonyId, step.id, "내용");
+    await updateStructuredFields(hall.id, ceremonyId, step.id, {
+      situation: "상황",
+      outcome: "well_handled",
+      rationale: "판단",
+      tags: [],
+    });
+    embedMock.mockResolvedValue([Array.from({ length: 1024 }, () => 0.1)]);
+    await confirmFeedback(hall.id, ceremonyId, step.id);
+
+    await expect(confirmFeedback(hall.id, ceremonyId, step.id)).rejects.toThrow(
       FeedbackValidationError,
     );
   });

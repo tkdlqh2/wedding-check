@@ -78,7 +78,7 @@ development_status:
   5-2-ceremony-calendar-pagination: backlog
   5-3-ceremony-couple-names: backlog
   5-4-member-management: backlog
-  5-5-checklist-two-level-structure: ready-for-dev
+  5-5-checklist-two-level-structure: in-progress
   epic-5-retrospective: optional
 
 # Per-story git pipeline substage (see GIT PIPELINE STAGE legend above).

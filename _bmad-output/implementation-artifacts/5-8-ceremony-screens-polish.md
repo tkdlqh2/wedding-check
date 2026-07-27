@@ -4,7 +4,7 @@ baseline_commit: 654950f1422bb8cf37338450aaca2345fe8ffd33
 
 # Story 5.8: 예식 등록/목록/상세 화면 프로토타입 정합화 + 담당자 배정
 
-Status: review
+Status: done
 
 ## Story
 
@@ -192,3 +192,4 @@ Claude Sonnet 5
 - 2026-07-27: 코덱스 리뷰 추가 라운드 — (1) [실결함, 수정] `groupItemsByStep`이 `adHocGroupRootId`를 전혀 확인하지 않아 "이 예식만의 새 단계"에 항목을 두 번째로 추가해도 별도 카드로 렌더링되던 실결함(핵심 신규 기능이 사실상 동작하지 않는 상태) — `templateItemId ?? adHocGroupRootId ?? orphan:id` 순으로 폴백하도록 수정, 회귀 테스트 추가. (2) [실결함, 수정] `addAdHocItem`의 target/shifted CTE가 `instance_id`만으로 스코프되어 AD-2(리포지토리 hallId 스코프 원칙)를 어겨 이론상 다른 홀 오염 가능 — `hall_id` 조건 추가. (3) [의도된 트레이드오프, 미수정] "추가 가능한 항목"(템플릿 카탈로그 재추가) 섹션을 대표의 명시적 요청("쓸모없는 건 지워")으로 제거하면서, 제외된 템플릿 항목을 원래 템플릿 연결 그대로 복구할 수단이 없어졌다는 지적 — 대표가 이 세션에서 직접, 반복적으로 요청한 제품 결정이라 되돌리지 않음. 하위 서비스/리포지토리 함수(`addInstanceItem`, `listCandidateChecklistItems`)와 그 테스트는 그대로 보존돼 있어(app 레이어 UI 배선만 제거), 필요해지면 낮은 비용으로 다시 노출 가능.
 - 2026-07-27: 대표 추가 피드백 3건 반영 — (1) 담당자 배정을 검색 가능한 대화상자로 전환(오퍼레이터 다수 대비, account-menu.tsx 모달 패턴 재사용), pill 클릭으로 즉시 해제. (2) 단계/체크리스트 시각을 templates.css `.template-item-card*`와 동일하게(번호 배지, 58px 들여쓴 행, 항목 개수). (3) 상세 화면 제목을 프로토타입과 동일하게 시간+신랑신부(28px/700)+상태배지 재구성(기존엔 홀명+날짜였음, 프로토타입과 전혀 다르다는 직접 지적 반영). `isCeremonyDone`을 `lib/ceremony-status.ts`로 추출해 목록/상세 공유. vitest 185건 통과, tsc/lint/build 클린, 로컬 서버 curl로 재확인.
 - 2026-07-27: main과 병합(병행 세션의 Story 3.1 natural-language-feedback과 마이그레이션 번호 0016 충돌) — 0016은 Story 3.1 것을 그대로 두고 이 스토리의 마이그레이션을 0017(ceremony-assigned-operator)/0018(instance-items-ad-hoc-group)로 재배치, 스냅샷 체인을 Story 3.1의 0016_snapshot.json 기준으로 재구성. schema.ts/checklist-instance.ts(repo)/checklist-instance.test.ts는 git이 자동 병합(서로 다른 함수 추가라 충돌 없음). 병합 후 코덱스 리뷰 3라운드 추가 실결함 2건 발견/수정: (1) ad-hoc 항목 추가 시 templateItemId가 같은 홀에 존재하는지만 확인하고 "이 예식 인스턴스에 실제 포함돼 있는지"는 확인하지 않아, 조작된 요청이 AD-9로 제외된 단계를 다시 만들 수 있었음 — Story 3.1이 동일 목적으로 추가한 `existsForTemplateItem`을 재사용해 검증. (2) 원본 템플릿 단계가 삭제된 orphan 그룹(templateItemId/adHocGroupRootId 둘 다 null)에 항상 실패하는 빠른 추가 폼이 노출되던 문제 — 그룹핑 대상이 없으므로 이 컨트롤을 숨김. (3) 담당자 배정 실패(비활성화/역할 변경 경합)가 조용히 삼켜져 대화상자가 성공한 것처럼 닫히던 문제 — `useActionState`로 전환해 실패 시 열어둔 채 오류 표시. vitest 213건(Story 3.1의 27건 포함) 통과, tsc/lint/build 클린, CI 그린. 코덱스 리뷰 최종 클린("명확하고 재현 가능한 신규 결함 없음").
+- 2026-07-27: PR #21 CI 그린 확인 후 `gh pr merge --merge --delete-branch`로 main에 병합(merge commit `89771bb`). Epic 5 2차 후속 3건(5.6~5.8) 전체 완료. Status → done.

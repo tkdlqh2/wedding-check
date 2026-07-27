@@ -1,8 +1,18 @@
 import { betterAuth, APIError } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
-import { phoneNumber } from "better-auth/plugins";
+import { phoneNumber, admin } from "better-auth/plugins";
+import { createAccessControl } from "better-auth/plugins/access";
+import { defaultStatements, adminAc } from "better-auth/plugins/admin/access";
 import { db } from "./db";
+
+// Story 5.4: admin 플러그인의 role 타입(및 auth.api.createUser 등의 body.role 타입)이
+// 이 accessControl 설정에서 추론된다. 커스텀 roles를 안 주면 better-auth 기본 role 키가
+// "admin"/"user"라 이 프로젝트의 "operator" 문자열이 TS 타입에 아예 존재하지 않게 된다
+// (tsc가 실제로 이 불일치를 잡아냈다 — 우연히 문자열이 맞아떨어지는 것에 기대지 않고
+// 명시적으로 "operator"/"admin" 두 역할을 등록한다).
+const ac = createAccessControl(defaultStatements);
+const operatorRole = ac.newRole({ user: [], session: [] });
 
 // AD-3: 역할은 정확히 2종 — "operator"(질의+피드백+체크리스트 열람) / "admin"(홀·템플릿·예식 CRUD+인사이트).
 // "신입"/"선임" 같은 중간 티어는 시스템에 존재하지 않는다.
@@ -32,7 +42,23 @@ export const auth = betterAuth({
       }
     }),
   },
-  plugins: [phoneNumber()],
+  // Story 5.4: 공식 admin 플러그인. 세션 생성(로그인) 시 user.banned를 자동 확인해 차단하는
+  // 훅(databaseHooks.session.create.before)과 auth.api.createUser/banUser/unbanUser를
+  // 그대로 제공한다 — 직접 재구현하지 않는다(스토리 Dev Notes에 근거 상세).
+  // defaultRole을 명시하지 않으면 이 플러그인의 신규 유저 role 폴백이 better-auth 기본값인
+  // "user"가 되어 이 프로젝트의 실제 기본 역할(operator)과 어긋난다.
+  // roles에 operator를 명시적으로 등록한다 — "admin" 역할 문자열이 better-auth 기본 admin
+  // 권한 세트와 우연히 같다고 기대지 않고, 이 시스템의 실제 두 역할(operator: 권한 없음,
+  // admin: adminAc 전체 권한)을 그대로 매핑한다.
+  plugins: [
+    phoneNumber(),
+    admin({
+      ac,
+      roles: { admin: adminAc, operator: operatorRole },
+      defaultRole: "operator",
+      bannedUserMessage: "비활성화된 계정입니다. 관리자에게 문의하세요.",
+    }),
+  ],
   user: {
     additionalFields: {
       role: {

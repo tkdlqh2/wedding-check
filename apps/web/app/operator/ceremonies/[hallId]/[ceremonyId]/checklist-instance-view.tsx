@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { readCache, writeCache } from "@/lib/operator/checklist-cache";
+import { StepFeedback } from "./step-feedback";
+import { isValidUuid } from "@/lib/uuid";
 
 const POLL_INTERVAL_MS = 60_000;
 
@@ -230,6 +232,15 @@ export function ChecklistInstanceView({
                 </li>
               ))}
             </ul>
+            {/* Story 3.1(AC 1): 단계당 피드백은 유효한 templateItemId가 있어야 저장할
+                수 있다 — 원본 단계가 삭제된 뒤 stepName 스냅샷만 남은 그룹은 건너뛴다. */}
+            {stepItems[0].templateItemId && isValidUuid(stepItems[0].templateItemId) ? (
+              <StepFeedback
+                hallId={hallId}
+                ceremonyId={ceremonyId}
+                templateItemId={stepItems[0].templateItemId}
+              />
+            ) : null}
           </section>
         ))
       )}

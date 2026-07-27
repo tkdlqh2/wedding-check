@@ -248,6 +248,53 @@ export const checklistInstanceItems = pgTable(
   ],
 );
 
+// FR-8/AD-8: 오퍼레이터가 예식 종료 후 남기는 자유 서술 피드백. `status`가
+// 'confirmed'로 바뀌는 시점(Story 3.2 범위)에만 variable_case가 생성·임베딩된다 — 이
+// 스토리는 'draft'만 만든다(안전 경계, PRD §6 Safety). AD-6: hallId는 격리용이 아니라
+// 표시 태그로만 저장(검색/집계에서 홀 필터링하지 않음, Story 3.4에서 실제로 쓰임).
+// AD-2가 명시하는 홀 종속 엔티티 목록(checklist_templates 등)에 feedback은 포함되지
+// 않는다 — 리포지토리 레벨 hallId 격리 쿼리 대상이 아니다(서비스 레이어가
+// ceremonyRepo.findById(hallId, ceremonyId)로 소속을 검증). templateItemId는
+// checklistInstanceItems와 동일한 소프트 참조(onDelete: set null) + stepName 스냅샷
+// 병행 패턴 — 단계가 나중에 삭제/개명돼도 피드백엔 원래 맥락이 남는다. 개인 실명 등
+// 사용자 식별자 컬럼은 의도적으로 두지 않는다(NFR-5, AC 4) — "이어 쓰기"는 예식+단계
+// 단위로만 이어진다.
+export const feedback = pgTable(
+  "feedback",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    hallId: uuid("hall_id")
+      .notNull()
+      .references(() => halls.id),
+    ceremonyId: uuid("ceremony_id")
+      .notNull()
+      .references(() => ceremonies.id),
+    templateItemId: uuid("template_item_id").references(() => checklistTemplateItems.id, {
+      onDelete: "set null",
+    }),
+    stepName: text("step_name").notNull(),
+    content: text("content").notNull().default(""),
+    // 'draft' | 'confirmed' — user.role과 동일하게 pgEnum 대신 plain text + 앱 레이어
+    // 검증(이 프로젝트 기존 컨벤션). confirmed로의 전환은 Story 3.2 범위.
+    status: text("status").notNull().default("draft"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    // 예식 1건의 같은 단계에는 피드백이 최대 1건만 존재 — 재방문 시 "이어 쓰기"가
+    // 자연스럽게 같은 행을 가리키게 하는 핵심 불변조건(AC 2). templateItemId가 NULL인
+    // 행끼리는 Postgres가 서로 다른 값으로 취급해 이 제약에 걸리지 않는다
+    // (checklist_instance_items와 동일하게 이미 검증된 동작).
+    unique("feedback_ceremony_id_template_item_id_unique").on(
+      table.ceremonyId,
+      table.templateItemId,
+    ),
+  ],
+);
+
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),

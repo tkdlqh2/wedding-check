@@ -74,6 +74,24 @@ export async function listItems(
   });
 }
 
+// Story 3.1 코덱스 리뷰 P2: 단계(templateItemId)가 같은 홀 소속이라는 것만으로는
+// 그 단계가 "이 예식"의 실제 체크리스트에 포함돼 있음을 보장하지 않는다(AD-9 계약
+// 형태 조건부 포함으로 특정 단계가 이 예식의 인스턴스에서 아예 제외될 수 있음) —
+// 조작된 요청이 체크리스트에 없는 단계를 가리키며 피드백을 만들 수 있었던 실결함.
+export async function existsForTemplateItem(
+  instanceId: string,
+  templateItemId: string,
+): Promise<boolean> {
+  const row = await db.query.checklistInstanceItems.findFirst({
+    where: and(
+      eq(checklistInstanceItems.instanceId, instanceId),
+      eq(checklistInstanceItems.templateItemId, templateItemId),
+    ),
+    columns: { id: true },
+  });
+  return row !== undefined;
+}
+
 // Story 2.1 "실행용 사본" 원칙과 동일 — 체크리스트 항목의 그 시점 값을 스냅샷 복사한다.
 // (instance_id, template_item_check_id) UNIQUE 제약(코덱스 리뷰 P2 반영)에
 // onConflictDoNothing으로 대응한다 — 재전송/두 탭 동시 제출로 같은 항목을 두 번

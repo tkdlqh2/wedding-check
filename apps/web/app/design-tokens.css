@@ -50,10 +50,25 @@
   --shadow-modal: 0 8px 32px rgba(0, 0, 0, 0.18);
 }
 
+/* box-sizing 리셋이 없으면 width:100% + padding을 쓰는 .input 등이 부모 카드보다
+   넓게 렌더링되어 카드 경계 밖으로 밀려나온다(회원 등록 폼에서 실제로 발생 확인) —
+   전역으로 한 번만 리셋한다. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 body {
   font-family: var(--font-family-kr);
   color: var(--color-text-primary);
   background: var(--color-surface);
+}
+
+/* 이 앱의 <Link>는 전부 버튼/필/뱃지처럼 자체 스타일(보더·배경·색상)을 갖는
+   내비게이션 컨트롤이지 브라우저 기본 밑줄 링크가 아니다 — 전역으로 한 번만 리셋. */
+a {
+  text-decoration: none;
 }
 
 .btn-primary {

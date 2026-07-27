@@ -40,9 +40,12 @@ export const checklistTemplateItems = pgTable(
     stepName: text("step_name").notNull(),
     description: text("description"),
     sortOrder: integer("sort_order").notNull(),
-    // AD-9: 계약 형태 조건부 포함 여부의 데이터 표현. 이 스토리는 컬럼만 확정하고 기본값
-    // {}(모든 계약 형태에 포함)만 쓴다 — 편집 UI는 Epic 2까지 미룬다.
+    // AD-9: 계약 형태 조건부 포함 여부의 데이터 표현. Story 1.3은 컬럼만 확정하고 기본값
+    // {}(모든 계약 형태에 포함)만 썼다 — 편집 UI와 실제 매칭은 Story 2.2에서 구현.
+    // ceremonies.contractConditions와 동일한 키 셰이프(Record<string, boolean>)를
+    // 가정한다(부분집합 매칭 @> 연산에 필요) — $type으로 명시해 unknown 캐스팅 없이 쓴다.
     applicableContractConditions: jsonb("applicable_contract_conditions")
+      .$type<Record<string, boolean>>()
       .notNull()
       .default({}),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -109,7 +112,10 @@ export const ceremonies = pgTable("ceremonies", {
   // AD-9 rationale 그대로). [ASSUMPTION] 키는 PRD §4.1 예시 그대로 두 개만 정의:
   // { requiresOfficiant?: boolean; hasAdditionalEvent?: boolean } — 부분집합 매칭
   // 알고리즘 자체는 Story 2.2(FR-5) 범위. 이 스토리는 값을 받아 저장만 한다.
-  contractConditions: jsonb("contract_conditions").notNull().default({}),
+  contractConditions: jsonb("contract_conditions")
+    .$type<Record<string, boolean>>()
+    .notNull()
+    .default({}),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()

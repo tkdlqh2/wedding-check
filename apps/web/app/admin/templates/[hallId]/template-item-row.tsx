@@ -14,7 +14,12 @@ export function TemplateItemRow({
   blobEnabled,
 }: {
   hallId: string;
-  item: { id: string; stepName: string; description: string | null };
+  item: {
+    id: string;
+    stepName: string;
+    description: string | null;
+    applicableContractConditions?: Record<string, boolean>;
+  };
   isFirst: boolean;
   isLast: boolean;
   demoVideo?: { videoUrl: string; fileName: string };
@@ -39,6 +44,17 @@ export function TemplateItemRow({
         <span className="template-item-card__step-name">{item.stepName}</span>
         {item.description && (
           <p className="template-item-card__description">{item.description}</p>
+        )}
+        {(item.applicableContractConditions?.requiresOfficiant ||
+          item.applicableContractConditions?.hasAdditionalEvent) && (
+          <div className="template-item-card__conditions">
+            {item.applicableContractConditions?.requiresOfficiant && (
+              <span className="condition-tag">주례 관련</span>
+            )}
+            {item.applicableContractConditions?.hasAdditionalEvent && (
+              <span className="condition-tag">이벤트 추가 관련</span>
+            )}
+          </div>
         )}
         <div className="template-item-card__video">
           {demoVideo ? (

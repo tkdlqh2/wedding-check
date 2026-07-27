@@ -20,6 +20,15 @@ function isMalformedId(...ids: string[]): boolean {
   return ids.some((id) => !isValidUuid(id));
 }
 
+// ceremony-form.tsx의 contractConditions와 동일한 두 키 — Story 2.2 Dev Notes
+// "계약 형태 키 대칭" 참고. 여기서 형식을 벗어나면 부분집합 매칭이 조용히 어긋난다.
+function readContractConditions(formData: FormData): Record<string, boolean> {
+  return {
+    requiresOfficiant: formData.get("requiresOfficiant") === "on",
+    hasAdditionalEvent: formData.get("hasAdditionalEvent") === "on",
+  };
+}
+
 export async function createTemplateItemAction(
   _prevState: TemplateItemFormState,
   formData: FormData,
@@ -30,7 +39,11 @@ export async function createTemplateItemAction(
   const description = String(formData.get("description") ?? "");
   if (isMalformedId(hallId)) return { error: "잘못된 요청입니다" };
   try {
-    await createTemplateItem(hallId, { stepName, description: description || null });
+    await createTemplateItem(hallId, {
+      stepName,
+      description: description || null,
+      applicableContractConditions: readContractConditions(formData),
+    });
   } catch (err) {
     if (err instanceof TemplateItemValidationError) return { error: err.message };
     throw err;
@@ -50,7 +63,11 @@ export async function updateTemplateItemAction(
   const description = String(formData.get("description") ?? "");
   if (isMalformedId(hallId, id)) return { error: "잘못된 요청입니다" };
   try {
-    await updateTemplateItem(hallId, id, { stepName, description: description || null });
+    await updateTemplateItem(hallId, id, {
+      stepName,
+      description: description || null,
+      applicableContractConditions: readContractConditions(formData),
+    });
   } catch (err) {
     if (err instanceof TemplateItemValidationError) return { error: err.message };
     throw err;

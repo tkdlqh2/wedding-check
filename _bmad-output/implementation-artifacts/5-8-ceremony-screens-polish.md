@@ -156,7 +156,7 @@ Claude Sonnet 5
 ### File List
 
 - `apps/web/lib/db/schema.ts` (MODIFY) — `ceremonies.assignedOperatorId`(text, FK → user.id, set null) 추가
-- `apps/web/drizzle/0016_ceremony-assigned-operator.sql` (NEW)
+- `apps/web/drizzle/0017_ceremony-assigned-operator.sql` (NEW, main 병합 중 0016→0017로 재배치 — Story 3.1이 0016을 먼저 씀)
 - `apps/web/drizzle/meta/0016_snapshot.json` (NEW) — groom_name/bride_name 스냅샷 드리프트도 함께 보정
 - `apps/web/drizzle/meta/_journal.json` (MODIFY)
 - `apps/web/lib/db/repositories/ceremony.ts` (MODIFY) — `assignOperator` 추가
@@ -171,7 +171,7 @@ Claude Sonnet 5
 - `apps/web/tests/repositories/ceremony.test.ts` (MODIFY) — `assignOperator` 테스트
 - `apps/web/tests/services/ceremony.test.ts` (MODIFY) — `assignOperator` 테스트, 목록 병합 테스트
 - `apps/web/lib/db/schema.ts` (MODIFY) — `checklist_instance_items.ad_hoc_group_root_id` 추가
-- `apps/web/drizzle/0017_instance-items-ad-hoc-group.sql`, `apps/web/drizzle/meta/0017_snapshot.json` (NEW)
+- `apps/web/drizzle/0018_instance-items-ad-hoc-group.sql`, `apps/web/drizzle/meta/0017_snapshot.json`, `apps/web/drizzle/meta/0018_snapshot.json` (NEW, 재배치 후 번호)
 - `apps/web/lib/db/repositories/checklist-instance.ts` (MODIFY) — `addAdHocItem`, `updateItem` 추가
 - `apps/web/lib/services/checklist-instance.ts` (MODIFY) — `addAdHocInstanceItem`, `updateInstanceItem` 추가
 - `apps/web/app/admin/ceremonies/[hallId]/[ceremonyId]/group-by-step.ts` (NEW) — `groupCandidatesByStep`/`groupItemsByStep`을 page.tsx에서 추출(테스트 가능하게)
@@ -191,3 +191,4 @@ Claude Sonnet 5
 - 2026-07-27: 대표의 추가 실시간 피드백 반영(AC 5 범위 내 — "프로토타입처럼" 요구를 더 정확히 충족) — (1) 목록 카드를 프로토타입 위계(시간+신랑신부 제목 → 날짜/홀/계약형태 메타 → 담당자, 우측에 체크리스트 개수+상태배지+상세버튼)로 전면 재정렬, 상태 배지는 예식 일시 기준 예정/완료 2단계로 계산([ASSUMPTION] — 오퍼레이터가 직접 바꾸는 상태 FR은 아직 없음, Story 2.1 Dev Notes 참고). (2) 예식 상세를 템플릿 편집기와 동일하게 이 예식 전용 단계/항목을 자유롭게 추가·수정할 수 있도록 확장 — 신규 컬럼(`ad_hoc_group_root_id`)으로 템플릿에 없는 "이 예식만의 단계"를 그룹핑하고, `addAdHocItem`/`updateItem`으로 추가/수정 지원. 이 확장은 checklist_instance_items만 건드리고 템플릿 카탈로그는 전혀 건드리지 않는다(각 예식의 체크리스트는 독립된 사본). vitest 신규 20건 포함 전체 184건 통과, tsc/lint/build 클린. 로컬 서버 curl로 재확인.
 - 2026-07-27: 코덱스 리뷰 추가 라운드 — (1) [실결함, 수정] `groupItemsByStep`이 `adHocGroupRootId`를 전혀 확인하지 않아 "이 예식만의 새 단계"에 항목을 두 번째로 추가해도 별도 카드로 렌더링되던 실결함(핵심 신규 기능이 사실상 동작하지 않는 상태) — `templateItemId ?? adHocGroupRootId ?? orphan:id` 순으로 폴백하도록 수정, 회귀 테스트 추가. (2) [실결함, 수정] `addAdHocItem`의 target/shifted CTE가 `instance_id`만으로 스코프되어 AD-2(리포지토리 hallId 스코프 원칙)를 어겨 이론상 다른 홀 오염 가능 — `hall_id` 조건 추가. (3) [의도된 트레이드오프, 미수정] "추가 가능한 항목"(템플릿 카탈로그 재추가) 섹션을 대표의 명시적 요청("쓸모없는 건 지워")으로 제거하면서, 제외된 템플릿 항목을 원래 템플릿 연결 그대로 복구할 수단이 없어졌다는 지적 — 대표가 이 세션에서 직접, 반복적으로 요청한 제품 결정이라 되돌리지 않음. 하위 서비스/리포지토리 함수(`addInstanceItem`, `listCandidateChecklistItems`)와 그 테스트는 그대로 보존돼 있어(app 레이어 UI 배선만 제거), 필요해지면 낮은 비용으로 다시 노출 가능.
 - 2026-07-27: 대표 추가 피드백 3건 반영 — (1) 담당자 배정을 검색 가능한 대화상자로 전환(오퍼레이터 다수 대비, account-menu.tsx 모달 패턴 재사용), pill 클릭으로 즉시 해제. (2) 단계/체크리스트 시각을 templates.css `.template-item-card*`와 동일하게(번호 배지, 58px 들여쓴 행, 항목 개수). (3) 상세 화면 제목을 프로토타입과 동일하게 시간+신랑신부(28px/700)+상태배지 재구성(기존엔 홀명+날짜였음, 프로토타입과 전혀 다르다는 직접 지적 반영). `isCeremonyDone`을 `lib/ceremony-status.ts`로 추출해 목록/상세 공유. vitest 185건 통과, tsc/lint/build 클린, 로컬 서버 curl로 재확인.
+- 2026-07-27: main과 병합(병행 세션의 Story 3.1 natural-language-feedback과 마이그레이션 번호 0016 충돌) — 0016은 Story 3.1 것을 그대로 두고 이 스토리의 마이그레이션을 0017(ceremony-assigned-operator)/0018(instance-items-ad-hoc-group)로 재배치, 스냅샷 체인을 Story 3.1의 0016_snapshot.json 기준으로 재구성. schema.ts/checklist-instance.ts(repo)/checklist-instance.test.ts는 git이 자동 병합(서로 다른 함수 추가라 충돌 없음). 병합 후 코덱스 리뷰 3라운드 추가 실결함 2건 발견/수정: (1) ad-hoc 항목 추가 시 templateItemId가 같은 홀에 존재하는지만 확인하고 "이 예식 인스턴스에 실제 포함돼 있는지"는 확인하지 않아, 조작된 요청이 AD-9로 제외된 단계를 다시 만들 수 있었음 — Story 3.1이 동일 목적으로 추가한 `existsForTemplateItem`을 재사용해 검증. (2) 원본 템플릿 단계가 삭제된 orphan 그룹(templateItemId/adHocGroupRootId 둘 다 null)에 항상 실패하는 빠른 추가 폼이 노출되던 문제 — 그룹핑 대상이 없으므로 이 컨트롤을 숨김. (3) 담당자 배정 실패(비활성화/역할 변경 경합)가 조용히 삼켜져 대화상자가 성공한 것처럼 닫히던 문제 — `useActionState`로 전환해 실패 시 열어둔 채 오류 표시. vitest 213건(Story 3.1의 27건 포함) 통과, tsc/lint/build 클린, CI 그린. 코덱스 리뷰 최종 클린("명확하고 재현 가능한 신규 결함 없음").

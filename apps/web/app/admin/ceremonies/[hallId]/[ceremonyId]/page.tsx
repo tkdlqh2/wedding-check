@@ -18,17 +18,20 @@ const ceremonyDateFormatter = new Intl.DateTimeFormat("ko-KR", {
 });
 
 // candidates는 이미 리포지토리에서 (단계 순서, 항목 순서)로 정렬되어 온다 — 순서를
-// 유지한 채 연속된 같은 stepName끼리만 묶는 순차 그룹핑이면 충분하다(재정렬 불필요).
+// 유지한 채 연속된 같은 단계 id끼리만 묶는 순차 그룹핑이면 충분하다(재정렬 불필요).
+// 코덱스 리뷰 3차 P2: stepName은 유일함이 보장되지 않는다(관리자가 같은 이름의 단계를
+// 두 번 만들 수 있음) — candidate.templateItemId(실제 단계 FK, 라이브 데이터라 항상
+// 존재)로 묶어 서로 다른 두 단계가 이름이 같다는 이유로 하나로 합쳐지지 않게 한다.
 function groupCandidatesByStep(
   candidates: CandidateChecklistItem[],
 ): [string, CandidateChecklistItem[]][] {
   const groups: [string, CandidateChecklistItem[]][] = [];
   for (const candidate of candidates) {
     const lastGroup = groups[groups.length - 1];
-    if (lastGroup && lastGroup[0] === candidate.stepName) {
+    if (lastGroup && lastGroup[0] === candidate.templateItemId) {
       lastGroup[1].push(candidate);
     } else {
-      groups.push([candidate.stepName, [candidate]]);
+      groups.push([candidate.templateItemId, [candidate]]);
     }
   }
   return groups;
@@ -100,9 +103,9 @@ export default async function CeremonyDetailPage({
         <p className="ceremony-detail-page__empty">추가할 수 있는 항목이 없습니다.</p>
       ) : (
         <div className="instance-candidate-groups">
-          {groupCandidatesByStep(candidates).map(([stepName, stepCandidates]) => (
-            <div key={stepName} className="instance-candidate-group">
-              <h3 className="instance-candidate-group__step-name">{stepName}</h3>
+          {groupCandidatesByStep(candidates).map(([templateItemId, stepCandidates]) => (
+            <div key={templateItemId} className="instance-candidate-group">
+              <h3 className="instance-candidate-group__step-name">{stepCandidates[0].stepName}</h3>
               <ul className="instance-item-list">
                 {stepCandidates.map((item) => (
                   <li key={item.id} className="instance-item-card">

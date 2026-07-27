@@ -44,6 +44,7 @@
 
 .template-item-card--editing {
   padding: var(--space-lg);
+  background: var(--color-surface-soft);
 }
 
 .template-item-card__body {
@@ -138,6 +139,7 @@
 .checklist-item-card--editing {
   display: block;
   padding: var(--space-md) 20px var(--space-md) 58px;
+  background: var(--color-surface-soft);
 }
 
 .checklist-item-card__body {
@@ -184,7 +186,24 @@
 .checklist-item-form-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--space-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+}
+
+.checklist-item-form-panel__video-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.checklist-item-form-panel__footer,
+.template-item-form__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
 }
 
 .checklist-item-card__video {
@@ -246,13 +265,43 @@
   border-style: dashed;
 }
 
+/* prototype/js/screens/TemplateScreen.js "추가" 버튼 — 흰 배경 + 브랜드 오렌지-레드
+   보더/텍스트(솔리드 브랜드 버튼과 구분되는 절제된 액션), hover 시 브랜드 틴트. */
+.checklist-item-form--quick button[type="submit"] {
+  flex-shrink: 0;
+  background: var(--color-surface);
+  color: var(--color-brand);
+  border: 1px solid var(--color-brand);
+  border-radius: var(--radius-md);
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.checklist-item-form--quick button[type="submit"]:hover:not(:disabled) {
+  background: var(--color-brand-tint);
+}
+
+.checklist-item-form--quick button[type="submit"]:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 /* 단계 수정 폼 / 체크리스트 항목 수정 폼(제목+설명) — 공통 스택형 레이아웃 */
 .template-item-form,
 .checklist-item-form {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  align-items: flex-start;
+  align-items: stretch;
+}
+
+.template-item-form label,
+.checklist-item-form label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
 }
 
 .template-item-form textarea,

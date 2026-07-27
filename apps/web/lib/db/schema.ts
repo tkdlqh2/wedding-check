@@ -191,9 +191,12 @@ export const checklistInstances = pgTable(
 // (Story 1.4의 FK 삭제 차단 버그와 같은 클래스로) 삭제가 막힌다. templateItemCheckId는
 // onDelete: "set null"인 소프트 참조로만 남긴다.
 // Story 5.5: 이 테이블의 한 행이 이제 "단계"가 아니라 "체크리스트 항목" 1개를 가리킨다
-// (오퍼레이터가 실제로 체크하는 최소 단위가 바뀌었으므로). stepName은 그대로 유지 —
-// 같은 단계에 속한 여러 행이 stepName을 공유하며, 오퍼레이터/관리자 화면이 이 값으로
-// 그룹핑해서 보여준다(별도의 "인스턴스 단계" 테이블은 만들지 않는다 — 과설계 방지).
+// (오퍼레이터가 실제로 체크하는 최소 단위가 바뀌었으므로). stepName은 표시용 텍스트로
+// 유지하되, 그룹핑 키로는 쓰지 않는다 — 코덱스 리뷰 3차 P2: stepName은 유일함이
+// 보장되지 않아(관리자가 같은 이름의 단계를 두 번 만들 수 있음) 텍스트로만 그룹핑하면
+// 서로 다른 두 단계가 하나로 합쳐질 수 있었다. templateItemId(단계로의 소프트 참조,
+// templateItemCheckId와 별개 — 체크리스트 항목이 아니라 그 부모 단계를 가리킴)를
+// 안정적인 그룹핑 키로 저장한다(별도의 "인스턴스 단계" 테이블은 만들지 않는다 — 과설계 방지).
 export const checklistInstanceItems = pgTable(
   "checklist_instance_items",
   {
@@ -204,6 +207,9 @@ export const checklistInstanceItems = pgTable(
     instanceId: uuid("instance_id")
       .notNull()
       .references(() => checklistInstances.id, { onDelete: "cascade" }),
+    templateItemId: uuid("template_item_id").references(() => checklistTemplateItems.id, {
+      onDelete: "set null",
+    }),
     templateItemCheckId: uuid("template_item_check_id").references(
       () => checklistTemplateItemChecks.id,
       { onDelete: "set null" },

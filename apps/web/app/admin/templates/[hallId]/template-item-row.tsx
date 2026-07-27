@@ -38,10 +38,12 @@ export function TemplateItemRow({
   if (editing) {
     return (
       <li className="template-item-card template-item-card--editing">
-        <TemplateItemForm hallId={hallId} item={item} onSuccess={() => setEditing(false)} />
-        <button type="button" className="btn-secondary" onClick={() => setEditing(false)}>
-          취소
-        </button>
+        <TemplateItemForm
+          hallId={hallId}
+          item={item}
+          onSuccess={() => setEditing(false)}
+          onCancel={() => setEditing(false)}
+        />
       </li>
     );
   }

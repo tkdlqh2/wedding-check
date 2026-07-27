@@ -26,6 +26,7 @@ export function ChecklistItemForm({
   demoVideo,
   blobEnabled,
   onSuccess,
+  onCancel,
 }: {
   hallId: string;
   templateItemId: string;
@@ -37,6 +38,7 @@ export function ChecklistItemForm({
   demoVideo?: { videoUrl: string; fileName: string };
   blobEnabled?: boolean;
   onSuccess?: () => void;
+  onCancel?: () => void;
 }) {
   const action = item ? updateChecklistItemAction : createChecklistItemAction;
   const [state, formAction, isPending] = useActionState(action, initialState);
@@ -80,7 +82,11 @@ export function ChecklistItemForm({
 
   return (
     <div className="checklist-item-form-panel">
-      <form action={formAction} className="checklist-item-form">
+      <form
+        id={`checklist-item-edit-form-${idSuffix}`}
+        action={formAction}
+        className="checklist-item-form"
+      >
         <input type="hidden" name="hallId" value={hallId} />
         <input type="hidden" name="templateItemId" value={templateItemId} />
         <input type="hidden" name="id" value={item.id} />
@@ -111,13 +117,11 @@ export function ChecklistItemForm({
           placeholder="필요하면 자세한 설명을 남기세요"
         />
 
-        <button type="submit" className="btn-primary" disabled={isPending}>
-          {isPending ? "저장 중..." : "수정 저장"}
-        </button>
       </form>
 
       {/* VideoUpload는 자체 <form>을 렌더링하므로(중첩 <form> 방지) 위 편집 폼 밖에 둔다. */}
       <div className="checklist-item-card__video">
+        <span className="checklist-item-form-panel__video-label">시연 영상</span>
         {demoVideo ? (
           <video controls src={demoVideo.videoUrl} />
         ) : (
@@ -129,6 +133,15 @@ export function ChecklistItemForm({
           blobEnabled={Boolean(blobEnabled)}
           currentVideoUrl={demoVideo?.videoUrl}
         />
+      </div>
+
+      <div className="checklist-item-form-panel__footer">
+        <button type="button" className="btn-secondary" onClick={onCancel}>
+          취소
+        </button>
+        <button type="submit" form={`checklist-item-edit-form-${idSuffix}`} className="btn-primary" disabled={isPending}>
+          {isPending ? "저장 중..." : "수정 저장"}
+        </button>
       </div>
     </div>
   );

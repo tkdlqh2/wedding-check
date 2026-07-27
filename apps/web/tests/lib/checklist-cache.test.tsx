@@ -14,7 +14,7 @@ describe("checklist-cache", () => {
     const ceremonyId = "11111111-1111-1111-1111-111111111111";
     writeCache(ceremonyId, {
       ceremony: { id: ceremonyId, ceremonyAt: "2026-08-01T05:00:00.000Z", contractConditions: {} },
-      items: [{ id: "item-1", stepName: "신랑입장", title: "조명 전환", description: null, sortOrder: 1 }],
+      items: [{ id: "item-1", stepId: "step-1", stepName: "신랑입장", title: "조명 전환", description: null, sortOrder: 1 }],
     });
 
     const cached = readCache(ceremonyId);

@@ -49,7 +49,9 @@ export async function listItems(
 // 추가해도 에러 없이 기존 행을 그대로 반환한다(멱등). db.transaction() 없이 단일
 // INSERT 문 안에서 처리되므로 Story 1.3의 neon-http 트랜잭션 제약과도 무관하다.
 // Story 5.5: 파라미터가 단계(TemplateItem)에서 체크리스트 항목으로 바뀌었다 — 소속
-// 단계명(stepName)은 그룹핑 표시를 위해 호출자(서비스)가 함께 채워 넘긴다.
+// 단계명(stepName)은 표시용 텍스트, stepId는 그룹핑용 안정적 키로 호출자(서비스)가
+// 함께 채워 넘긴다(코덱스 리뷰 3차 P2 — stepName은 유일함이 보장되지 않아 텍스트만으로
+// 그룹핑하면 서로 다른 두 단계가 하나로 합쳐질 수 있었다).
 //
 // 코덱스 리뷰 P1: sortOrder에 체크리스트 항목의 "단계 안" sortOrder(예: 0, 1)를 그대로
 // 쓰면, 여러 단계가 각자 0부터 시작하는 sortOrder를 갖고 있어 인스턴스 전체의 평탄화된
@@ -62,13 +64,20 @@ export async function listItems(
 export async function addItem(
   hallId: string,
   instanceId: string,
-  checklistItem: { id: string; title: string; description: string | null; stepName: string },
+  checklistItem: {
+    id: string;
+    title: string;
+    description: string | null;
+    stepId: string;
+    stepName: string;
+  },
 ): Promise<ChecklistInstanceItem> {
   const [inserted] = await db
     .insert(checklistInstanceItems)
     .values({
       hallId,
       instanceId,
+      templateItemId: checklistItem.stepId,
       templateItemCheckId: checklistItem.id,
       stepName: checklistItem.stepName,
       title: checklistItem.title,

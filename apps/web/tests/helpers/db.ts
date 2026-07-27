@@ -38,7 +38,11 @@ export async function createTestHall(
 
 export async function createTestTemplateItem(
   hallId: string,
-  overrides: Partial<{ stepName: string; sortOrder: number }> = {},
+  overrides: Partial<{
+    stepName: string;
+    sortOrder: number;
+    applicableContractConditions: Record<string, boolean>;
+  }> = {},
 ) {
   const [item] = await db
     .insert(checklistTemplateItems)
@@ -46,6 +50,7 @@ export async function createTestTemplateItem(
       hallId,
       stepName: overrides.stepName ?? "테스트 항목",
       sortOrder: overrides.sortOrder ?? 1,
+      applicableContractConditions: overrides.applicableContractConditions ?? {},
     })
     .returning();
   return item;

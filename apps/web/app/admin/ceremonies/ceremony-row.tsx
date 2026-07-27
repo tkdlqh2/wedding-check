@@ -20,6 +20,11 @@ export function CeremonyRow({ ceremony }: { ceremony: CeremonyWithHallName }) {
         <span className="ceremony-card__time">
           {ceremonyDateFormatter.format(ceremony.ceremonyAt)}
         </span>
+        {ceremony.groomName && ceremony.brideName && (
+          <span className="ceremony-card__couple">
+            {ceremony.groomName} · {ceremony.brideName}
+          </span>
+        )}
       </div>
       <span className="ceremony-card__item-count">체크리스트 항목 {ceremony.itemCount}개</span>
       <Link href={`/admin/ceremonies/${ceremony.hallId}/${ceremony.id}`} className="btn-secondary">

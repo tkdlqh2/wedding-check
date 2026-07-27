@@ -10,6 +10,12 @@
   margin-bottom: var(--space-sm);
 }
 
+.ceremony-detail-page__couple {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  margin: var(--space-xs) 0 0;
+}
+
 .ceremony-detail-page h2 {
   font-size: 20px;
   margin-top: var(--space-xl);

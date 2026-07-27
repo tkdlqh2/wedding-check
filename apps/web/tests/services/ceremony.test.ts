@@ -185,7 +185,7 @@ describe("listCeremoniesPaginated (Story 5.2 AC 3)", () => {
   it("예식이 없으면 빈 목록과 totalCount 0, totalPages 1을 반환한다", async () => {
     await createTestHall();
     const result = await listCeremoniesPaginated({ page: 1, pageSize: 10 });
-    expect(result).toEqual({ ceremonies: [], totalCount: 0, totalPages: 1 });
+    expect(result).toEqual({ ceremonies: [], page: 1, totalCount: 0, totalPages: 1 });
   });
 
   it("예식 일시 역순으로 정렬해 반환한다", async () => {
@@ -238,7 +238,7 @@ describe("listCeremoniesPaginated (Story 5.2 AC 3)", () => {
     expect(page1.totalPages).toBe(3);
   });
 
-  it("범위를 벗어난 page 값은 유효 범위로 clamp된다", async () => {
+  it("범위를 벗어난 page 값은 유효 범위로 clamp되고, 반환값의 page도 실제로 보여준 페이지를 반영한다", async () => {
     const hall = await createTestHall();
     await createCeremony({
       hallId: hall.id,
@@ -250,7 +250,15 @@ describe("listCeremoniesPaginated (Story 5.2 AC 3)", () => {
     const tooLow = await listCeremoniesPaginated({ page: 0, pageSize: 10 });
 
     expect(tooHigh.ceremonies).toHaveLength(1);
+    expect(tooHigh.page).toBe(1); // totalPages가 1이므로 99는 1로 clamp
     expect(tooLow.ceremonies).toHaveLength(1);
+    expect(tooLow.page).toBe(1);
+  });
+
+  it("NaN 같은 비정상 page 값도 안전하게 1로 처리한다 (코덱스 리뷰 P2 회귀 방지)", async () => {
+    await createTestHall();
+    const result = await listCeremoniesPaginated({ page: NaN, pageSize: 10 });
+    expect(result.page).toBe(1);
   });
 
   it("여러 홀의 예식을 모두 병합해 반환한다", async () => {

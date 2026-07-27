@@ -6,8 +6,11 @@ import {
   listCeremoniesForDate,
   listCeremoniesPaginated,
   listCeremonyDatesForMonth,
+  assignOperator,
   CeremonyValidationError,
 } from "@/lib/services/ceremony";
+import { createMember } from "@/lib/services/member";
+import * as ceremonyRepo from "@/lib/db/repositories/ceremony";
 
 describe("createCeremony — 검증", () => {
   beforeEach(async () => {
@@ -329,5 +332,122 @@ describe("listCeremoniesPaginated (Story 5.2 AC 3)", () => {
     const result = await listCeremoniesPaginated({ page: 1, pageSize: 10 });
 
     expect(result.totalCount).toBe(1);
+  });
+});
+
+describe("assignOperator (Story 5.8 AC 7)", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("활성 오퍼레이터를 배정하면 성공한다", async () => {
+    const hall = await createTestHall();
+    const operator = await createMember({
+      name: "오퍼레이터A",
+      phoneNumber: "01098880001",
+      password: "pw-91234",
+    });
+    const ceremony = await createCeremony({
+      hallId: hall.id,
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+
+    await assignOperator(hall.id, ceremony.id, operator.id);
+
+    const updated = await ceremonyRepo.findById(hall.id, ceremony.id);
+    expect(updated?.assignedOperatorId).toBe(operator.id);
+  });
+
+  it("null로 넘기면 배정이 해제된다", async () => {
+    const hall = await createTestHall();
+    const operator = await createMember({
+      name: "오퍼레이터B",
+      phoneNumber: "01098880002",
+      password: "pw-91234",
+    });
+    const ceremony = await createCeremony({
+      hallId: hall.id,
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+    await assignOperator(hall.id, ceremony.id, operator.id);
+
+    await assignOperator(hall.id, ceremony.id, null);
+
+    const updated = await ceremonyRepo.findById(hall.id, ceremony.id);
+    expect(updated?.assignedOperatorId).toBeNull();
+  });
+
+  it("관리자 role 계정은 배정할 수 없다 (`[ASSUMPTION]` 활성 오퍼레이터만)", async () => {
+    const hall = await createTestHall();
+    const admin = await createMember({
+      name: "관리자A",
+      phoneNumber: "01098880003",
+      password: "pw-91234",
+      role: "admin",
+    });
+    const ceremony = await createCeremony({
+      hallId: hall.id,
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+
+    await expect(assignOperator(hall.id, ceremony.id, admin.id)).rejects.toThrow(
+      CeremonyValidationError,
+    );
+  });
+
+  it("존재하지 않는 operatorId는 거부된다", async () => {
+    const hall = await createTestHall();
+    const ceremony = await createCeremony({
+      hallId: hall.id,
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+
+    await expect(
+      assignOperator(hall.id, ceremony.id, "00000000-0000-0000-0000-000000000000"),
+    ).rejects.toThrow(CeremonyValidationError);
+  });
+
+  it("존재하지 않는 예식이면 거부된다", async () => {
+    const hall = await createTestHall();
+    const operator = await createMember({
+      name: "오퍼레이터C",
+      phoneNumber: "01098880004",
+      password: "pw-91234",
+    });
+
+    await expect(
+      assignOperator(hall.id, "00000000-0000-0000-0000-000000000000", operator.id),
+    ).rejects.toThrow(CeremonyValidationError);
+  });
+
+  it("listCeremoniesPaginated가 반환하는 예식에 배정된 담당자 이름이 병합된다", async () => {
+    const hall = await createTestHall();
+    const operator = await createMember({
+      name: "오퍼레이터D",
+      phoneNumber: "01098880005",
+      password: "pw-91234",
+    });
+    const assigned = await createCeremony({
+      hallId: hall.id,
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+    await createCeremony({
+      hallId: hall.id,
+      ceremonyAt: new Date("2026-08-02T05:00:00.000Z"),
+      contractConditions: {},
+    });
+    await assignOperator(hall.id, assigned.id, operator.id);
+
+    const result = await listCeremoniesPaginated({ page: 1, pageSize: 10 });
+
+    const assignedRow = result.ceremonies.find((c) => c.id === assigned.id);
+    const unassignedRow = result.ceremonies.find((c) => c.id !== assigned.id);
+    expect(assignedRow?.assignedOperatorName).toBe("오퍼레이터D");
+    expect(unassignedRow?.assignedOperatorName).toBeNull();
   });
 });

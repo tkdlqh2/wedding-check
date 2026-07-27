@@ -1,10 +1,19 @@
 import * as ceremonyRepo from "../db/repositories/ceremony";
 import * as hallRepo from "../db/repositories/hall";
+import * as memberRepo from "../db/repositories/member";
 import type { Ceremony, CeremonyWithItemCount } from "../db/repositories/ceremony";
 
 export type { Ceremony, CeremonyWithItemCount };
 
 export class CeremonyValidationError extends Error {}
+
+// Story 5.8 AC 8: 목록 카드에 담당 오퍼레이터 이름을 읽기 전용으로 표시하기 위한 병합용
+// id→name 맵. hallName 병합과 동일한 스타일(리포지토리에 조인을 넣지 않고 서비스에서
+// 메모리 병합) — memberRepo.findAll()을 목록 조회당 한 번만 호출한다(N+1 방지).
+async function buildOperatorNameMap(): Promise<Map<string, string>> {
+  const members = await memberRepo.findAll();
+  return new Map(members.map((m) => [m.id, m.name]));
+}
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
@@ -84,19 +93,58 @@ export async function createCeremony(input: {
   return ceremony;
 }
 
-export type CeremonyWithHallName = CeremonyWithItemCount & { hallName: string };
+// Story 5.8 AC 7: 담당 오퍼레이터 배정/해제(operatorId === null이면 해제).
+// [ASSUMPTION] 담당자는 활성 오퍼레이터 역할 회원만 가능 — 관리자나 비활성 계정은
+// 배정 대상에서 제외한다(epics.md AC 7 명시).
+export async function assignOperator(
+  hallId: string,
+  ceremonyId: string,
+  operatorId: string | null,
+): Promise<void> {
+  const ceremony = await ceremonyRepo.findById(hallId, ceremonyId);
+  if (!ceremony) {
+    throw new CeremonyValidationError("존재하지 않는 예식입니다");
+  }
+  if (operatorId !== null) {
+    const operator = await memberRepo.findById(operatorId);
+    if (!operator || operator.role !== "operator" || operator.banned) {
+      throw new CeremonyValidationError("배정할 수 없는 담당자입니다");
+    }
+  }
+  await ceremonyRepo.assignOperator(hallId, ceremonyId, operatorId);
+}
+
+export type CeremonyWithHallName = CeremonyWithItemCount & {
+  hallName: string;
+  assignedOperatorName: string | null;
+};
+
+function withAssignedOperatorName<T extends { assignedOperatorId: string | null }>(
+  ceremony: T,
+  operatorNames: Map<string, string>,
+): T & { assignedOperatorName: string | null } {
+  return {
+    ...ceremony,
+    assignedOperatorName: ceremony.assignedOperatorId
+      ? (operatorNames.get(ceremony.assignedOperatorId) ?? null)
+      : null,
+  };
+}
 
 // AD-2는 리포지토리 함수가 hallId를 필수 첫 인자로 받으라는 규칙이다. 관리자 예식
 // 목록 화면은 전체 홀을 가로질러 "오늘 예식"을 보여줘야 하므로, 활성 홀 목록을 얻은
 // 뒤 각 홀에 대해 hallId가 스코프된 리포지토리 함수를 개별 호출하고 병합한다 — 서비스가
 // SQL을 직접 쓰지 않고 리포지토리만 호출한다는 AD-2 상위 규칙도 그대로 지킨다.
 export async function listTodaysCeremonies(): Promise<CeremonyWithHallName[]> {
-  const halls = await hallRepo.findAllActive();
+  const [halls, operatorNames] = await Promise.all([
+    hallRepo.findAllActive(),
+    buildOperatorNameMap(),
+  ]);
   const { start, end } = todayRangeKST();
   const results = await Promise.all(
     halls.map(async (hall) => {
       const hallCeremonies = await ceremonyRepo.findByHallForDateRange(hall.id, start, end);
-      return hallCeremonies.map((c) => ({ ...c, hallName: hall.name }));
+      return hallCeremonies.map((c) => withAssignedOperatorName({ ...c, hallName: hall.name }, operatorNames));
     }),
   );
   return results.flat().sort((a, b) => a.ceremonyAt.getTime() - b.ceremonyAt.getTime());
@@ -107,12 +155,12 @@ export async function listTodaysCeremonies(): Promise<CeremonyWithHallName[]> {
 // 보존되므로(§AC 3), 그 홀이 비활성화됐다는 이유만으로 조회 결과에서 사라지면 안 된다
 // (코덱스 리뷰 P2).
 export async function listCeremoniesForDate(dateIso: string): Promise<CeremonyWithHallName[]> {
-  const halls = await hallRepo.findAll();
+  const [halls, operatorNames] = await Promise.all([hallRepo.findAll(), buildOperatorNameMap()]);
   const { start, end } = dayRangeKST(dateIso);
   const results = await Promise.all(
     halls.map(async (hall) => {
       const hallCeremonies = await ceremonyRepo.findByHallForDateRange(hall.id, start, end);
-      return hallCeremonies.map((c) => ({ ...c, hallName: hall.name }));
+      return hallCeremonies.map((c) => withAssignedOperatorName({ ...c, hallName: hall.name }, operatorNames));
     }),
   );
   return results.flat().sort((a, b) => a.ceremonyAt.getTime() - b.ceremonyAt.getTime());
@@ -133,11 +181,11 @@ export async function listCeremoniesPaginated(input: {
   page: number;
   pageSize: number;
 }): Promise<PaginatedCeremonies> {
-  const halls = await hallRepo.findAll();
+  const [halls, operatorNames] = await Promise.all([hallRepo.findAll(), buildOperatorNameMap()]);
   const results = await Promise.all(
     halls.map(async (hall) => {
       const hallCeremonies = await ceremonyRepo.findAllByHall(hall.id);
-      return hallCeremonies.map((c) => ({ ...c, hallName: hall.name }));
+      return hallCeremonies.map((c) => withAssignedOperatorName({ ...c, hallName: hall.name }, operatorNames));
     }),
   );
   const all = results.flat().sort((a, b) => b.ceremonyAt.getTime() - a.ceremonyAt.getTime());

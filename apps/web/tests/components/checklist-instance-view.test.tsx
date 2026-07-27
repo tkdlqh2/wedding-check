@@ -142,4 +142,57 @@ describe("ChecklistInstanceView", () => {
       value: originalLocation,
     });
   });
+
+  it("겹쳐서 시작된 요청 중 늦게 도착한 이전 응답이 최신 상태를 덮어쓰지 않는다 (코덱스 5차 P2)", async () => {
+    vi.useFakeTimers();
+    let resolveFirst!: (value: unknown) => void;
+    let resolveSecond!: (value: unknown) => void;
+    const firstResponse = new Promise((resolve) => {
+      resolveFirst = resolve;
+    });
+    const secondResponse = new Promise((resolve) => {
+      resolveSecond = resolve;
+    });
+    const fetchMock = vi
+      .fn()
+      .mockReturnValueOnce(firstResponse)
+      .mockReturnValueOnce(secondResponse);
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderView();
+
+    // 첫 60초 tick — 첫 요청이 시작되지만 아직 응답하지 않는다(느린 홀 와이파이 재현).
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    // 두 번째 60초 tick — 첫 요청이 여전히 대기 중인 채로 두 번째 요청이 겹쳐서 시작된다.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+
+    // 나중에 시작된(최신) 요청이 먼저 응답한다.
+    await act(async () => {
+      resolveSecond({
+        ok: true,
+        json: async () => ({
+          ceremony: initialCeremony,
+          items: [{ id: "item-new", stepName: "최신 항목", description: null, sortOrder: 1 }],
+        }),
+      });
+    });
+
+    // 먼저 시작됐던(이제는 낡은) 요청이 뒤늦게 응답한다 — 이게 최신 상태를 덮으면 버그다.
+    await act(async () => {
+      resolveFirst({
+        ok: true,
+        json: async () => ({
+          ceremony: initialCeremony,
+          items: [{ id: "item-old", stepName: "오래된 항목", description: null, sortOrder: 1 }],
+        }),
+      });
+    });
+
+    expect(screen.getByRole("button", { name: "최신 항목" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "오래된 항목" })).not.toBeInTheDocument();
+  });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { readCache, writeCache } from "@/lib/operator/checklist-cache";
 
 const POLL_INTERVAL_MS = 60_000;
@@ -76,12 +76,22 @@ export function ChecklistInstanceView({
     };
   }, []);
 
+  // 코덱스 리뷰 5차 P2: 요청이 60초보다 오래 걸리면(불안정한 홀 와이파이 — 이 스토리가
+  // 다루는 바로 그 상황) setInterval이 다음 요청을 겹쳐서 보낸다. 나중에 시작한 요청이
+  // 먼저 끝나 최신 데이터를 반영했는데, 그 뒤에 늦게 도착한 이전 요청의 응답이 그
+  // 최신 상태를 다시 낡은 값으로 덮어쓸 수 있었다 — 요청마다 순번을 매겨, 자신이 시작된
+  // 이후 더 최신 요청이 시작됐다면 자신의 결과를 state/캐시에 반영하지 않고 버린다.
+  const latestRequestIdRef = useRef(0);
+
   useEffect(() => {
     let cancelled = false;
 
     async function revalidate() {
+      const requestId = ++latestRequestIdRef.current;
+      const isStale = () => cancelled || requestId !== latestRequestIdRef.current;
+
       if (typeof navigator !== "undefined" && navigator.onLine === false) {
-        if (!cancelled) {
+        if (!isStale()) {
           setIsOffline(true);
           setHasError(false);
         }
@@ -95,7 +105,7 @@ export function ChecklistInstanceView({
         });
       } catch {
         // fetch 자체가 throw하는 경우만 실제 연결 실패(오프라인)다 — 캐시로 폴백한다(AD-5).
-        if (cancelled) return;
+        if (isStale()) return;
         const cached = readCache(ceremonyId);
         if (cached) {
           setCeremony(cached.ceremony);
@@ -106,7 +116,7 @@ export function ChecklistInstanceView({
         return;
       }
 
-      if (cancelled) return;
+      if (isStale()) return;
 
       if (res.status === 401) {
         // 세션 만료 — 캐시된 데이터를 계속 보여주는 것은 이미 접근 권한이 없는 데이터를
@@ -124,7 +134,7 @@ export function ChecklistInstanceView({
       }
 
       const data: ApiSuccessResponse = await res.json();
-      if (cancelled) return;
+      if (isStale()) return;
       setCeremony(data.ceremony);
       setItems(data.items);
       setIsOffline(false);

@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "seed": "tsx --env-file=.env.local scripts/seed-accounts.ts",
+    "seed:ceremony-checklist": "tsx --env-file=.env.local scripts/seed-ceremony-checklist.ts",
     "db:test:migrate": "tsx --env-file=.env.test scripts/apply-migrations.ts"
   },
   "dependencies": {

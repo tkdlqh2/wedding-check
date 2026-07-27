@@ -26,7 +26,6 @@ export async function createTemplateItem(
   hallId: string,
   input: {
     stepName: string;
-    description?: string | null;
     applicableContractConditions?: Record<string, boolean>;
   },
 ): Promise<TemplateItem> {
@@ -34,7 +33,6 @@ export async function createTemplateItem(
   const stepName = assertValidStepName(input.stepName);
   return templateItemRepo.create(hallId, {
     stepName,
-    description: input.description,
     applicableContractConditions: input.applicableContractConditions,
   });
 }
@@ -48,7 +46,6 @@ export async function updateTemplateItem(
   id: string,
   input: {
     stepName: string;
-    description?: string | null;
     applicableContractConditions?: Record<string, boolean>;
   },
 ): Promise<TemplateItem> {
@@ -59,7 +56,6 @@ export async function updateTemplateItem(
   const stepName = assertValidStepName(input.stepName);
   return templateItemRepo.update(hallId, id, {
     stepName,
-    description: input.description,
     applicableContractConditions: input.applicableContractConditions,
   });
 }

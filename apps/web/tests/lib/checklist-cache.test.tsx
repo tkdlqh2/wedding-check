@@ -45,4 +45,21 @@ describe("checklist-cache", () => {
 
     expect(readCache(ceremonyId)).toBeNull();
   });
+
+  it("문법적으로 유효하지만 기대 셰이프가 아닌 JSON(예: {})은 null을 반환한다 (코덱스 1차 P2)", () => {
+    const ceremonyId = "44444444-4444-4444-4444-444444444444";
+    window.localStorage.setItem(`wedding-check:operator-checklist:${ceremonyId}`, "{}");
+
+    expect(readCache(ceremonyId)).toBeNull();
+  });
+
+  it("items가 배열이 아니면 null을 반환한다", () => {
+    const ceremonyId = "55555555-5555-5555-5555-555555555555";
+    window.localStorage.setItem(
+      `wedding-check:operator-checklist:${ceremonyId}`,
+      JSON.stringify({ ceremony: { id: "x", ceremonyAt: "2026-08-01T00:00:00.000Z" }, items: "not-an-array" }),
+    );
+
+    expect(readCache(ceremonyId)).toBeNull();
+  });
 });

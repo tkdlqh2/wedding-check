@@ -35,6 +35,7 @@ describe("ChecklistInstanceView", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
     vi.useRealTimers();
   });
 
@@ -98,5 +99,47 @@ describe("ChecklistInstanceView", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(screen.getByRole("status")).toHaveTextContent("오프라인");
+  });
+
+  it("서버가 500을 반환하면 오프라인이 아닌 별도 오류로 표시하고 캐시로 되돌아가지 않는다 (코덱스 1차 P2)", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 500 }),
+    );
+
+    renderView();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+
+    // 기존 항목은 그대로 — HTTP 오류가 캐시/기존 화면을 건드리지 않는다.
+    expect(screen.getByRole("button", { name: "신랑입장" })).toBeInTheDocument();
+    expect(screen.getByText(/새로고침에 실패했습니다/)).toBeInTheDocument();
+    expect(screen.queryByText(/오프라인 상태입니다/)).not.toBeInTheDocument();
+  });
+
+  it("서버가 401을 반환하면 로그인 화면으로 리다이렉트한다 (세션 만료, 코덱스 1차 P2)", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 401 }));
+    const originalLocation = window.location;
+    // jsdom의 window.location은 기본적으로 직접 대입이 막혀 있어 href만 쓰기 가능한
+    // 스텁으로 임시 교체한다 — 실제 네비게이션은 발생시키지 않고 호출 여부만 확인.
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...originalLocation, href: "" },
+    });
+
+    renderView();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+
+    expect(window.location.href).toBe("/login");
+
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: originalLocation,
+    });
   });
 });

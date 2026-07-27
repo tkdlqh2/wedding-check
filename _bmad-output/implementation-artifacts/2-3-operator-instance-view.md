@@ -165,6 +165,11 @@ Amelia (claude-sonnet-5)
 **코덱스 리뷰 1차(PR #10) — 1건 실결함, 수정·확인 완료:**
 - **[P2] tablet 768~1024px 레이아웃에서 하단 내비가 뷰포트 밖으로 밀림.** `.operator-content`에 `height: 100dvh`를 직접 주면, 부모 `.operator-shell`(operator-nav.css, `min-height: 100dvh` 플렉스 컨테이너)의 실제 높이가 `.operator-content`의 100dvh + sibling `.operator-nav`의 높이만큼 뷰포트를 넘쳐버려, "항상 보이는" 하단 내비가 화면 밖으로 밀리고 페이지 전체가 스크롤되는 문제였다(AC 4 "고정 레이아웃" 의도와 정반대). `.operator-shell`을 이 breakpoint에서 `height: 100dvh`로 고정하고, `.operator-content`는 기존에 이미 상속받던 `flex: 1`로 남은 공간만 차지하도록 수정(불필요한 `height` 재선언 제거).
 
+**코덱스 리뷰 2차(PR #10) — 2건 실결함, 수정·회귀 테스트 추가 후 확인:**
+- **[P2] 폴링의 모든 실패를 "오프라인"으로 뭉뚱그림.** `!res.ok`(401/404/500 등 실제 서버 응답)를 네트워크 연결 실패(fetch가 throw하는 경우)와 같은 catch 블록에서 처리하고 있었다 — 세션 만료나 서버 오류에도 "오프라인"이라 말하며 낡은/이미 접근 권한이 없는 캐시 데이터를 계속 보여주는 정직하지 않은 상태였다. `fetch()` 자체의 throw(진짜 연결 실패)만 오프라인 폴백(캐시+배너)으로 처리하도록 분리하고, `res.ok`가 false인 경우는 별도 처리: 401은 즉시 `/login`으로 리다이렉트(세션이 실제로 끊겼으므로 캐시를 보여주는 것 자체가 위험), 그 외(404/500 등)는 캐시로 되돌아가지 않고 마지막 화면을 유지한 채 오프라인 배너와 다른 별도의 오류 문구(`hasError`)만 표시.
+- **[P2] `readCache`가 문법적으로 유효하지만 셰이프가 다른 JSON을 그대로 반환.** 예: 이전 앱 버전이 남긴 `{}` — `ceremony`/`items`가 `undefined`인 채로 다음 렌더에서 크래시할 수 있었다. `isValidCachedShape()`로 `ceremony.id`/`ceremony.ceremonyAt`가 문자열인지, `items`가 배열인지 런타임 검증 후 셰이프가 안 맞으면 `null`을 반환하도록 수정.
+- **테스트 작성 중 발견한 부수 문제(둘 다 검증 스크립트 자체의 버그, 코드 버그 아님):** `vi.spyOn(window.navigator, "onLine", "get")`로 만든 스파이가 `vi.unstubAllGlobals()`로는 정리되지 않아 다음 테스트로 값이 새어나갔다(이전 테스트가 `onLine=false`로 남겨두면 이후 테스트가 전부 오프라인 분기로 잘못 빠짐) — `afterEach`에 `vi.restoreAllMocks()`를 추가해 해결.
+
 ### Completion Notes List
 
 - AC 1: POS Tile 마크업(`checklist-tile`/`checklist-tile-grid`)이 실제 SSR HTML에 렌더링됨을 로컬 서버 HTTP 응답으로 확인. 탭 시 0ms 즉시 선택 상태 반영(트랜지션 없는 CSS)은 컴포넌트 테스트로 자동화 검증.

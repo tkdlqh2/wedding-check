@@ -37,25 +37,29 @@
   font-size: 14px;
 }
 
+/* prototype/js/screens/WeddingScreen.js 44~75행의 "새 예식" 폼 — 작은 필드 라벨
+   (12px/700 muted), 날짜+시각 한 줄, 홀/계약 형태 pill 토글, 안내 박스, 전체 폭 CTA. */
 .ceremony-form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-  align-items: flex-start;
+  align-items: stretch;
 }
 
-.ceremony-form__field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  width: 100%;
+.ceremony-form__label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  margin-top: var(--space-base);
 }
 
-/* Story 5.8 AC 1: 날짜/시각 분리 입력 — prototype/js/screens/WeddingScreen.js 47~50행
-   참고(날짜 flex:1, 시각 고정폭). */
+.ceremony-form__label:first-child {
+  margin-top: 0;
+}
+
 .ceremony-form__datetime {
   display: flex;
   gap: var(--space-sm);
+  margin-top: 6px;
 }
 
 .ceremony-form__datetime input[type="date"] {
@@ -73,22 +77,24 @@
   display: flex;
   gap: var(--space-sm);
   width: 100%;
+  margin-top: 6px;
 }
 
-.ceremony-form__couple-row .ceremony-form__field {
+.ceremony-form__couple-row .input {
   flex: 1;
   min-width: 0;
 }
 
-/* Story 5.8 AC 4: 계약 형태 pill 토글(체크박스 대체) — 선택 시 브랜드 틴트 배경 +
-   보더(design-tokens.css 변수가 정확히 #FDEDE7/#E8552D와 일치). */
-.ceremony-form__conditions {
+/* 홀 선택/계약 형태 공용 pill 토글 — 선택 시 브랜드 틴트 배경 + 보더
+   (design-tokens.css 변수가 정확히 #FDEDE7/#E8552D와 일치). */
+.ceremony-form__pills {
   display: flex;
-  gap: var(--space-xs);
+  gap: 6px;
   flex-wrap: wrap;
+  margin-top: 6px;
 }
 
-.ceremony-form__condition-pill {
+.ceremony-form__pill {
   cursor: pointer;
   background: var(--color-surface);
   border: 1px solid var(--color-border-mid);
@@ -99,9 +105,28 @@
   color: var(--color-text-primary);
 }
 
-.ceremony-form__condition-pill--active {
+.ceremony-form__pill--active {
   background: var(--color-brand-tint);
   border-color: var(--color-brand);
+}
+
+/* 담당 배정 안내 — 프로토타입 57행의 회색 안내 박스. */
+.ceremony-form__notice {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  background: var(--color-surface-soft);
+  border-radius: var(--radius-md);
+  padding: 10px var(--space-md);
+  margin: var(--space-base) 0 0;
+}
+
+.ceremony-form__submit {
+  width: 100%;
+  margin-top: var(--space-base);
+}
+
+.ceremony-form .field-error {
+  margin: var(--space-sm) 0 0;
 }
 
 .ceremony-list {
@@ -169,13 +194,55 @@
   overflow-wrap: anywhere;
 }
 
-.ceremony-card__assignee-line {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
+/* FR-18 다중 배정 — prototype/js/screens/WeddingScreen.js 121~130행의 카드 내 담당
+   오퍼레이터 pill 토글(선택 = 브랜드 틴트/보더/텍스트, 미선택 = 흰 배경 + muted). */
+.ceremony-card__assignees {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: var(--space-xs);
 }
 
-.ceremony-card__assignee-line--unassigned {
+.ceremony-card__assignees-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.assignee-pill {
+  cursor: pointer;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-mid);
+  border-radius: var(--radius-full);
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.assignee-pill--active {
+  background: var(--color-brand-tint);
+  border-color: var(--color-brand);
+  color: var(--color-brand);
+}
+
+/* 배정 후 비활성화/역할 변경된 담당자 — 경고 톤으로 "정리 필요" 상태를 표시하되
+   클릭으로 해제는 계속 가능(임의 hex 대신 승인된 warning 토큰에서 파생). */
+.assignee-pill--stale {
+  background: color-mix(in srgb, var(--color-warning) 12%, white);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.assignee-pill:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.ceremony-card__assignees-unassigned {
+  font-size: 12px;
+  font-weight: 600;
   color: var(--color-error);
 }
 

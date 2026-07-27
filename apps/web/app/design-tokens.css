@@ -50,6 +50,15 @@
   --shadow-modal: 0 8px 32px rgba(0, 0, 0, 0.18);
 }
 
+/* 이 리셋이 없으면 .input/.btn-*처럼 width:100%에 padding+border를 함께 쓰는
+   모든 요소가 content-box 기본값 때문에 부모 컨테이너 폭을 padding+border만큼
+   넘어간다("하위 input이 박스를 넘어간다" 리포트의 근본 원인). */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 body {
   font-family: var(--font-family-kr);
   color: var(--color-text-primary);

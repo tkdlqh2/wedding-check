@@ -76,13 +76,13 @@ so that 정해진 폼을 채우는 부담 없이 겪은 변수 상황을 기록�
       - 저장 실패 시: DESIGN.md §14 "Error(질의 응답 실패)"와 동일하게 즉시 드러나는 오류 + 재시도 문구(조용한 실패 금지).
   - [x] `checklist-instance-view.css`에 스타일 추가(새 CSS 파일 만들지 않는다 — 이미 이 화면 전용 CSS 파일이 있음): `.step-feedback`, `.step-feedback__toggle`, `.step-feedback__textarea`, `.step-feedback__save-btn`, `.step-feedback__saved-hint`(주황 톤) 등. 색상/라운딩/스페이싱은 `design-tokens.css` 변수만 사용(Story 5.7 Dev Notes에서 이미 확립된 전역 `box-sizing: border-box` 리셋 덕분에 textarea `width: 100%` + padding이 카드 밖으로 밀려나오지 않는다 — 별도 처리 불필요).
 
-- [ ] Task 6: 테스트 (AC: 1, 2, 3, 4)
-  - [ ] `apps/web/tests/repositories/feedback.test.ts`(NEW): `create`/`findByCeremonyAndStep`(존재/미존재)/`updateContent` 기본 CRUD.
-  - [ ] `apps/web/tests/services/feedback.test.ts`(NEW):
+- [x] Task 6: 테스트 (AC: 1, 2, 3, 4)
+  - [x] `apps/web/tests/repositories/feedback.test.ts`(NEW): `create`/`findByCeremonyAndStep`(존재/미존재)/`updateContent` 기본 CRUD.
+  - [x] `apps/web/tests/services/feedback.test.ts`(NEW):
     - `saveDraftFeedback`: 최초 저장(신규 행 생성) / 재저장(같은 ceremony+step, 기존 행 update, id 불변) / 존재하지 않는 예식 / 다른 홀의 예식(hallId 불일치) / 존재하지 않는 단계 / 빈 문자열(trim 후 빈 값 포함) 거부 / **status가 이미 'confirmed'인 행을 직접 DB에 심어두고 저장 시도 → FeedbackValidationError**(3.2 이전엔 프로덕션 코드로 confirmed를 만들 수 없으므로 테스트에서 `feedbackRepo.create` 후 `db.update`로 직접 status를 확정 상태로 만들어 이 방어선을 검증).
     - `getDraftFeedback`: 존재/미존재/다른 홀의 예식으로 조회 시 거부.
-  - [ ] `apps/web/tests/lib` 또는 컴포넌트 테스트 — `StepFeedback` 컴포넌트가 jsdom environment에서 draft 프리필 → 저장 → 주황 톤 확인 문구까지 렌더링되는지(`tests/components` 기존 패턴 확인 후 동일 스타일로 작성, 없으면 이 스토리에서 이 폴더에 처음 추가해도 됨 — 이미 `tests/components` 디렉터리는 존재).
-  - [ ] `npm run test`, `npx tsc --noEmit`, `npm run lint`, `npm run build` 전부 클린 확인.
+  - [x] `apps/web/tests/components/step-feedback.test.tsx`(NEW) — `StepFeedback` 컴포넌트가 jsdom environment에서 draft 프리필 → 저장 → "임시저장됨" 확인 문구까지 렌더링되는지, 저장 실패 시 오류 문구, 빈 내용 시 저장 버튼 비활성화까지 검증(`tests/components/checklist-instance-view.test.tsx` 기존 패턴 재사용).
+  - [x] `npm run test`, `npx tsc --noEmit`, `npm run lint`, `npm run build` 전부 클린 확인 — vitest 174건 통과(신규 15건), tsc/lint/build 전부 클린.
 
 - [ ] Task 7: 수동 검증
   - [ ] 로컬 서버에서 오퍼레이터 계정으로 예식 상세 화면에 진입, 한 단계에 "피드백 남기기"를 펼쳐 텍스트 입력 후 저장 → 주황 톤 확인 문구 표시 확인(AC 1, 3).

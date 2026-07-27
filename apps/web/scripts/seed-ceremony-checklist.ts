@@ -166,6 +166,14 @@ const STEPS: StepSeed[] = [
 // 커진다(수렴하지 않음 — 상대 순서는 맞아도 idempotent하지 않음). 이 시드가 다루는
 // title 집합을 기준값 계산에서 제외해 커스텀 항목의 최댓값만 기준으로 삼으면, 커스텀
 // 항목이 추가/삭제되지 않는 한 재실행해도 절대값 자체가 완전히 동일하게 수렴한다.
+// 코덱스 리뷰 4차 P2: 관리자가 시드가 다루는 항목들의 순서를 화면에서 직접 바꾼(위/아래
+// 버튼) 뒤 이 스크립트를 재실행하면, 첫 setSortOrder가 "아직 이번 루프에서 갱신되지
+// 않은 다른 시드 항목이 현재 점유 중인" 목표값으로 이동하려다 (template_item_id,
+// sort_order) UNIQUE 위반으로 즉시 실패할 수 있다(예: 관리자가 순서를 뒤집어놔서 이번
+// 실행에서 항목A가 이전에 항목B가 쓰던 sortOrder를 원해야 하는데, 항목B가 아직 그
+// 자리를 비우지 않은 경우). db.transaction()을 못 쓰므로(neon-http 제약), "전부 먼저
+// 확실히 안 겹치는 임시값(음수, 실제 sortOrder는 항상 0 이상이라 절대 충돌하지 않음)
+// 으로 옮긴 뒤 → 그다음에 최종값을 부여"하는 2단계로 이 충돌을 원천 차단한다.
 async function seedChecklistItems(hallId: string, templateItemId: string, items: ChecklistItemSeed[]) {
   const existing = await checklistItemRepo.findAllByTemplateItem(hallId, templateItemId);
   const existingByTitle = new Map(existing.map((item) => [item.title, item]));
@@ -174,6 +182,13 @@ async function seedChecklistItems(hallId: string, templateItemId: string, items:
     (max, item) => (seedTitles.has(item.title) ? max : Math.max(max, item.sortOrder)),
     -1,
   );
+
+  const matchedItems = items
+    .map((seed) => existingByTitle.get(seed.title))
+    .filter((item): item is NonNullable<typeof item> => item !== undefined);
+  for (const [i, match] of matchedItems.entries()) {
+    await checklistItemRepo.setSortOrder(hallId, match.id, -(i + 1));
+  }
 
   for (const [index, seed] of items.entries()) {
     const targetSortOrder = currentMax + 1 + index;
@@ -212,6 +227,16 @@ async function seedHall(hallId: string, hallName: string) {
     (max, item) => (seedStepNames.has(item.stepName) ? max : Math.max(max, item.sortOrder)),
     -1,
   );
+
+  // 코덱스 리뷰 4차 P2: seedChecklistItems와 동일한 이유로, 단계들도 먼저 전부 임시
+  // 음수값으로 옮긴 뒤에 최종 목표값을 부여한다 — 관리자가 순서를 바꿔놓은 뒤
+  // 재실행해도 (hall_id, sort_order) UNIQUE 위반 없이 항상 안전하게 수렴한다.
+  const matchedSteps = STEPS.map((step) => existingByStepName.get(step.stepName)).filter(
+    (item): item is NonNullable<typeof item> => item !== undefined,
+  );
+  for (const [i, match] of matchedSteps.entries()) {
+    await templateItemRepo.setSortOrder(hallId, match.id, -(i + 1));
+  }
 
   for (const [index, step] of STEPS.entries()) {
     const targetSortOrder = currentMax + 1 + index;

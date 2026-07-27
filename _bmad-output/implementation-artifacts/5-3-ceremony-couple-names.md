@@ -4,7 +4,7 @@ baseline_commit: 60511110bf8035493f1ed117edae1ba12e2c3090
 
 # Story 5.3: 예식 등록 시 신랑·신부 이름 입력
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -169,3 +169,4 @@ Claude Sonnet 5
 
 - 2026-07-27: 스토리 최초 작성 (create-story, Epic 5 프로토타입 리뷰 후속 4건 중 3번째).
 - 2026-07-27: 구현 완료 (dev-story) — 스키마/마이그레이션/repo/service/폼/목록·상세 표시/테스트 전부 완료, 로컬 서버 실제 HTTP 검증. Status → review.
+- 2026-07-27: 코덱스 리뷰 1라운드 클린, PR #17 merge(fast-forward, main CI 그린 확인). Status → done.

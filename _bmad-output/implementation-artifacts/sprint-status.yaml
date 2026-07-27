@@ -76,7 +76,7 @@ development_status:
   epic-5: in-progress
   5-1-admin-nav-links: done
   5-2-ceremony-calendar-pagination: done
-  5-3-ceremony-couple-names: ready-for-dev
+  5-3-ceremony-couple-names: done
   5-4-member-management: backlog
   5-5-checklist-two-level-structure: done
   epic-5-retrospective: optional
@@ -84,6 +84,14 @@ development_status:
 # Per-story git pipeline substage (see GIT PIPELINE STAGE legend above).
 # 번호가 매겨진 스토리가 아닌 개별 수정(fix/*)도 동일한 파이프라인으로 추적한다.
 git_pipeline:
+  5-3-ceremony-couple-names:
+    stage: merged
+    branch: story/5-3-ceremony-couple-names
+    pr_url: "https://github.com/tkdlqh2/wedding-check/pull/17"
+    merge_commit: "8f91d16"
+    notes: "일반 merge(fast-forward), 브랜치 삭제 완료. 코덱스 리뷰 1라운드(클린). FR-12 — 2026-07-27 대표의 어드민 화면 점검 후속 4건 중 3번째. ceremonies 테이블에 groom_name/bride_name(nullable) 컬럼 추가(마이그레이션 0014) — DB는 nullable, 서비스는 옵셔널 문자열, action 레이어가 폼 필수 검증을 담당하는 3단 경계로 설계해 기존 ceremonyRepo.create/createCeremony 호출부(20곳 이상)를 무수정으로 유지. ceremonyRepo.create()의 단일 CTE(new_ceremony→new_instance→new_items) 구조는 그대로 두고 new_ceremony INSERT에 컬럼만 추가. 필드 에러는 hall-form.tsx의 UX-DR14 패턴(1px solid #E0353B + aria-invalid)을 재사용하되, 폼에 필드가 여러 개라 CeremonyFormState에 errorField 판별 키를 신설해 어느 입력란이 문제인지 구분. 예식 목록(ceremony-row.tsx)·상세(ceremony-detail page.tsx) 둘 다 이름이 있을 때만 조건부 렌더링(기존 nullable 예식 데이터 회귀 방지) — 오퍼레이터 조회 화면은 AC 범위 밖이라 손대지 않음. vitest 신규 4건(repo 저장/조회/생략시null, service trim), 최종 전체 111건 통과. 로컬 서버 실제 로그인+curl로 SSR 정적 HTML 직접 확인(폼 필드 렌더링, 목록/상세 이름 표시, 이름 없는 기존 예식은 조용히 생략)해 회귀 없음 검증 — 코덱스 리뷰가 클린해서 이번 스토리는 리뷰 라운드 1회로 마무리(Story 5.5에서 지적된 '리뷰 전 스스로 잡을 것' 피드백 반영, 병행 세션의 Story 5.4가 쓸 수도 있는 마이그레이션 번호(0014)와의 충돌은 발생하지 않음을 병합 전 확인)."
+    last_updated: "07-27-2026 14:45"
+
   5-5-checklist-two-level-structure:
     stage: merged
     branch: story/5-5-checklist-two-level-structure

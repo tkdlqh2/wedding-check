@@ -103,3 +103,80 @@ export async function removeInstanceItem(
   const instance = await requireInstance(hallId, ceremonyId);
   await instanceRepo.removeItem(hallId, instance.id, itemId);
 }
+
+// Story 5.8: "이 예식에만" 자유 서술 체크 항목 추가 — 템플릿 카탈로그를 거치지 않는다.
+// 기존 단계에 추가할 때는 templateItemId(실제 템플릿 단계) 또는 groupRootId(이미 만든
+// ad-hoc 단계)를 받아 그 단계 소속임을 서버가 직접 재검증하고, stepName은 클라이언트
+// 입력을 신뢰하지 않고 검증된 단계에서 그대로 가져온다(위조 방지) — 완전히 새 단계를
+// 만들 때만 클라이언트가 보낸 stepName을 쓴다.
+export async function addAdHocInstanceItem(
+  hallId: string,
+  ceremonyId: string,
+  input: {
+    title: string;
+    description: string | null;
+    stepName: string;
+    templateItemId?: string | null;
+    groupRootId?: string | null;
+  },
+): Promise<ChecklistInstanceItem> {
+  const title = input.title.trim();
+  if (!title) {
+    throw new ChecklistInstanceValidationError("체크 항목 제목을 입력해주세요");
+  }
+  const description = input.description?.trim() || null;
+
+  const instance = await requireInstance(hallId, ceremonyId);
+
+  let stepId: string | null = null;
+  let groupRootId: string | null = null;
+  let stepName = input.stepName.trim();
+
+  if (input.templateItemId) {
+    const step = await templateItemRepo.findById(hallId, input.templateItemId);
+    if (!step) {
+      throw new ChecklistInstanceValidationError("존재하지 않는 단계입니다");
+    }
+    stepId = step.id;
+    stepName = step.stepName;
+  } else if (input.groupRootId) {
+    const existingItems = await instanceRepo.listItems(hallId, instance.id);
+    const anchor = existingItems.find((item) => item.adHocGroupRootId === input.groupRootId);
+    if (!anchor || !anchor.adHocGroupRootId) {
+      throw new ChecklistInstanceValidationError("존재하지 않는 단계입니다");
+    }
+    groupRootId = anchor.adHocGroupRootId;
+    stepName = anchor.stepName;
+  } else if (!stepName) {
+    throw new ChecklistInstanceValidationError("단계 이름을 입력해주세요");
+  }
+
+  return instanceRepo.addAdHocItem(hallId, instance.id, {
+    stepName,
+    title,
+    description,
+    stepId,
+    groupRootId,
+  });
+}
+
+// Story 5.8: 인스턴스 항목의 제목/설명 수정(기존에는 추가/제외만 가능했다).
+export async function updateInstanceItem(
+  hallId: string,
+  ceremonyId: string,
+  itemId: string,
+  input: { title: string; description: string | null },
+): Promise<ChecklistInstanceItem> {
+  const title = input.title.trim();
+  if (!title) {
+    throw new ChecklistInstanceValidationError("체크 항목 제목을 입력해주세요");
+  }
+  const description = input.description?.trim() || null;
+
+  const instance = await requireInstance(hallId, ceremonyId);
+  const updated = await instanceRepo.updateItem(hallId, instance.id, itemId, { title, description });
+  if (!updated) {
+    throw new ChecklistInstanceValidationError("존재하지 않는 체크리스트 항목입니다");
+  }
+  return updated;
+}

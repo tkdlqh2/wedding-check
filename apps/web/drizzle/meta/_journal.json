@@ -120,6 +120,13 @@
       "when": 1785220800000,
       "tag": "0016_ceremony-assigned-operator",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1785225600000,
+      "tag": "0017_instance-items-ad-hoc-group",
+      "breakpoints": true
     }
   ]
 }

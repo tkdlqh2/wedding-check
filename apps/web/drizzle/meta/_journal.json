@@ -113,6 +113,13 @@
       "when": 1785134400000,
       "tag": "0015_member-management-banned-fields",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1785220800000,
+      "tag": "0016_ceremony-assigned-operator",
+      "breakpoints": true
     }
   ]
 }

@@ -170,8 +170,19 @@ Claude Sonnet 5
 - `apps/web/app/admin/ceremonies/[hallId]/[ceremonyId]/ceremony-detail.css` (MODIFY) — 담당자 pill, 그룹 카드 스타일 신규 작성
 - `apps/web/tests/repositories/ceremony.test.ts` (MODIFY) — `assignOperator` 테스트
 - `apps/web/tests/services/ceremony.test.ts` (MODIFY) — `assignOperator` 테스트, 목록 병합 테스트
+- `apps/web/lib/db/schema.ts` (MODIFY) — `checklist_instance_items.ad_hoc_group_root_id` 추가
+- `apps/web/drizzle/0017_instance-items-ad-hoc-group.sql`, `apps/web/drizzle/meta/0017_snapshot.json` (NEW)
+- `apps/web/lib/db/repositories/checklist-instance.ts` (MODIFY) — `addAdHocItem`, `updateItem` 추가
+- `apps/web/lib/services/checklist-instance.ts` (MODIFY) — `addAdHocInstanceItem`, `updateInstanceItem` 추가
+- `apps/web/app/admin/ceremonies/[hallId]/[ceremonyId]/group-by-step.ts` (NEW) — `groupCandidatesByStep`/`groupItemsByStep`을 page.tsx에서 추출(테스트 가능하게)
+- `apps/web/app/admin/ceremonies/[hallId]/[ceremonyId]/instance-item-form.tsx`, `instance-item-row.tsx` (NEW) — 항목 추가/수정 UI
+- `apps/web/app/admin/ceremonies/ceremony-row.tsx` (MODIFY 재작성) — 프로토타입 위계로 카드 재정렬(제목/메타/담당자/상태배지)
+- `apps/web/tests/lib/group-by-step.test.ts` (NEW)
+- `apps/web/tests/repositories/checklist-instance.test.ts`, `apps/web/tests/services/checklist-instance.test.ts` (MODIFY) — `addAdHocItem`/`updateItem`/`addAdHocInstanceItem`/`updateInstanceItem` 테스트
 
 ## Change Log
 
 - 2026-07-27: 스토리 최초 작성 (create-story, Epic 5 2차 후속 3건 중 마지막, Story 5.4/5.7의 pill/세그먼트 패턴 재사용).
 - 2026-07-27: 구현 완료 (dev) — AC 1~8 전부 구현. 마이그레이션 스냅샷 드리프트(groom_name/bride_name) 발견 및 보정. vitest 164건 통과, tsc/lint/build 클린. 로컬 서버 curl로 실제 렌더링 확인(등록 폼, 목록, 상세 — 14단계 그룹핑 실데이터로 검증). Status → review.
+- 2026-07-27: 코덱스 리뷰 4라운드(1~3차 실결함 2건 발견/수정, 4차 클린) — (1) 삭제된 템플릿 단계에서 온 항목이 여러 개면 전부 null 키로 합쳐져 서로 다른 단계가 하나로 표시되던 문제, 항목별 고유 키로 분리(회귀 테스트 추가). (2) 배정된 담당자가 이후 비활성화/역할 변경되면 해제 수단이 사라지던 문제, 별도 해제 컨트롤 추가.
+- 2026-07-27: 대표의 추가 실시간 피드백 반영(AC 5 범위 내 — "프로토타입처럼" 요구를 더 정확히 충족) — (1) 목록 카드를 프로토타입 위계(시간+신랑신부 제목 → 날짜/홀/계약형태 메타 → 담당자, 우측에 체크리스트 개수+상태배지+상세버튼)로 전면 재정렬, 상태 배지는 예식 일시 기준 예정/완료 2단계로 계산([ASSUMPTION] — 오퍼레이터가 직접 바꾸는 상태 FR은 아직 없음, Story 2.1 Dev Notes 참고). (2) 예식 상세를 템플릿 편집기와 동일하게 이 예식 전용 단계/항목을 자유롭게 추가·수정할 수 있도록 확장 — 신규 컬럼(`ad_hoc_group_root_id`)으로 템플릿에 없는 "이 예식만의 단계"를 그룹핑하고, `addAdHocItem`/`updateItem`으로 추가/수정 지원. 이 확장은 checklist_instance_items만 건드리고 템플릿 카탈로그는 전혀 건드리지 않는다(각 예식의 체크리스트는 독립된 사본). vitest 신규 20건 포함 전체 184건 통과, tsc/lint/build 클린. 로컬 서버 curl로 재확인.

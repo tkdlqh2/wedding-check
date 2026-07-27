@@ -1,0 +1,126 @@
+import Link from "next/link";
+
+const DAY_HEADS = ["일", "월", "화", "수", "목", "금", "토"];
+
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+function prevMonth(year: number, month: number): { year: number; month: number } {
+  return month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
+}
+
+function nextMonth(year: number, month: number): { year: number; month: number } {
+  return month === 12 ? { year: year + 1, month: 1 } : { year, month: month + 1 };
+}
+
+// 날짜 필터 없이 연/월만 지정하는 링크 — 월 이동(이전/다음 달) 버튼과 "전체 보기"
+// 버튼 둘 다에 쓰인다. 월 이동이 선택된 날짜를 그대로 유지하면, 목록은 여전히 원래
+// 날짜로 필터링된 채인데 캘린더는 그 날짜가 보이지도 않는 달을 보여주는 상태가
+// 된다(코덱스 리뷰 P2) — 그래서 월 이동도 항상 날짜 필터를 초기화한다.
+function monthHref(year: number, month: number): string {
+  const params = new URLSearchParams({ year: String(year), month: String(month) });
+  return `/admin/ceremonies?${params.toString()}`;
+}
+
+function dateHref(year: number, month: number, day: number): string {
+  const params = new URLSearchParams({
+    year: String(year),
+    month: String(month),
+    date: `${year}-${pad2(month)}-${pad2(day)}`,
+  });
+  return `/admin/ceremonies?${params.toString()}`;
+}
+
+// Story 5.2 AC 1, 2, 4: 예식 등록 폼 오른쪽 월간 캘린더. 예식이 있는 날짜는 점으로 표시하고,
+// 날짜 클릭 시 그 날짜로 필터링한다. 순수 Server Component — 월 이동/날짜 선택 모두
+// <Link> 쿼리 파라미터(?year=&month=&date=)로 구현한다(Dev Notes: 관리자 데스크톱 화면은
+// DESIGN.md §15의 0ms 즉시 반응 요구가 걸린 오퍼레이터 태블릿 화면이 아니므로 클라이언트
+// 상태 없이 페이지 단위 내비게이션으로 충분하다).
+export function CeremonyCalendar({
+  year,
+  month,
+  selectedDate,
+  markedDates,
+}: {
+  year: number;
+  month: number;
+  selectedDate?: string;
+  markedDates: Set<string>;
+}) {
+  const prev = prevMonth(year, month);
+  const next = nextMonth(year, month);
+  const firstWeekday = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+
+  const cells: (number | null)[] = [
+    ...Array<null>(firstWeekday).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+
+  return (
+    <div className="ceremony-calendar">
+      <div className="ceremony-calendar__header">
+        <span className="ceremony-calendar__title">날짜로 필터</span>
+        <span className="ceremony-calendar__hint">● 표시가 예식이 있는 날입니다</span>
+        {selectedDate && (
+          <Link href={monthHref(year, month)} className="ceremony-calendar__clear">
+            {month}월 {Number(selectedDate.slice(8))}일 ✕ 전체 보기
+          </Link>
+        )}
+      </div>
+      <div className="ceremony-calendar__nav">
+        <Link
+          href={monthHref(prev.year, prev.month)}
+          className="ceremony-calendar__nav-btn"
+          aria-label="이전 달"
+        >
+          ◀
+        </Link>
+        <span className="ceremony-calendar__month-label">
+          {year}년 {month}월
+        </span>
+        <Link
+          href={monthHref(next.year, next.month)}
+          className="ceremony-calendar__nav-btn"
+          aria-label="다음 달"
+        >
+          ▶
+        </Link>
+      </div>
+      <div className="ceremony-calendar__grid">
+        {DAY_HEADS.map((dh) => (
+          <div key={dh} className="ceremony-calendar__day-head">
+            {dh}
+          </div>
+        ))}
+        {cells.map((day, idx) => {
+          if (day === null) return <div key={`blank-${idx}`} />;
+          const iso = `${year}-${pad2(month)}-${pad2(day)}`;
+          const isSelected = selectedDate === iso;
+          const hasCeremony = markedDates.has(iso);
+          return (
+            <Link
+              key={iso}
+              href={isSelected ? monthHref(year, month) : dateHref(year, month, day)}
+              className={
+                "ceremony-calendar__cell" + (isSelected ? " ceremony-calendar__cell--selected" : "")
+              }
+            >
+              <span>{day}</span>
+              {/* 점 마커는 실제로 예식이 있는 날에만 켠다 — 헤더 문구("● 표시가 예식이
+                  있는 날입니다")와 일치해야 한다. 선택 상태는 배경색으로 이미 표시되므로
+                  예식이 없는 날을 선택했다고 점까지 켜면 없는 예식을 있다고 보여주는
+                  꼴이 된다(코덱스 리뷰 P2). */}
+              <span
+                className={"ceremony-calendar__dot" + (hasCeremony ? " ceremony-calendar__dot--visible" : "")}
+              >
+                ●
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

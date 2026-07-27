@@ -239,3 +239,49 @@ describe("ceremonyRepo.findByHallForDateRange — 홀 스코프 격리", () => {
     expect(result[0].itemCount).toBe(2);
   });
 });
+
+describe("ceremonyRepo.findAllByHall — 홀 스코프 전체 목록 (Story 5.2)", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("예식이 없으면 빈 배열을 반환한다", async () => {
+    const hall = await createTestHall();
+    const result = await ceremonyRepo.findAllByHall(hall.id);
+    expect(result).toEqual([]);
+  });
+
+  it("날짜 필터 없이 그 홀의 예식을 모두 반환한다", async () => {
+    const hall = await createTestHall();
+    await ceremonyRepo.create(hall.id, {
+      ceremonyAt: new Date("2026-01-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+    await ceremonyRepo.create(hall.id, {
+      ceremonyAt: new Date("2026-12-31T05:00:00.000Z"),
+      contractConditions: {},
+    });
+
+    const result = await ceremonyRepo.findAllByHall(hall.id);
+
+    expect(result).toHaveLength(2);
+  });
+
+  it("다른 홀의 예식은 섞이지 않는다", async () => {
+    const hallA = await createTestHall({ name: "A홀" });
+    const hallB = await createTestHall({ name: "B홀" });
+    await ceremonyRepo.create(hallA.id, {
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+    await ceremonyRepo.create(hallB.id, {
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+
+    const result = await ceremonyRepo.findAllByHall(hallA.id);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].hallId).toBe(hallA.id);
+  });
+});

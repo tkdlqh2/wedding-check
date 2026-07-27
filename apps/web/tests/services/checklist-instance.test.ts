@@ -87,6 +87,7 @@ describe("removeInstanceItem", () => {
       id: checklistItem.id,
       title: checklistItem.title,
       description: checklistItem.description,
+      stepId: step.id,
       stepName: step.stepName,
     });
 

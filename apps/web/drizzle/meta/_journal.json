@@ -78,6 +78,13 @@
       "when": 1785123098728,
       "tag": "0010_checklist-two-level-structure",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1785126282581,
+      "tag": "0011_checklist-instance-items-step-id",
+      "breakpoints": true
     }
   ]
 }

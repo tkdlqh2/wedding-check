@@ -15,8 +15,8 @@ const initialCeremony = {
   contractConditions: {},
 };
 const initialItems = [
-  { id: "item-1", stepName: "신랑입장", title: "조명 전환", description: null, sortOrder: 1 },
-  { id: "item-2", stepName: "축가", title: "음향 준비", description: null, sortOrder: 2 },
+  { id: "item-1", stepId: "step-1", stepName: "신랑입장", title: "조명 전환", description: null, sortOrder: 1 },
+  { id: "item-2", stepId: "step-2", stepName: "축가", title: "음향 준비", description: null, sortOrder: 2 },
 ];
 
 function renderView() {
@@ -71,8 +71,8 @@ describe("ChecklistInstanceView", () => {
         hallName="1층 홀"
         initialCeremony={initialCeremony}
         initialItems={[
-          { id: "item-1", stepName: "개식사", title: "조명 준비", description: null, sortOrder: 1 },
-          { id: "item-2", stepName: "개식사", title: "사전 안내", description: null, sortOrder: 2 },
+          { id: "item-1", stepId: "step-1", stepName: "개식사", title: "조명 준비", description: null, sortOrder: 1 },
+          { id: "item-2", stepId: "step-1", stepName: "개식사", title: "사전 안내", description: null, sortOrder: 2 },
         ]}
       />,
     );
@@ -80,6 +80,28 @@ describe("ChecklistInstanceView", () => {
     expect(screen.getAllByRole("heading", { name: "개식사" })).toHaveLength(1);
     expect(screen.getByRole("button", { name: "조명 준비" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "사전 안내" })).toBeInTheDocument();
+  });
+
+  // 코덱스 리뷰 3차 P2: stepName이 같아도 stepId가 다르면(서로 다른 실제 단계가 우연히
+  // 같은 이름을 가진 경우) 별개 그룹으로 표시되어야 한다 — 텍스트만으로 묶으면 두
+  // 단계가 하나로 합쳐지는 실결함이었다.
+  it("stepName이 같아도 stepId가 다르면 별개의 그룹 헤더로 표시된다 (코덱스 3차 P2)", () => {
+    render(
+      <ChecklistInstanceView
+        hallId="hall-1"
+        ceremonyId="ceremony-1"
+        hallName="1층 홀"
+        initialCeremony={initialCeremony}
+        initialItems={[
+          { id: "item-1", stepId: "step-1", stepName: "준비", title: "첫 준비", description: null, sortOrder: 1 },
+          { id: "item-2", stepId: "step-2", stepName: "준비", title: "둘째 준비", description: null, sortOrder: 2 },
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByRole("heading", { name: "준비" })).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "첫 준비" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "둘째 준비" })).toBeInTheDocument();
   });
 
   it("60초 재검증이 성공하면 항목 목록이 갱신된다 (AC 3)", async () => {

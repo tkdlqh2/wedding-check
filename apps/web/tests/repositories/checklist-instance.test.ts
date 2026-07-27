@@ -33,6 +33,7 @@ describe("checklistInstanceRepo — addItem/removeItem", () => {
       id: checklistItem.id,
       title: checklistItem.title,
       description: checklistItem.description,
+      stepId: step.id,
       stepName: step.stepName,
     });
 
@@ -52,6 +53,7 @@ describe("checklistInstanceRepo — addItem/removeItem", () => {
       id: checklistItem.id,
       title: checklistItem.title,
       description: checklistItem.description,
+      stepId: step.id,
       stepName: step.stepName,
     };
 
@@ -72,6 +74,7 @@ describe("checklistInstanceRepo — addItem/removeItem", () => {
       id: checklistItem.id,
       title: checklistItem.title,
       description: checklistItem.description,
+      stepId: step.id,
       stepName: step.stepName,
     });
 
@@ -98,12 +101,14 @@ describe("checklistInstanceRepo — addItem/removeItem", () => {
       id: itemA1.id,
       title: itemA1.title,
       description: itemA1.description,
+      stepId: stepA.id,
       stepName: stepA.stepName,
     });
     const addedB = await instanceRepo.addItem(hall.id, instanceId, {
       id: itemB1.id,
       title: itemB1.title,
       description: itemB1.description,
+      stepId: stepB.id,
       stepName: stepB.stepName,
     });
 
@@ -122,6 +127,7 @@ describe("checklistInstanceRepo — addItem/removeItem", () => {
       id: checklistItem.id,
       title: checklistItem.title,
       description: checklistItem.description,
+      stepId: step.id,
       stepName: step.stepName,
     });
 
@@ -154,6 +160,7 @@ describe("checklistInstanceRepo.listCandidateChecklistItems — 홀 스코프 �
       id: included.id,
       title: included.title,
       description: included.description,
+      stepId: step.id,
       stepName: step.stepName,
     });
 

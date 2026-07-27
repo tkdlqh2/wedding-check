@@ -46,8 +46,8 @@ export async function create(
     ),
     new_items as (
       insert into checklist_instance_items
-        (hall_id, instance_id, template_item_check_id, step_name, title, description, sort_order)
-      select ni.hall_id, ni.id, tic.id, ti.step_name, tic.title, tic.description,
+        (hall_id, instance_id, template_item_id, template_item_check_id, step_name, title, description, sort_order)
+      select ni.hall_id, ni.id, ti.id, tic.id, ti.step_name, tic.title, tic.description,
         row_number() over (order by ti.sort_order, tic.sort_order)
       from new_instance ni
       join new_ceremony nc on nc.id = ni.ceremony_id

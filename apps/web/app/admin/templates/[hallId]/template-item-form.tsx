@@ -13,6 +13,7 @@ export function TemplateItemForm({
   hallId,
   item,
   onSuccess,
+  onCancel,
 }: {
   hallId: string;
   item?: {
@@ -21,6 +22,7 @@ export function TemplateItemForm({
     applicableContractConditions?: Record<string, boolean>;
   };
   onSuccess?: () => void;
+  onCancel?: () => void;
 }) {
   const action = item ? updateTemplateItemAction : createTemplateItemAction;
   const [state, formAction, isPending] = useActionState(action, initialState);
@@ -74,9 +76,16 @@ export function TemplateItemForm({
         </label>
       </div>
 
-      <button type="submit" className="btn-primary" disabled={isPending}>
-        {isPending ? "저장 중..." : item ? "수정 저장" : "항목 등록하기"}
-      </button>
+      <div className="template-item-form__footer">
+        {item && (
+          <button type="button" className="btn-secondary" onClick={onCancel}>
+            취소
+          </button>
+        )}
+        <button type="submit" className="btn-primary" disabled={isPending}>
+          {isPending ? "저장 중..." : item ? "수정 저장" : "단계 추가"}
+        </button>
+      </div>
     </form>
   );
 }

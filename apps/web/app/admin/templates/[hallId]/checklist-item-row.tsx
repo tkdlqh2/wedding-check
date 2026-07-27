@@ -40,10 +40,8 @@ export function ChecklistItemRow({
           demoVideo={demoVideo}
           blobEnabled={blobEnabled}
           onSuccess={() => setEditing(false)}
+          onCancel={() => setEditing(false)}
         />
-        <button type="button" className="btn-secondary" onClick={() => setEditing(false)}>
-          취소
-        </button>
       </li>
     );
   }

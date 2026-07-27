@@ -4,7 +4,7 @@ baseline_commit: 82daf9610546c4daabe893ea220217379484bff3
 
 # Story 5.7: 회원 관리 화면 정비 — 역할 선택/변경, 페이지네이션, 프로토타입 정합화
 
-Status: review
+Status: done
 
 ## Story
 

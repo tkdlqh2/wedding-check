@@ -229,6 +229,178 @@ describe("checklistInstanceRepo — addItem/removeItem", () => {
   });
 });
 
+describe("checklistInstanceRepo.addAdHocItem (Story 5.8)", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("stepId/groupRootId 없이 추가하면 새 ad-hoc 단계로 만들어지고 맨 뒤에 붙는다", async () => {
+    const hall = await createTestHall();
+    const { instanceId } = await createCeremonyWithNoItems(hall.id);
+    const step = await createTestTemplateItem(hall.id, { stepName: "기존 단계" });
+    const checklistItem = await createTestChecklistItem(hall.id, step.id, { title: "기존 항목" });
+    await instanceRepo.addItem(hall.id, instanceId, {
+      id: checklistItem.id,
+      title: checklistItem.title,
+      description: checklistItem.description,
+      stepId: step.id,
+      stepName: step.stepName,
+    });
+
+    const adHoc = await instanceRepo.addAdHocItem(hall.id, instanceId, {
+      stepName: "이 예식만의 단계",
+      title: "이 예식만의 항목",
+      description: null,
+      stepId: null,
+      groupRootId: null,
+    });
+
+    expect(adHoc.templateItemId).toBeNull();
+    expect(adHoc.templateItemCheckId).toBeNull();
+    expect(adHoc.adHocGroupRootId).toBeTruthy();
+    expect(adHoc.stepName).toBe("이 예식만의 단계");
+    const items = await instanceRepo.listItems(hall.id, instanceId);
+    expect(items.map((i) => i.title)).toEqual(["기존 항목", "이 예식만의 항목"]);
+  });
+
+  it("stepId(실제 템플릿 단계)로 추가하면 그 단계 항목 바로 뒤에 삽입된다", async () => {
+    const hall = await createTestHall();
+    const { instanceId } = await createCeremonyWithNoItems(hall.id);
+    const stepA = await createTestTemplateItem(hall.id, { stepName: "단계A", sortOrder: 1 });
+    const stepB = await createTestTemplateItem(hall.id, { stepName: "단계B", sortOrder: 2 });
+    const itemA1 = await createTestChecklistItem(hall.id, stepA.id, { title: "A-1" });
+    const itemB1 = await createTestChecklistItem(hall.id, stepB.id, { title: "B-1" });
+    await instanceRepo.addItem(hall.id, instanceId, {
+      id: itemA1.id,
+      title: itemA1.title,
+      description: itemA1.description,
+      stepId: stepA.id,
+      stepName: stepA.stepName,
+    });
+    await instanceRepo.addItem(hall.id, instanceId, {
+      id: itemB1.id,
+      title: itemB1.title,
+      description: itemB1.description,
+      stepId: stepB.id,
+      stepName: stepB.stepName,
+    });
+
+    await instanceRepo.addAdHocItem(hall.id, instanceId, {
+      stepName: stepA.stepName,
+      title: "A만의 자유 항목",
+      description: "설명",
+      stepId: stepA.id,
+      groupRootId: null,
+    });
+
+    const items = await instanceRepo.listItems(hall.id, instanceId);
+    expect(items.map((i) => i.title)).toEqual(["A-1", "A만의 자유 항목", "B-1"]);
+  });
+
+  it("groupRootId(기존 ad-hoc 단계)로 추가하면 같은 그룹으로 묶이고 그 단계 바로 뒤에 삽입된다", async () => {
+    const hall = await createTestHall();
+    const { instanceId } = await createCeremonyWithNoItems(hall.id);
+    const step = await createTestTemplateItem(hall.id, { stepName: "다른 단계" });
+    const checklistItem = await createTestChecklistItem(hall.id, step.id, { title: "다른 항목" });
+    await instanceRepo.addItem(hall.id, instanceId, {
+      id: checklistItem.id,
+      title: checklistItem.title,
+      description: checklistItem.description,
+      stepId: step.id,
+      stepName: step.stepName,
+    });
+    const firstAdHoc = await instanceRepo.addAdHocItem(hall.id, instanceId, {
+      stepName: "새 단계",
+      title: "새 단계 첫 항목",
+      description: null,
+      stepId: null,
+      groupRootId: null,
+    });
+
+    const secondAdHoc = await instanceRepo.addAdHocItem(hall.id, instanceId, {
+      stepName: "새 단계",
+      title: "새 단계 두 번째 항목",
+      description: null,
+      stepId: null,
+      groupRootId: firstAdHoc.adHocGroupRootId,
+    });
+
+    expect(secondAdHoc.adHocGroupRootId).toBe(firstAdHoc.adHocGroupRootId);
+    const items = await instanceRepo.listItems(hall.id, instanceId);
+    expect(items.map((i) => i.title)).toEqual([
+      "다른 항목",
+      "새 단계 첫 항목",
+      "새 단계 두 번째 항목",
+    ]);
+  });
+});
+
+describe("checklistInstanceRepo.updateItem (Story 5.8)", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("제목/설명을 수정한다", async () => {
+    const hall = await createTestHall();
+    const { instanceId } = await createCeremonyWithNoItems(hall.id);
+    const step = await createTestTemplateItem(hall.id, { stepName: "단계" });
+    const checklistItem = await createTestChecklistItem(hall.id, step.id, { title: "원본 제목" });
+    const added = await instanceRepo.addItem(hall.id, instanceId, {
+      id: checklistItem.id,
+      title: checklistItem.title,
+      description: checklistItem.description,
+      stepId: step.id,
+      stepName: step.stepName,
+    });
+
+    const updated = await instanceRepo.updateItem(hall.id, instanceId, added.id, {
+      title: "수정된 제목",
+      description: "새 설명",
+    });
+
+    expect(updated?.title).toBe("수정된 제목");
+    expect(updated?.description).toBe("새 설명");
+  });
+
+  it("다른 홀의 항목은 수정되지 않는다(홀 스코프 격리)", async () => {
+    const hallA = await createTestHall({ name: "A홀" });
+    const hallB = await createTestHall({ name: "B홀" });
+    const { instanceId } = await createCeremonyWithNoItems(hallA.id);
+    const step = await createTestTemplateItem(hallA.id, { stepName: "단계" });
+    const checklistItem = await createTestChecklistItem(hallA.id, step.id, { title: "원본" });
+    const added = await instanceRepo.addItem(hallA.id, instanceId, {
+      id: checklistItem.id,
+      title: checklistItem.title,
+      description: checklistItem.description,
+      stepId: step.id,
+      stepName: step.stepName,
+    });
+
+    const result = await instanceRepo.updateItem(hallB.id, instanceId, added.id, {
+      title: "해킹 시도",
+      description: null,
+    });
+
+    expect(result).toBeUndefined();
+    const items = await instanceRepo.listItems(hallA.id, instanceId);
+    expect(items[0].title).toBe("원본");
+  });
+
+  it("존재하지 않는 항목이면 undefined를 반환한다", async () => {
+    const hall = await createTestHall();
+    const { instanceId } = await createCeremonyWithNoItems(hall.id);
+
+    const result = await instanceRepo.updateItem(
+      hall.id,
+      instanceId,
+      "00000000-0000-0000-0000-000000000000",
+      { title: "제목", description: null },
+    );
+
+    expect(result).toBeUndefined();
+  });
+});
+
 describe("checklistInstanceRepo.listCandidateChecklistItems — 홀 스코프 격리, 단계 그룹핑 (AC 4, 7)", () => {
   beforeEach(async () => {
     await resetDb();

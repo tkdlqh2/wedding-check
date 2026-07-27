@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: "07-26-2026 16:19"
-last_updated: "07-27-2026 22:10"
+last_updated: "07-27-2026 23:35"
 project: wedding-check
 project_key: WEDCHK
 tracking_system: file-system
@@ -81,12 +81,19 @@ development_status:
   5-5-checklist-two-level-structure: done
   5-6-admin-account-menu: done
   5-7-member-management-polish: done
-  5-8-ceremony-screens-polish: review
+  5-8-ceremony-screens-polish: done
   epic-5-retrospective: optional
 
 # Per-story git pipeline substage (see GIT PIPELINE STAGE legend above).
 # 번호가 매겨진 스토리가 아닌 개별 수정(fix/*)도 동일한 파이프라인으로 추적한다.
 git_pipeline:
+  fix-prototype-design-alignment:
+    stage: merged
+    branch: fix/prototype-design-alignment
+    pr_url: "https://github.com/tkdlqh2/wedding-check/pull/24"
+    merge_commit: "83aa993"
+    notes: "Story 5.8 병합 직후 대표의 전면 디자인 지적('프로토타입이랑 홀 템플릿 양식에 맞게 제발 정리해줘') 반영 — 5개 화면 일괄 정합화 + 데이터 모델 변경 1건. (1) 담당 오퍼레이터 다중 배정: Story 5.8의 단일 컬럼(assigned_operator_id)을 ceremony_assignees 조인 테이블(마이그레이션 0019, PK=ceremony_id+operator_id, hall_id 직접 저장 AD-2)로 대체하고 기존 배정 데이터 이관 후 컬럼 제거 — 프로토타입 WeddingScreen.js의 assignees 배열 모델 그대로, 예식 목록 카드에서 활성 오퍼레이터 전원을 pill 토글로 배정/해제(toggleAssignee: 배정 추가만 자격 검증, 해제는 stale 담당자도 항상 허용). 상세 화면의 검색 모달(assignee-picker.tsx)은 삭제하고 담당은 메타 줄 읽기 전용으로 — 프로토타입이 배정 조작을 목록 카드에만 두는 구조라 그대로 따름. (2) 홀 추가 폼: 이름 입력+등록 버튼 한 줄. (3) 새 예식 등록 폼: WeddingScreen.js 44~75행 그대로 — 12px/700 muted 필드 라벨, 홀 셀렉트→pill 토글, '담당 오퍼레이터는 등록 후 예식 카드에서 배정' 안내 박스, 전체 폭 CTA. (4) 예식 상세: 템플릿 편집기와 동일 구조로 — 단계 헤더에 수정(인라인 이름 변경)/단계 삭제 추가(renameInstanceStep/deleteInstanceStep 신설, 그룹 키는 templateItemId→adHocGroupRootId→itemId 3단 위계, 스냅샷만 수정하고 템플릿 무관), 항목 행에 '긴 설명' 태그+수정/삭제(제외→삭제로 라벨 통일), warning 톤 '이 예식 전용' 안내 박스(승인 토큰 color-mix 파생, 임의 hex 금지 준수). (5) 오퍼레이터 실행 화면 전면 재작성(RunScreen.js 이식): 예식 헤더 카드(날짜·홀/시간+신랑신부 제목/계약 칩+상태 배지/체크 진행 N-M 28px), 단계 아코디언(번호 배지, 단계별 진행 카운트, 완료 시 초록), 항목별 원형 체크 버튼(로컬 상태, 즉각 반영), '상세' 펼침에 설명 전문+시연 영상 재생(getOperatorInstanceView가 templateItemCheckId로 demo_videos 병합 — 기존엔 오퍼레이터가 영상을 볼 수단이 없었음), 오프라인 배너 warning 톤 전환, 60초 폴링/캐시 로직은 유지하되 캐시 셰이프 확장(구버전 캐시는 검증 탈락으로 자연 무효화). 오퍼레이터 홈 카드도 시간+신랑신부 위계로 정렬. drizzle-kit generate 비TTY 이슈로 0019 snapshot 수기 구성(기존 선례), 격리 테스트 DB에 0000~0019 전체 체인 적용 검증 + 개발 DB에도 0019 직접 적용(기존 배정 1건 이관 확인). vitest 228건(신규/재작성: 다중 배정 repo 5건+service 7건, 단계 수정/삭제 7건, 실행 화면 컴포넌트 13건, 캐시 셰이프) 통과, tsc/lint/build 클린, 로컬 서버 실제 로그인(관리자/오퍼레이터 각각)으로 5개 화면 렌더링 curl 검증. 코덱스 리뷰 1라운드 클린. CI 그린 확인 후 병합."
+    last_updated: "07-27-2026 23:35"
   3-1-natural-language-feedback:
     stage: merged
     branch: story/3-1-natural-language-feedback
@@ -96,11 +103,12 @@ git_pipeline:
     last_updated: "07-27-2026 21:45"
 
   5-8-ceremony-screens-polish:
-    stage: pr-open
+    stage: merged
     branch: story/5-8-ceremony-screens-polish
     pr_url: "https://github.com/tkdlqh2/wedding-check/pull/21"
-    notes: "main(654950f) 기준 분기(primary 체크아웃). Epic 5 2차 후속 3건 중 마지막(FR-4, FR-12, FR-13, FR-18). 예식 등록 폼 날짜/시각 분리, 신랑·신부 한 줄 배치, 계약 형태 체크박스->pill 토글(제출값 동일 유지). 예식 상세 '포함된 항목'을 '추가 가능한 항목'과 동일한 단계별 그룹 구조로 변경(groupSequentialByKey 제네릭 헬퍼로 통합) — Story 5.5에서 도입된 instance-candidate-group* 클래스에 실제 CSS가 없었던 것도 함께 채움. 신규 기능: 담당 오퍼레이터 단일 배정(ceremonies.assigned_operator_id, text FK -> user.id — user.id가 uuid 아닌 text임을 실제 로그인 응답으로 재확인 후 선언) — 상세 화면 활성 오퍼레이터 pill 토글, 목록 카드는 읽기 전용 배지. 스토리 작성 중 실제 마이그레이션 드리프트 발견: Story 5.3의 groom_name/bride_name이 0014 커스텀 SQL로 DB엔 반영됐지만 0014/0015 snapshot.json엔 한 번도 기록된 적 없었음(scripts/apply-migrations.ts가 snapshot을 안 읽어 런타임엔 무해) — 0016_snapshot.json 구성 시 함께 보정. drizzle-kit generate는 예상대로 비TTY 프롬프트로 실패해 Story 5.4 방식대로 snapshot 수기 구성. vitest 신규 15건(ceremonyRepo.assignOperator 3건 + service assignOperator 6건 + 목록 병합 1건) 포함 전체 164건 통과, tsc/lint/build 전부 클린. 로컬 서버(포트 3000, 대표 구동 중)에 실제 로그인 후 curl로 등록 폼/목록/상세 렌더링 확인(실 시드 데이터 14단계 그룹핑 확인). **주의: 이 스토리의 0016도 story/3-1-natural-language-feedback과 같은 main(654950f) 기준 654950f에서 독립적으로 만들어짐 — 둘 다 main에 머지되려면 나중에 머지되는 쪽이 0017로 재배치 필요(5.3/5.4/5.5 선례).** 코덱스 리뷰는 PR 오픈 직후 진행 예정."
-    last_updated: "07-27-2026 18:10"
+    merge_commit: "89771bb"
+    notes: "main(654950f) 기준 분기(primary 체크아웃). Epic 5 2차 후속 3건 중 마지막(FR-4, FR-12, FR-13, FR-18). 예식 등록 폼 날짜/시각 분리, 신랑·신부 한 줄 배치, 계약 형태 체크박스->pill 토글(제출값 동일 유지). 초기 구현 이후 대표가 실제 화면을 보고 2차 확장 요청: (1) 예식 목록 카드를 프로토타입대로 재구성 — 최상단 시간+신랑신부 이름, 그 아래 날짜/홀/계약형태, 그 아래 담당 오퍼레이터, 우측에 체크리스트 개수·상태·상세 버튼(ceremony-row.tsx 전면 재작성, isCeremonyDone을 lib/ceremony-status.ts로 추출해 react-hooks/purity 대응). (2) 예식 상세를 '포함된 항목' 나열 방식에서 템플릿 편집기와 동일한 단계(step)+체크리스트 항목 구조로 전면 재작성해 예식별로 자유롭게 단계/항목을 추가·수정할 수 있게 함 — checklist_instance_items는 템플릿과 라이브 연결이 아닌 생성 시점 스냅샷(실행용 사본)이며, 이번 스토리로 그 사본을 예식별로 커스텀 편집 가능하게 확장(AD-9 원칙 유지, 템플릿 자체는 변경 안 됨). 신규 ad_hoc_group_root_id 컬럼으로 '삭제된 템플릿 단계라 orphan인 항목'과 '새로 만든 ad-hoc 단계에 속한 항목'을 구분(groupSequentialByKey 제네릭 헬퍼, group-by-step.ts). 담당 오퍼레이터 단일 배정(ceremonies.assigned_operator_id, text FK -> user.id) — 목록은 읽기 전용 배지, 상세는 검색 가능한 모달(assignee-picker.tsx, account-menu.tsx 모달 패턴 재사용)로 배정/해제, 클릭으로 제거. 대표 지시로 '추가 가능한 항목'(제외된 템플릿 항목 복구용 섹션)은 완전 삭제 — 코덱스가 이 섹션 제거로 복구 경로가 사라진다는 점을 지적했으나(P2) 사용자의 반복된 명시적 지시라 되돌리지 않고 Change Log에 트레이드오프로 기록(내부 addInstanceItem/listCandidateChecklistItems 함수와 테스트는 향후 재노출 가능하도록 보존). 예식 상세 h1 제목을 프로토타입(WeddingDetailScreen.js)과 다르다는 대표 지적을 받아 시간+신랑신부이름(28px/700)+상태배지 제목행, 날짜·홀 메타줄로 재구성. 코덱스 리뷰 다수 라운드 — 발견 및 수정: (P1) groupItemsByStep이 adHocGroupRootId를 확인하지 않아 여러 항목짜리 ad-hoc 단계가 카드별로 쪼개짐 — 그룹 키 fallback 순서 수정(templateItemId ?? adHocGroupRootId ?? orphan:id). (P2) addAdHocItem의 CTE가 instance_id만 스코프해 hall_id 누락(AD-2 위반) — WHERE절에 hall_id 추가. (P2) ad-hoc 항목 추가 시 templateItemId가 같은 홀 소속인지만 검증하고 실제 이 예식 인스턴스에 포함됐는지(AD-9 제외 여부)는 검증 안 해 제외된 단계 우회 가능 — existsForTemplateItem 재사용해 검증 추가. (P2) 원본 템플릿 단계가 삭제된 orphan 그룹에 빠른 추가 폼을 보여주면 항상 '단계 이름을 입력해주세요' 오류로 실패 — 조건 없이 컨트롤 자체를 숨김. (P2) assignOperatorAction이 CeremonyValidationError를 조용히 삼켜, 배정 실패(예: 렌더링과 제출 사이 오퍼레이터 비활성화)에도 모달이 성공한 것처럼 닫힘 — useActionState 기반으로 전환해 실패 시 에러 표시하며 모달 유지, 성공 시에만 닫힘(queueMicrotask로 react-hooks/set-state-in-effect 대응). 병행 세션(Story 3.1)이 동일 base(654950f)에서 독립적으로 0016 마이그레이션을 만들어 충돌 — git merge origin/main으로 해결, 이 스토리의 마이그레이션을 0017/0018로 재배치(_journal.json/snapshot 수기 재구성), CI 전체 마이그레이션 체인 그린 확인. vitest 최종 213건 통과, tsc/lint/build 전부 클린. CI 그린 확인 후 gh pr merge --merge --delete-branch로 병합."
+    last_updated: "07-27-2026 21:55"
 
   5-7-member-management-polish:
     stage: merged

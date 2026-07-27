@@ -48,14 +48,18 @@ export default async function OperatorCeremonyPage({
           id: view.ceremony.id,
           ceremonyAt: view.ceremony.ceremonyAt.toISOString(),
           contractConditions: view.ceremony.contractConditions,
+          groomName: view.ceremony.groomName,
+          brideName: view.ceremony.brideName,
         }}
         initialItems={view.items.map((item) => ({
           id: item.id,
           templateItemId: item.templateItemId,
+          adHocGroupRootId: item.adHocGroupRootId,
           stepName: item.stepName,
           title: item.title,
           description: item.description,
           sortOrder: item.sortOrder,
+          videoUrl: item.videoUrl,
         }))}
       />
     </section>

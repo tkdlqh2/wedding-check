@@ -94,3 +94,33 @@ source_context: "c:\\Users\\tkdlq\\OneDrive\\문서\\wedding-check\\apps\\web\\a
 ```
 
 Introduced off-palette color(s) #eef5fd in c:/Users/tkdlq/OneDrive/문서/wedding-check/apps/web/app/admin/templates/[hallId]/templates.css — not in DESIGN.md
+
+## 2026-07-27T08:50:42.268Z — introduced-off-palette-color-s-fdf3e0-in
+
+```omd-meta
+id: pref_ms2zllng_084981a7
+timestamp: 2026-07-27T08:50:42.268Z
+scope: color
+signal: ambient
+confidence: inferred
+status: pending
+source_agent: claude-code
+source_context: "c:\\Users\\tkdlq\\OneDrive\\문서\\wedding-check\\apps\\web\\app\\admin\\ceremonies\\[hallId]\\[ceremonyId]\\ceremony-detail.css"
+```
+
+Introduced off-palette color(s) #fdf3e0 in c:/Users/tkdlq/OneDrive/문서/wedding-check/apps/web/app/admin/ceremonies/[hallId]/[ceremonyId]/ceremony-detail.css — not in DESIGN.md
+
+## 2026-07-27T13:55:09.223Z — introduced-off-palette-color-s-fdf3e0-in
+
+```omd-meta
+id: pref_ms3ah4iv_a91bab18
+timestamp: 2026-07-27T13:55:09.223Z
+scope: color
+signal: ambient
+confidence: inferred
+status: pending
+source_agent: claude-code
+source_context: "c:\\Users\\tkdlq\\OneDrive\\문서\\wedding-check\\apps\\web\\app\\admin\\ceremonies\\[hallId]\\[ceremonyId]\\ceremony-detail.css"
+```
+
+Introduced off-palette color(s) #fdf3e0 in c:/Users/tkdlq/OneDrive/문서/wedding-check/apps/web/app/admin/ceremonies/[hallId]/[ceremonyId]/ceremony-detail.css — not in DESIGN.md

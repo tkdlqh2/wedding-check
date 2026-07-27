@@ -1,6 +1,6 @@
 {
-  "id": "8a0981db-acba-477f-bcea-a53ba5b44565",
-  "prevId": "69a1e7c9-745d-4c46-9ffe-bc56ffaffda9",
+  "id": "115fd86c-cc2f-4341-8a5c-1603b2733152",
+  "prevId": "b6bdc9b5-cb5f-4260-8afb-44c7d1b357d8",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -169,12 +169,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "assigned_operator_id": {
-          "name": "assigned_operator_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {},
@@ -191,19 +185,6 @@
           ],
           "onUpdate": "no action",
           "onDelete": "no action"
-        },
-        "ceremonies_assigned_operator_id_user_id_fk": {
-          "name": "ceremonies_assigned_operator_id_user_id_fk",
-          "tableFrom": "ceremonies",
-          "columnsFrom": [
-            "assigned_operator_id"
-          ],
-          "tableTo": "user",
-          "columnsTo": [
-            "id"
-          ],
-          "onUpdate": "no action",
-          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -265,6 +246,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "ad_hoc_group_root_id": {
+          "name": "ad_hoc_group_root_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -978,6 +965,31 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "situation": {
+          "name": "situation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "outcome": {
+          "name": "outcome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rationale": {
+          "name": "rationale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tags": {
+          "name": "tags",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
         }
       },
       "indexes": {},
@@ -1029,6 +1041,203 @@
           "columns": [
             "ceremony_id",
             "template_item_id"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.ceremony_assignees": {
+      "name": "ceremony_assignees",
+      "schema": "",
+      "columns": {
+        "ceremony_id": {
+          "name": "ceremony_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "operator_id": {
+          "name": "operator_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hall_id": {
+          "name": "hall_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "ceremony_assignees_ceremony_id_ceremonies_id_fk": {
+          "name": "ceremony_assignees_ceremony_id_ceremonies_id_fk",
+          "tableFrom": "ceremony_assignees",
+          "columnsFrom": [
+            "ceremony_id"
+          ],
+          "tableTo": "ceremonies",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "ceremony_assignees_operator_id_user_id_fk": {
+          "name": "ceremony_assignees_operator_id_user_id_fk",
+          "tableFrom": "ceremony_assignees",
+          "columnsFrom": [
+            "operator_id"
+          ],
+          "tableTo": "user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "ceremony_assignees_hall_id_halls_id_fk": {
+          "name": "ceremony_assignees_hall_id_halls_id_fk",
+          "tableFrom": "ceremony_assignees",
+          "columnsFrom": [
+            "hall_id"
+          ],
+          "tableTo": "halls",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "ceremony_assignees_ceremony_id_operator_id_pk": {
+          "name": "ceremony_assignees_ceremony_id_operator_id_pk",
+          "columns": [
+            "ceremony_id",
+            "operator_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.variable_cases": {
+      "name": "variable_cases",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "hall_id": {
+          "name": "hall_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "feedback_id": {
+          "name": "feedback_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "step_name": {
+          "name": "step_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "situation": {
+          "name": "situation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "outcome": {
+          "name": "outcome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rationale": {
+          "name": "rationale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tags": {
+          "name": "tags",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "embedding": {
+          "name": "embedding",
+          "type": "vector(1024)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "variable_cases_hall_id_halls_id_fk": {
+          "name": "variable_cases_hall_id_halls_id_fk",
+          "tableFrom": "variable_cases",
+          "columnsFrom": [
+            "hall_id"
+          ],
+          "tableTo": "halls",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "variable_cases_feedback_id_feedback_id_fk": {
+          "name": "variable_cases_feedback_id_feedback_id_fk",
+          "tableFrom": "variable_cases",
+          "columnsFrom": [
+            "feedback_id"
+          ],
+          "tableTo": "feedback",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "variable_cases_feedback_id_unique": {
+          "name": "variable_cases_feedback_id_unique",
+          "columns": [
+            "feedback_id"
           ],
           "nullsNotDistinct": false
         }

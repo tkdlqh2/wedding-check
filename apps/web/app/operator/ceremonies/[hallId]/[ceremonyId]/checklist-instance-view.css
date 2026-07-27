@@ -1,8 +1,11 @@
-/* DESIGN.md §4 체크리스트 항목 타일(POS Tile), §8 Tablet 768-1024px 고정 레이아웃(UX-DR11),
-   §14 Error(오프라인/동기화) 지속 배너, §15 motion-instant(0ms, 트랜지션 없음) */
+/* prototype/js/screens/RunScreen.js 전면 이식 — 예식 헤더 카드 + 단계 아코디언 +
+   원형 체크 버튼 + "상세" 펼침. DESIGN.md §4 POS Tile 원칙(≥44px 탭 타깃), §15
+   motion-instant(체크 상태 변화에 transition을 의도적으로 두지 않음), §14 오프라인
+   지속 배너(경고 톤 — 실패가 아니라 안내). */
 
 .operator-instance-page {
-  max-width: 640px;
+  max-width: 1024px;
+  margin: 0 auto;
 }
 
 .operator-instance-page__back {
@@ -10,75 +13,358 @@
   color: var(--color-text-secondary);
   font-size: 14px;
   margin-bottom: var(--space-md);
-  text-decoration: none;
 }
 
-.checklist-instance-view__offline-banner,
-.checklist-instance-view__error-banner {
+/* 오프라인 — RunScreen.js 9~16행의 경고 톤 안내(주황 점 + 안심시키는 카피). 예식
+   진행을 막는 실패가 아니므로 error가 아닌 warning 톤을 쓴다(DESIGN.md §14). 옅은
+   배경은 승인된 warning 토큰에서 파생(임의 hex 금지). */
+.run-screen__offline-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: color-mix(in srgb, var(--color-warning) 12%, white);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-md);
+  padding: var(--space-md) var(--space-base);
+  font-size: 14px;
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-md);
+}
+
+.run-screen__offline-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: var(--color-warning);
+}
+
+/* 서버 오류 — 실패는 항상 드러난다(DESIGN.md §14 Error). */
+.run-screen__error-banner {
   background: var(--color-surface-soft);
   border-left: 4px solid var(--color-error);
   border-radius: var(--radius-sm);
   padding: var(--space-md);
   font-size: 14px;
   color: var(--color-text-primary);
-  margin-bottom: var(--space-md);
+  margin: 0 0 var(--space-md);
 }
 
-.checklist-instance-view__empty {
+/* 예식 헤더 카드 — RunScreen.js 19~46행 */
+.run-header-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 20px var(--space-lg);
+}
+
+.run-header-card__meta {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.run-header-card__title {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
+.run-header-card__chips {
+  display: flex;
+  gap: 6px;
+  margin-top: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.run-header-card__chip {
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.run-header-card__status-badge {
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.run-header-card__status-badge--done {
+  background: var(--color-success);
+  border-color: transparent;
+  color: #ffffff;
+}
+
+.run-header-card__progress {
+  margin-left: auto;
+  text-align: right;
+}
+
+.run-header-card__progress-label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.run-header-card__progress-count {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.run-header-card__progress-done {
+  color: var(--color-success);
+}
+
+.run-header-card__progress-total {
+  color: var(--color-text-disabled);
+}
+
+.run-screen__section-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: var(--space-lg) 0 var(--space-md);
+}
+
+.run-screen__section-title span {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--color-text-muted);
+  margin-left: 6px;
+}
+
+.run-screen__empty {
   color: var(--color-text-muted);
   font-size: 14px;
 }
 
-/* Story 5.5: 단계 그룹핑 — DESIGN.md §7 "실행 화면을 장식하지 말 것" 원칙대로
-   절제된 섹션 라벨(굵기만으로 위계 표현, 장식 없음). */
-.checklist-step-group + .checklist-step-group {
-  margin-top: var(--space-lg);
-}
-
-.checklist-step-group__name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  margin: 0 0 var(--space-sm);
-}
-
-.checklist-tile-grid {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+/* 단계 아코디언 — RunScreen.js 52~104행 */
+.run-step-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: 10px;
 }
 
-/* 체크리스트 항목 타일 — 흰 배경, 8px 라운드, ≥44px 탭 타깃. 탭 시 상태 변화는
-   motion-instant(0ms) — transition 프로퍼티를 의도적으로 두지 않는다. */
-.checklist-tile {
-  width: 100%;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
+.run-step {
   background: var(--color-surface);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
-  padding: var(--space-md);
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-text-primary);
+  overflow: hidden;
+}
+
+.run-step--done {
+  border-color: var(--color-success);
+}
+
+.run-step__header {
+  width: 100%;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  background: var(--color-surface);
+  border: none;
+  padding: 14px 18px;
   text-align: left;
   cursor: pointer;
 }
 
-.checklist-tile--selected {
-  background: var(--color-brand-tint);
-  border: 1px solid var(--color-brand);
+.run-step--done .run-step__header {
+  background: var(--color-surface-soft);
 }
 
-/* Story 3.1(AC 1/2/3): 단계별 인라인 피드백 패널. 저장 확인은 초록(확정, Story 3.2
-   전용)이 아니라 주황(--color-warning) 톤 — DESIGN.md §2가 "피드백 임시저장"을 이 색의
-   용도로 명시한다. */
-.step-feedback {
-  margin-top: var(--space-sm);
+.run-step__header:hover {
+  background: var(--color-surface-soft);
+}
+
+.run-step__index {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--color-surface-soft);
+  color: var(--color-text-secondary);
+}
+
+.run-step__index--done {
+  background: var(--color-success);
+  color: #ffffff;
+}
+
+.run-step__name {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.run-step--done .run-step__name {
+  color: var(--color-text-muted);
+}
+
+.run-step__done-badge {
+  flex: none;
+  background: var(--color-success);
+  color: #ffffff;
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.run-step__count {
+  margin-left: auto;
+  flex: none;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text-disabled);
+}
+
+.run-step__count--partial {
+  color: var(--color-warning);
+}
+
+.run-step__count--done {
+  color: var(--color-success);
+}
+
+.run-step__chevron {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.run-step__body {
+  border-top: 1px solid var(--color-border-light);
+  display: flex;
+  flex-direction: column;
+}
+
+/* 항목 행 — RunScreen.js 74~96행. 체크 토글은 원형 버튼(≥44px 행 높이), 상태 변화는
+   즉각적(transition 없음). */
+.run-item {
+  border-bottom: 1px solid var(--color-border-light);
+  padding: 0 18px;
+}
+
+.run-item:last-of-type {
+  border-bottom: none;
+}
+
+.run-item__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  min-height: 56px;
+}
+
+.run-item__check {
+  flex: none;
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-border-mid);
+  background: var(--color-surface);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.run-item__check--done {
+  border-color: var(--color-success);
+  background: var(--color-success);
+}
+
+.run-item__title {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.run-item__title--done {
+  color: var(--color-text-muted);
+}
+
+.run-item__detail-toggle {
+  margin-left: auto;
+  flex: none;
+  cursor: pointer;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-mid);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.run-item__detail-toggle:hover {
+  background: var(--color-surface-soft);
+}
+
+/* "상세" 펼침 — 설명 전문 + 시연 영상(RunScreen.js 82~94행). */
+.run-item__detail {
+  background: var(--color-surface-soft);
+  border-radius: var(--radius-md);
+  padding: 14px var(--space-base);
+  margin: 0 0 var(--space-md) 40px;
+}
+
+.run-item__description {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.run-item__video {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: 10px;
+}
+
+.run-item__description + .run-item__video {
+  margin-top: var(--space-md);
+}
+
+.run-item__video-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-info);
+}
+
+.run-item__video video {
+  max-width: 100%;
+  border-radius: var(--radius-md);
+}
+
+/* Story 3.1 단계별 피드백 — 펼쳐진 단계 맨 아래. */
+.run-step__feedback {
+  padding: var(--space-xs) 18px var(--space-md);
 }
 
 .step-feedback__toggle {
@@ -199,13 +485,9 @@
   color: var(--color-text-primary);
 }
 
-/* UX-DR11: Tablet/iPad(768-1024px)에서 체크리스트+질의 고정 레이아웃 — 실행 화면은
-   태블릿 네이티브 존이므로 이 너비대에서 뷰포트 높이에 맞춘 스크롤 컨테이너로 고정한다.
-   .operator-shell(operator-nav.css)은 기본이 min-height라 자식이 넘치면 뷰포트보다
-   커질 수 있다 — 이 breakpoint에서는 height로 고정해 하단 내비(.operator-nav, sibling)가
-   항상 화면 안에 머물게 하고, .operator-content는 flex:1(기존 상속)로 남은 공간만
-   차지하며 내부에서만 스크롤한다(코덱스 리뷰 P2 반영 — .operator-content에 또 100dvh를
-   주면 내비 높이만큼 전체가 뷰포트를 넘쳐 내비가 화면 밖으로 밀려났다). */
+/* UX-DR11: Tablet/iPad(768-1024px) — 실행 화면은 태블릿 네이티브 존. .operator-shell을
+   height로 고정해 하단 내비가 항상 화면 안에 머물고, 콘텐츠는 내부 스크롤(Story 2.3
+   코덱스 리뷰 P2 반영 — .operator-content에 또 100dvh를 주면 내비가 밀려났다). */
 @media (min-width: 768px) and (max-width: 1024px) {
   .operator-shell {
     height: 100dvh;

@@ -1,6 +1,6 @@
 {
-  "id": "8a0981db-acba-477f-bcea-a53ba5b44565",
-  "prevId": "69a1e7c9-745d-4c46-9ffe-bc56ffaffda9",
+  "id": "e7dbd380-6a49-4b1c-bd43-257cb7dc1779",
+  "prevId": "8a0981db-acba-477f-bcea-a53ba5b44565",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -265,6 +265,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "ad_hoc_group_root_id": {
+          "name": "ad_hoc_group_root_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},

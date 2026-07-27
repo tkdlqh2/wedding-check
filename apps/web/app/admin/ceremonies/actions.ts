@@ -1,8 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createCeremony, CeremonyValidationError } from "@/lib/services/ceremony";
+import {
+  createCeremony,
+  toggleAssignee,
+  CeremonyValidationError,
+} from "@/lib/services/ceremony";
 import { requireAdminSession } from "@/lib/auth-guard";
+import { isValidUuid } from "@/lib/uuid";
 
 export type CeremonyFormState = { error?: string; errorField?: "groomName" | "brideName" };
 
@@ -23,7 +28,15 @@ export async function createCeremonyAction(
   await requireAdminSession();
 
   const hallId = String(formData.get("hallId") ?? "");
-  const ceremonyAt = parseCeremonyAtInput(String(formData.get("ceremonyAt") ?? ""));
+  // Story 5.8 AC 1: 날짜/시각 입력란이 분리됐다 — parseCeremonyAtInput의 KST 오프셋
+  // 파싱 로직(9~17행)은 그대로 두고, 두 값을 datetime-local과 동일한 형태
+  // ("YYYY-MM-DDTHH:mm")로 합쳐서 넘긴다.
+  const ceremonyDate = String(formData.get("ceremonyDate") ?? "");
+  const ceremonyTime = String(formData.get("ceremonyTime") ?? "");
+  const ceremonyAt =
+    ceremonyDate && ceremonyTime
+      ? parseCeremonyAtInput(`${ceremonyDate}T${ceremonyTime}`)
+      : null;
   if (!ceremonyAt) {
     return { error: "예식 일시를 입력해주세요" };
   }
@@ -49,5 +62,34 @@ export async function createCeremonyAction(
     throw err;
   }
   revalidatePath("/admin/ceremonies");
+  return {};
+}
+
+export type ToggleAssigneeFormState = { error?: string };
+
+// FR-18 다중 배정(프로토타입 WeddingScreen.js 121~130행): 예식 목록 카드의 오퍼레이터
+// pill 토글 — 이미 배정돼 있으면 해제, 아니면 배정. operatorId는 better-auth user.id
+// (uuid 아닌 text)라 isValidUuid로 검증하지 않는다 — toggleAssignee 서비스의 존재/역할/
+// 활성 검증이 실질적 검증 계층(Story 5.8 assignOperatorAction과 동일 원칙). 실패는
+// useActionState로 반환해 조용히 삼키지 않는다(Story 5.8 코덱스 리뷰 반영).
+export async function toggleAssigneeAction(
+  _prevState: ToggleAssigneeFormState,
+  formData: FormData,
+): Promise<ToggleAssigneeFormState> {
+  await requireAdminSession();
+  const hallId = String(formData.get("hallId") ?? "");
+  const ceremonyId = String(formData.get("ceremonyId") ?? "");
+  const operatorId = String(formData.get("operatorId") ?? "");
+  if (!isValidUuid(hallId) || !isValidUuid(ceremonyId) || !operatorId) {
+    return { error: "잘못된 요청입니다" };
+  }
+  try {
+    await toggleAssignee(hallId, ceremonyId, operatorId);
+  } catch (err) {
+    if (err instanceof CeremonyValidationError) return { error: err.message };
+    throw err;
+  }
+  revalidatePath("/admin/ceremonies");
+  revalidatePath(`/admin/ceremonies/${hallId}/${ceremonyId}`);
   return {};
 }

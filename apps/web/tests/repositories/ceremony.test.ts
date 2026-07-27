@@ -6,6 +6,7 @@ import {
   createTestChecklistItem,
 } from "../helpers/db";
 import * as ceremonyRepo from "@/lib/db/repositories/ceremony";
+import { createMember } from "@/lib/services/member";
 import { db } from "@/lib/db";
 import { checklistInstances, checklistInstanceItems } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
@@ -314,5 +315,125 @@ describe("ceremonyRepo.findAllByHall — 홀 스코프 전체 목록 (Story 5.2)
 
     expect(result).toHaveLength(1);
     expect(result[0].hallId).toBe(hallA.id);
+  });
+});
+
+describe("ceremonyRepo 담당 오퍼레이터 다중 배정 (FR-18)", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("여러 명을 배정하면 전원이 조회된다", async () => {
+    const hall = await createTestHall();
+    const operatorA = await createMember({
+      name: "오퍼레이터A",
+      phoneNumber: "01099990001",
+      password: "pw-91234",
+    });
+    const operatorB = await createMember({
+      name: "오퍼레이터B",
+      phoneNumber: "01099990002",
+      password: "pw-91234",
+    });
+    const { ceremonyId } = await ceremonyRepo.create(hall.id, {
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+
+    await ceremonyRepo.addAssignee(hall.id, ceremonyId, operatorA.id);
+    await ceremonyRepo.addAssignee(hall.id, ceremonyId, operatorB.id);
+
+    const assignees = await ceremonyRepo.findAssigneesByCeremony(hall.id, ceremonyId);
+    expect(assignees.map((a) => a.operatorId).sort()).toEqual(
+      [operatorA.id, operatorB.id].sort(),
+    );
+  });
+
+  it("같은 오퍼레이터를 두 번 추가해도 중복 저장되지 않는다(멱등)", async () => {
+    const hall = await createTestHall();
+    const operator = await createMember({
+      name: "오퍼레이터C",
+      phoneNumber: "01099990003",
+      password: "pw-91234",
+    });
+    const { ceremonyId } = await ceremonyRepo.create(hall.id, {
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+
+    await ceremonyRepo.addAssignee(hall.id, ceremonyId, operator.id);
+    await ceremonyRepo.addAssignee(hall.id, ceremonyId, operator.id);
+
+    const assignees = await ceremonyRepo.findAssigneesByCeremony(hall.id, ceremonyId);
+    expect(assignees).toHaveLength(1);
+  });
+
+  it("removeAssignee는 해당 배정만 제거한다", async () => {
+    const hall = await createTestHall();
+    const operatorA = await createMember({
+      name: "오퍼레이터D",
+      phoneNumber: "01099990004",
+      password: "pw-91234",
+    });
+    const operatorB = await createMember({
+      name: "오퍼레이터E",
+      phoneNumber: "01099990005",
+      password: "pw-91234",
+    });
+    const { ceremonyId } = await ceremonyRepo.create(hall.id, {
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+    await ceremonyRepo.addAssignee(hall.id, ceremonyId, operatorA.id);
+    await ceremonyRepo.addAssignee(hall.id, ceremonyId, operatorB.id);
+
+    await ceremonyRepo.removeAssignee(hall.id, ceremonyId, operatorA.id);
+
+    const assignees = await ceremonyRepo.findAssigneesByCeremony(hall.id, ceremonyId);
+    expect(assignees.map((a) => a.operatorId)).toEqual([operatorB.id]);
+  });
+
+  it("다른 홀 hallId로는 배정을 제거할 수 없다(AD-2 hallId 스코프)", async () => {
+    const hallA = await createTestHall({ name: "A홀" });
+    const hallB = await createTestHall({ name: "B홀" });
+    const operator = await createMember({
+      name: "오퍼레이터F",
+      phoneNumber: "01099990006",
+      password: "pw-91234",
+    });
+    const { ceremonyId } = await ceremonyRepo.create(hallA.id, {
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+    await ceremonyRepo.addAssignee(hallA.id, ceremonyId, operator.id);
+
+    await ceremonyRepo.removeAssignee(hallB.id, ceremonyId, operator.id);
+
+    const assignees = await ceremonyRepo.findAssigneesByCeremony(hallA.id, ceremonyId);
+    expect(assignees).toHaveLength(1);
+  });
+
+  it("findAssigneesByHall은 그 홀의 배정만 반환한다", async () => {
+    const hallA = await createTestHall({ name: "A홀" });
+    const hallB = await createTestHall({ name: "B홀" });
+    const operator = await createMember({
+      name: "오퍼레이터G",
+      phoneNumber: "01099990007",
+      password: "pw-91234",
+    });
+    const a = await ceremonyRepo.create(hallA.id, {
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+    const b = await ceremonyRepo.create(hallB.id, {
+      ceremonyAt: new Date("2026-08-01T06:00:00.000Z"),
+      contractConditions: {},
+    });
+    await ceremonyRepo.addAssignee(hallA.id, a.ceremonyId, operator.id);
+    await ceremonyRepo.addAssignee(hallB.id, b.ceremonyId, operator.id);
+
+    const rows = await ceremonyRepo.findAssigneesByHall(hallA.id);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].ceremonyId).toBe(a.ceremonyId);
   });
 });

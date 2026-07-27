@@ -37,31 +37,96 @@
   font-size: 14px;
 }
 
+/* prototype/js/screens/WeddingScreen.js 44~75행의 "새 예식" 폼 — 작은 필드 라벨
+   (12px/700 muted), 날짜+시각 한 줄, 홀/계약 형태 pill 토글, 안내 박스, 전체 폭 CTA. */
 .ceremony-form {
   display: flex;
   flex-direction: column;
+  align-items: stretch;
+}
+
+.ceremony-form__label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  margin-top: var(--space-base);
+}
+
+.ceremony-form__label:first-child {
+  margin-top: 0;
+}
+
+.ceremony-form__datetime {
+  display: flex;
   gap: var(--space-sm);
-  align-items: flex-start;
+  margin-top: 6px;
 }
 
-.ceremony-form__field {
+.ceremony-form__datetime input[type="date"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.ceremony-form__datetime input[type="time"] {
+  width: 110px;
+  flex: none;
+}
+
+/* Story 5.8 AC 3: 신랑·신부 한 줄 배치. */
+.ceremony-form__couple-row {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
   width: 100%;
+  margin-top: 6px;
 }
 
-.ceremony-form__conditions {
-  display: flex;
-  gap: var(--space-md);
+.ceremony-form__couple-row .input {
+  flex: 1;
+  min-width: 0;
 }
 
-.ceremony-form__checkbox {
+/* 홀 선택/계약 형태 공용 pill 토글 — 선택 시 브랜드 틴트 배경 + 보더
+   (design-tokens.css 변수가 정확히 #FDEDE7/#E8552D와 일치). */
+.ceremony-form__pills {
   display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  font-size: 14px;
-  color: var(--color-text-secondary);
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.ceremony-form__pill {
+  cursor: pointer;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-mid);
+  border-radius: var(--radius-full);
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.ceremony-form__pill--active {
+  background: var(--color-brand-tint);
+  border-color: var(--color-brand);
+}
+
+/* 담당 배정 안내 — 프로토타입 57행의 회색 안내 박스. */
+.ceremony-form__notice {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  background: var(--color-surface-soft);
+  border-radius: var(--radius-md);
+  padding: 10px var(--space-md);
+  margin: var(--space-base) 0 0;
+}
+
+.ceremony-form__submit {
+  width: 100%;
+  margin-top: var(--space-base);
+}
+
+.ceremony-form .field-error {
+  margin: var(--space-sm) 0 0;
 }
 
 .ceremony-list {
@@ -73,9 +138,10 @@
   gap: var(--space-sm);
 }
 
-/* UX-DR7: 흰 배경, radius 8px, padding 12px, 좌측 보더로 진행 상황 표시.
-   [ASSUMPTION] 완료/진행중 상태 FR이 아직 없어 중립(border-mid)으로 표시 —
-   Story 2.1 Dev Notes 참고. */
+/* UX-DR7 + Story 5.8: prototype/js/screens/WeddingScreen.js 116~141행의 카드 위계
+   그대로 — 시간+신랑신부가 제일 큰 타이틀, 그 아래 날짜/홀/계약형태, 그 아래 담당자.
+   오른쪽에 체크리스트 개수 + 상태 배지 + 상세 버튼. 좌측 보더는 상태색(예정=중립,
+   완료=success)으로 표시(prototype의 statusColor 좌측 보더 참고). */
 .ceremony-card {
   display: flex;
   align-items: center;
@@ -86,18 +152,27 @@
   border-left: 4px solid var(--color-border-mid);
   border-radius: var(--radius-md);
   padding: var(--space-md);
+  /* Story 5.8 AC 5: 담당자/상태 배지까지 추가되며 카드가 넓어질 수 있어 오버플로 방지. */
+  flex-wrap: wrap;
+}
+
+.ceremony-card--done {
+  border-left-color: var(--color-success);
 }
 
 .ceremony-card__body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
 }
 
-.ceremony-card__hall {
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--color-text-secondary);
+.ceremony-card__title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
 }
 
 .ceremony-card__time {
@@ -107,15 +182,108 @@
 }
 
 .ceremony-card__couple {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.ceremony-card__meta {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+/* FR-18 다중 배정 — prototype/js/screens/WeddingScreen.js 121~130행의 카드 내 담당
+   오퍼레이터 pill 토글(선택 = 브랜드 틴트/보더/텍스트, 미선택 = 흰 배경 + muted). */
+.ceremony-card__assignees {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: var(--space-xs);
+}
+
+.ceremony-card__assignees-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.assignee-pill {
+  cursor: pointer;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-mid);
+  border-radius: var(--radius-full);
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.assignee-pill--active {
+  background: var(--color-brand-tint);
+  border-color: var(--color-brand);
+  color: var(--color-brand);
+}
+
+/* 배정 후 비활성화/역할 변경된 담당자 — 경고 톤으로 "정리 필요" 상태를 표시하되
+   클릭으로 해제는 계속 가능(임의 hex 대신 승인된 warning 토큰에서 파생). */
+.assignee-pill--stale {
+  background: color-mix(in srgb, var(--color-warning) 12%, white);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.assignee-pill:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.ceremony-card__assignees-unassigned {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-error);
+}
+
+.ceremony-card__side {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex: none;
+}
+
+.ceremony-card__checklist {
+  text-align: right;
+}
+
+.ceremony-card__checklist-label {
+  display: block;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.ceremony-card__checklist-count {
+  font-size: 16px;
+  font-weight: 700;
   color: var(--color-text-primary);
 }
 
-.ceremony-card__item-count {
-  font-size: 14px;
-  color: var(--color-text-muted);
-  flex-shrink: 0;
+.ceremony-card__status-badge {
+  flex: none;
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border-light);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ceremony-card__status-badge--done {
+  background: var(--color-success);
+  border-color: transparent;
+  color: #ffffff;
 }
 
 /* Story 5.2 — 예식 날짜 필터 캘린더. prototype/js/screens/WeddingScreen.js와 동일한

@@ -6,8 +6,11 @@ import {
   listCeremoniesForDate,
   listCeremoniesPaginated,
   listCeremonyDatesForMonth,
+  toggleAssignee,
+  listCeremonyAssignees,
   CeremonyValidationError,
 } from "@/lib/services/ceremony";
+import { createMember } from "@/lib/services/member";
 
 describe("createCeremony — 검증", () => {
   beforeEach(async () => {
@@ -329,5 +332,154 @@ describe("listCeremoniesPaginated (Story 5.2 AC 3)", () => {
     const result = await listCeremoniesPaginated({ page: 1, pageSize: 10 });
 
     expect(result.totalCount).toBe(1);
+  });
+});
+
+describe("toggleAssignee — 담당 오퍼레이터 다중 배정 (FR-18)", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("활성 오퍼레이터를 토글하면 배정된다 — 여러 명 동시 배정 가능", async () => {
+    const hall = await createTestHall();
+    const operatorA = await createMember({
+      name: "오퍼레이터A",
+      phoneNumber: "01098880001",
+      password: "pw-91234",
+    });
+    const operatorB = await createMember({
+      name: "오퍼레이터B",
+      phoneNumber: "01098880002",
+      password: "pw-91234",
+    });
+    const ceremony = await createCeremony({
+      hallId: hall.id,
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+
+    await toggleAssignee(hall.id, ceremony.id, operatorA.id);
+    await toggleAssignee(hall.id, ceremony.id, operatorB.id);
+
+    const assignees = await listCeremonyAssignees(hall.id, ceremony.id);
+    expect(assignees.map((a) => a.name).sort()).toEqual(["오퍼레이터A", "오퍼레이터B"]);
+  });
+
+  it("이미 배정된 오퍼레이터를 다시 토글하면 해제된다", async () => {
+    const hall = await createTestHall();
+    const operator = await createMember({
+      name: "오퍼레이터C",
+      phoneNumber: "01098880003",
+      password: "pw-91234",
+    });
+    const ceremony = await createCeremony({
+      hallId: hall.id,
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+    await toggleAssignee(hall.id, ceremony.id, operator.id);
+
+    await toggleAssignee(hall.id, ceremony.id, operator.id);
+
+    const assignees = await listCeremonyAssignees(hall.id, ceremony.id);
+    expect(assignees).toHaveLength(0);
+  });
+
+  it("관리자 role 계정은 배정할 수 없다 (`[ASSUMPTION]` 활성 오퍼레이터만)", async () => {
+    const hall = await createTestHall();
+    const admin = await createMember({
+      name: "관리자A",
+      phoneNumber: "01098880004",
+      password: "pw-91234",
+      role: "admin",
+    });
+    const ceremony = await createCeremony({
+      hallId: hall.id,
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+
+    await expect(toggleAssignee(hall.id, ceremony.id, admin.id)).rejects.toThrow(
+      CeremonyValidationError,
+    );
+  });
+
+  it("배정 이후 비활성화된 담당자도 토글로 해제할 수 있다(정리 수단 보존)", async () => {
+    const hall = await createTestHall();
+    const operator = await createMember({
+      name: "오퍼레이터D",
+      phoneNumber: "01098880005",
+      password: "pw-91234",
+    });
+    const ceremony = await createCeremony({
+      hallId: hall.id,
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+    await toggleAssignee(hall.id, ceremony.id, operator.id);
+    // 배정 뒤 계정이 비활성화(banned)돼 배정 자격을 잃은 상황을 재현 — 해제는 자격
+    // 검증 없이 항상 허용되어야 한다(stale 담당자 정리 수단 보존).
+    const { db } = await import("@/lib/db");
+    const { user } = await import("@/lib/db/schema");
+    const { eq } = await import("drizzle-orm");
+    await db.update(user).set({ banned: true }).where(eq(user.id, operator.id));
+
+    await toggleAssignee(hall.id, ceremony.id, operator.id);
+
+    const assignees = await listCeremonyAssignees(hall.id, ceremony.id);
+    expect(assignees).toHaveLength(0);
+  });
+
+  it("존재하지 않는 operatorId는 거부된다", async () => {
+    const hall = await createTestHall();
+    const ceremony = await createCeremony({
+      hallId: hall.id,
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+
+    await expect(
+      toggleAssignee(hall.id, ceremony.id, "00000000-0000-0000-0000-000000000000"),
+    ).rejects.toThrow(CeremonyValidationError);
+  });
+
+  it("존재하지 않는 예식이면 거부된다", async () => {
+    const hall = await createTestHall();
+    const operator = await createMember({
+      name: "오퍼레이터E",
+      phoneNumber: "01098880006",
+      password: "pw-91234",
+    });
+
+    await expect(
+      toggleAssignee(hall.id, "00000000-0000-0000-0000-000000000000", operator.id),
+    ).rejects.toThrow(CeremonyValidationError);
+  });
+
+  it("listCeremoniesPaginated가 반환하는 예식에 담당자 목록이 병합된다", async () => {
+    const hall = await createTestHall();
+    const operator = await createMember({
+      name: "오퍼레이터F",
+      phoneNumber: "01098880007",
+      password: "pw-91234",
+    });
+    const assigned = await createCeremony({
+      hallId: hall.id,
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+    await createCeremony({
+      hallId: hall.id,
+      ceremonyAt: new Date("2026-08-02T05:00:00.000Z"),
+      contractConditions: {},
+    });
+    await toggleAssignee(hall.id, assigned.id, operator.id);
+
+    const result = await listCeremoniesPaginated({ page: 1, pageSize: 10 });
+
+    const assignedRow = result.ceremonies.find((c) => c.id === assigned.id);
+    const unassignedRow = result.ceremonies.find((c) => c.id !== assigned.id);
+    expect(assignedRow?.assignees.map((a) => a.name)).toEqual(["오퍼레이터F"]);
+    expect(unassignedRow?.assignees).toEqual([]);
   });
 });

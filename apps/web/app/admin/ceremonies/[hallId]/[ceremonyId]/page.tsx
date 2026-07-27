@@ -2,40 +2,32 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import * as hallRepo from "@/lib/db/repositories/hall";
 import { getCeremonyDetail, ChecklistInstanceValidationError } from "@/lib/services/checklist-instance";
-import type { CandidateChecklistItem } from "@/lib/db/repositories/checklist-instance";
+import { listCeremonyAssignees } from "@/lib/services/ceremony";
 import { isValidUuid } from "@/lib/uuid";
-import { removeInstanceItemAction } from "./actions";
-import { AddItemButton } from "./add-item-button";
+import { InstanceItemRow } from "./instance-item-row";
+import { InstanceItemForm } from "./instance-item-form";
+import { InstanceStepHeader } from "./instance-step-header";
+import { groupItemsByStep } from "./group-by-step";
+import { isCeremonyDone } from "@/lib/ceremony-status";
 import "./ceremony-detail.css";
 
-const ceremonyDateFormatter = new Intl.DateTimeFormat("ko-KR", {
+// prototype/js/screens/WeddingDetailScreen.js와 동일한 위계 — 시간+신랑신부가
+// 제목(28px/700), 그 옆에 상태 배지, 그 아래 날짜·홀·담당 메타 줄, 그 아래
+// "이 예식 전용" 안내 박스, 단계 카드 목록(템플릿 편집기와 동일 시각 언어),
+// 맨 아래 새 단계 추가 점선 카드.
+const timeFormatter = new Intl.DateTimeFormat("ko-KR", {
   timeZone: "Asia/Seoul",
-  month: "long",
-  day: "numeric",
   hour: "2-digit",
   minute: "2-digit",
   hour12: false,
 });
 
-// candidates는 이미 리포지토리에서 (단계 순서, 항목 순서)로 정렬되어 온다 — 순서를
-// 유지한 채 연속된 같은 단계 id끼리만 묶는 순차 그룹핑이면 충분하다(재정렬 불필요).
-// 코덱스 리뷰 3차 P2: stepName은 유일함이 보장되지 않는다(관리자가 같은 이름의 단계를
-// 두 번 만들 수 있음) — candidate.templateItemId(실제 단계 FK, 라이브 데이터라 항상
-// 존재)로 묶어 서로 다른 두 단계가 이름이 같다는 이유로 하나로 합쳐지지 않게 한다.
-function groupCandidatesByStep(
-  candidates: CandidateChecklistItem[],
-): [string, CandidateChecklistItem[]][] {
-  const groups: [string, CandidateChecklistItem[]][] = [];
-  for (const candidate of candidates) {
-    const lastGroup = groups[groups.length - 1];
-    if (lastGroup && lastGroup[0] === candidate.templateItemId) {
-      lastGroup[1].push(candidate);
-    } else {
-      groups.push([candidate.templateItemId, [candidate]]);
-    }
-  }
-  return groups;
-}
+const dateFormatter = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: "Asia/Seoul",
+  month: "long",
+  day: "numeric",
+  weekday: "short",
+});
 
 export default async function CeremonyDetailPage({
   params,
@@ -55,8 +47,12 @@ export default async function CeremonyDetailPage({
   }
 
   let detail;
+  let assignees;
   try {
-    detail = await getCeremonyDetail(hallId, ceremonyId);
+    [detail, assignees] = await Promise.all([
+      getCeremonyDetail(hallId, ceremonyId),
+      listCeremonyAssignees(hallId, ceremonyId),
+    ]);
   } catch (err) {
     if (err instanceof ChecklistInstanceValidationError) {
       notFound();
@@ -64,65 +60,100 @@ export default async function CeremonyDetailPage({
     throw err;
   }
 
-  const { ceremony, items, candidates } = detail;
+  const { ceremony, items } = detail;
+  const stepGroups = groupItemsByStep(items);
+  const isDone = isCeremonyDone(ceremony.ceremonyAt);
 
   return (
     <section className="ceremony-detail-page">
       <Link href="/admin/ceremonies" className="ceremony-detail-page__back">
         ← 예식 목록
       </Link>
-      <h1>
-        {hall.name} · {ceremonyDateFormatter.format(ceremony.ceremonyAt)}
-      </h1>
-      {ceremony.groomName && ceremony.brideName && (
-        <p className="ceremony-detail-page__couple">
-          {ceremony.groomName} · {ceremony.brideName} 예식
-        </p>
-      )}
+      <div className="ceremony-detail-page__title-row">
+        <h1>
+          {timeFormatter.format(ceremony.ceremonyAt)}
+          {ceremony.groomName && ceremony.brideName && (
+            <span className="ceremony-detail-page__couple-inline">
+              {" "}
+              {ceremony.groomName} · {ceremony.brideName}
+            </span>
+          )}
+        </h1>
+        <span
+          className={
+            "ceremony-detail-page__status-badge" + (isDone ? " ceremony-detail-page__status-badge--done" : "")
+          }
+        >
+          {isDone ? "완료" : "예정"}
+        </span>
+      </div>
+      {/* 프로토타입 22행 — 담당은 상세에서 읽기 전용, 배정 조작은 예식 목록 카드의 pill. */}
+      <p className="ceremony-detail-page__meta">
+        {dateFormatter.format(ceremony.ceremonyAt)} · {hall.name} · 담당{" "}
+        {assignees.length > 0 ? (
+          assignees.map((a) => a.name).join(", ")
+        ) : (
+          <span className="ceremony-detail-page__meta-unassigned">미배정</span>
+        )}
+      </p>
 
-      <h2>포함된 항목 ({items.length}개)</h2>
+      {/* 프로토타입 25행의 경고 톤 안내 박스 — 이 화면의 수정이 템플릿에 영향을 주지
+          않는다는 핵심 안내. */}
+      <p className="ceremony-detail-page__notice">
+        이 예식 전용 체크리스트입니다 — 여기서의 수정은 <strong>이 예식에만</strong> 반영되고
+        홀의 체크리스트 템플릿은 바뀌지 않습니다.
+      </p>
+
       {items.length === 0 ? (
-        <p className="ceremony-detail-page__empty">포함된 항목이 없습니다.</p>
+        <p className="ceremony-detail-page__empty">등록된 체크리스트 항목이 없습니다.</p>
       ) : (
-        <ul className="instance-item-list">
-          {items.map((item) => (
-            <li key={item.id} className="instance-item-card">
-              <span className="instance-item-card__name">
-                {item.stepName} · {item.title}
-              </span>
-              <form action={removeInstanceItemAction}>
-                <input type="hidden" name="hallId" value={hallId} />
-                <input type="hidden" name="ceremonyId" value={ceremonyId} />
-                <input type="hidden" name="itemId" value={item.id} />
-                <button type="submit" className="btn-secondary">
-                  제외
-                </button>
-              </form>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <h2>추가 가능한 항목</h2>
-      {candidates.length === 0 ? (
-        <p className="ceremony-detail-page__empty">추가할 수 있는 항목이 없습니다.</p>
-      ) : (
-        <div className="instance-candidate-groups">
-          {groupCandidatesByStep(candidates).map(([templateItemId, stepCandidates]) => (
-            <div key={templateItemId} className="instance-candidate-group">
-              <h3 className="instance-candidate-group__step-name">{stepCandidates[0].stepName}</h3>
-              <ul className="instance-item-list">
-                {stepCandidates.map((item) => (
-                  <li key={item.id} className="instance-item-card">
-                    <span className="instance-item-card__name">{item.title}</span>
-                    <AddItemButton hallId={hallId} ceremonyId={ceremonyId} checklistItemId={item.id} />
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+        <div className="instance-step-list">
+          {stepGroups.map(([groupKey, stepItems], index) => {
+            const first = stepItems[0];
+            const stepKey = first.templateItemId
+              ? { templateItemId: first.templateItemId }
+              : first.adHocGroupRootId
+                ? { groupRootId: first.adHocGroupRootId }
+                : { itemId: first.id };
+            return (
+              <div key={groupKey} className="instance-step-card">
+                <InstanceStepHeader
+                  hallId={hallId}
+                  ceremonyId={ceremonyId}
+                  index={index}
+                  stepName={first.stepName}
+                  itemCount={stepItems.length}
+                  stepKey={stepKey}
+                />
+                <ul className="instance-item-list">
+                  {stepItems.map((item) => (
+                    <InstanceItemRow key={item.id} hallId={hallId} ceremonyId={ceremonyId} item={item} />
+                  ))}
+                </ul>
+                {/* 원본 템플릿 단계가 삭제된 orphan 항목(templateItemId/adHocGroupRootId
+                    둘 다 null)은 "같은 단계에 추가"할 그룹 키가 없다 — 빠른 추가 폼을
+                    숨긴다(항상 실패하는 폼을 노출하지 않음, Story 5.8 코덱스 리뷰 P2). */}
+                {(first.templateItemId || first.adHocGroupRootId) && (
+                  <div className="instance-step-card__quick-add">
+                    <InstanceItemForm
+                      hallId={hallId}
+                      ceremonyId={ceremonyId}
+                      stepContext={{
+                        templateItemId: first.templateItemId,
+                        groupRootId: first.adHocGroupRootId,
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
+
+      <div className="ceremony-detail-page__new-step">
+        <InstanceItemForm hallId={hallId} ceremonyId={ceremonyId} isNewStep />
+      </div>
     </section>
   );
 }

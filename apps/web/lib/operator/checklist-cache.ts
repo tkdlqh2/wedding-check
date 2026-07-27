@@ -1,14 +1,25 @@
 export type CachedOperatorItem = {
   id: string;
   templateItemId: string | null;
+  // 실행 화면 재구성(2026-07-27): ad-hoc 단계 그룹핑 키 + "상세" 펼침의 시연 영상 URL.
+  adHocGroupRootId: string | null;
   stepName: string;
   title: string;
   description: string | null;
   sortOrder: number;
+  videoUrl: string | null;
+};
+
+export type CachedOperatorCeremony = {
+  id: string;
+  ceremonyAt: string;
+  contractConditions: Record<string, boolean>;
+  groomName: string | null;
+  brideName: string | null;
 };
 
 export type CachedOperatorInstanceView = {
-  ceremony: { id: string; ceremonyAt: string; contractConditions: Record<string, boolean> };
+  ceremony: CachedOperatorCeremony;
   items: CachedOperatorItem[];
   cachedAt: string;
 };
@@ -32,13 +43,18 @@ function isValidCachedItem(value: unknown): value is CachedOperatorItem {
   return (
     typeof item.id === "string" &&
     (item.templateItemId === null || typeof item.templateItemId === "string") &&
+    (item.adHocGroupRootId === null || typeof item.adHocGroupRootId === "string") &&
     typeof item.stepName === "string" &&
     typeof item.title === "string" &&
     (item.description === null || typeof item.description === "string") &&
-    typeof item.sortOrder === "number"
+    typeof item.sortOrder === "number" &&
+    (item.videoUrl === null || typeof item.videoUrl === "string")
   );
 }
 
+// 셰이프가 바뀌면(2026-07-27 실행 화면 재구성: adHocGroupRootId/videoUrl/신랑신부 추가)
+// 이전 앱 버전이 남긴 캐시는 검증에서 탈락해 "캐시 없음"으로 처리된다 — 의도된 동작
+// (다음 온라인 폴링/최초 로드가 새 셰이프로 다시 write-through한다).
 function isValidCachedShape(value: unknown): value is CachedOperatorInstanceView {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
@@ -46,6 +62,8 @@ function isValidCachedShape(value: unknown): value is CachedOperatorInstanceView
   const ceremony = v.ceremony as Record<string, unknown>;
   if (typeof ceremony.id !== "string" || typeof ceremony.ceremonyAt !== "string") return false;
   if (Number.isNaN(new Date(ceremony.ceremonyAt).getTime())) return false;
+  if (ceremony.groomName !== null && typeof ceremony.groomName !== "string") return false;
+  if (ceremony.brideName !== null && typeof ceremony.brideName !== "string") return false;
   return Array.isArray(v.items) && v.items.every(isValidCachedItem);
 }
 

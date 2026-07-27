@@ -10,6 +10,7 @@ import {
   jsonb,
   unique,
   vector,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 
 // FR-1: 홀(예식 진행 공간). 홀 종속 엔티티(checklist_template_items 등)와 달리
@@ -170,6 +171,28 @@ export const ceremonies = pgTable("ceremonies", {
     .notNull(),
 });
 
+// FR-18(2026-07-27 대표 지시로 다중 배정으로 확장): 예식 1건에 담당 오퍼레이터 여러 명 —
+// 프로토타입(WeddingScreen.js)의 assignees 배열과 동일 모델. Story 5.8의 단일 컬럼
+// (ceremonies.assigned_operator_id)을 이 조인 테이블이 대체한다(마이그레이션 0019에서
+// 기존 배정 데이터 이관). operator_id는 better-auth user.id라 uuid가 아닌 text.
+// AD-2 홀 종속 엔티티 — hall_id를 ceremony JOIN 없이 직접 저장한다.
+export const ceremonyAssignees = pgTable(
+  "ceremony_assignees",
+  {
+    ceremonyId: uuid("ceremony_id")
+      .notNull()
+      .references(() => ceremonies.id, { onDelete: "cascade" }),
+    operatorId: text("operator_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    hallId: uuid("hall_id")
+      .notNull()
+      .references(() => halls.id),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.ceremonyId, table.operatorId] })],
+);
+
 // FR-4: 예식 1건의 실행용 체크리스트 인스턴스. ERD상 CEREMONY 1:1 CHECKLIST_INSTANCE.
 // AD-2(2026-07-24 adversarial review로 확정된 최종 룰) — ceremony→hall JOIN으로
 // 대체하지 말고 hall_id를 이 테이블 자신의 컬럼으로 저장한다.
@@ -220,6 +243,12 @@ export const checklistInstanceItems = pgTable(
       () => checklistTemplateItemChecks.id,
       { onDelete: "set null" },
     ),
+    // Story 5.8: 이 예식에만 존재하는 임시(ad-hoc) 단계를 만들 때(템플릿에 없는 단계) 그
+    // 단계에 속한 항목들을 함께 그룹핑하기 위한 태그. templateItemId는 실제 템플릿
+    // 단계에만 걸리므로 ad-hoc 단계는 이 값이 항상 null이라 그룹핑 키로 못 쓴다 — 진짜
+    // FK가 아니라 순수 그룹핑 태그라 참조 무결성 제약을 걸지 않는다(같은 그룹의 첫 항목이
+    // 생성될 때 새 uuid를 발급해 이후 항목들이 같은 값을 그대로 복사해 쓴다).
+    adHocGroupRootId: uuid("ad_hoc_group_root_id"),
     stepName: text("step_name").notNull(),
     title: text("title").notNull(),
     description: text("description"),

@@ -4,18 +4,28 @@ import { useState } from "react";
 import { removeInstanceItemAction } from "./actions";
 import { InstanceItemForm } from "./instance-item-form";
 
+export type InstanceItemRowItem = {
+  id: string;
+  title: string;
+  description: string | null;
+  templateItemCheckId: string | null;
+  videoUrl: string | null;
+};
+
 // apps/web/app/admin/templates/[hallId]/checklist-item-row.tsx와 동일한 구성 — 목록에
-// 있을 때는 제목 + "긴 설명" 태그만 보여주고, 설명 전문은 "수정"을 눌러야만 나타난다.
-// 프로토타입(WeddingDetailScreen.js 51~63행)의 항목 행 액션도 수정/삭제 두 개다.
+// 있을 때는 제목 + "긴 설명"/"▶ 시연 영상" 태그만 보여주고, 설명 전문과 영상 재생/
+// 업로드는 "수정"을 눌러야만 나타난다(템플릿 편집기의 대표 피드백 원칙 그대로).
 export function InstanceItemRow({
   hallId,
   ceremonyId,
   item,
+  blobEnabled,
   readOnly,
 }: {
   hallId: string;
   ceremonyId: string;
-  item: { id: string; title: string; description: string | null };
+  item: InstanceItemRowItem;
+  blobEnabled: boolean;
   // 종료된 예식(2026-07-27 대표 지시) — 수정/삭제 버튼을 숨긴다(서비스도 거부).
   readOnly?: boolean;
 }) {
@@ -28,6 +38,7 @@ export function InstanceItemRow({
           hallId={hallId}
           ceremonyId={ceremonyId}
           item={item}
+          blobEnabled={blobEnabled}
           onSuccess={() => setEditing(false)}
           onCancel={() => setEditing(false)}
         />
@@ -40,6 +51,11 @@ export function InstanceItemRow({
       <div className="instance-item-card__body">
         <span className="instance-item-card__name">{item.title}</span>
         {item.description && <span className="instance-item-card__tag">긴 설명</span>}
+        {item.videoUrl && (
+          <span className="instance-item-card__tag instance-item-card__tag--video">
+            ▶ 시연 영상
+          </span>
+        )}
       </div>
       {readOnly ? null : (
       <div className="instance-item-card__actions">

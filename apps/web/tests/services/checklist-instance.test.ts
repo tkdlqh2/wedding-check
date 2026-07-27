@@ -478,17 +478,21 @@ describe("renameInstanceStep / deleteInstanceStep — 이 예식 스냅샷의 �
   });
 });
 
-describe("종료된 예식 수정 금지 (2026-07-27 대표 지시)", () => {
+describe("예정이 아닌 예식 수정 금지 (2026-07-27 대표 지시)", () => {
   beforeEach(async () => {
     await resetDb();
   });
 
+  // 상태는 시간 추정이 아니라 저장 필드다 — 오퍼레이터의 예식 시작/종료 전환을 거쳐
+  // done 상태를 만든다(upcoming→ongoing→done 한 방향 전환 규칙 그대로).
   async function createDoneCeremony(hallId: string) {
-    // 예식 일시가 과거 — isCeremonyDone 기준 종료 상태.
-    return ceremonyRepo.create(hallId, {
-      ceremonyAt: new Date("2020-01-01T05:00:00.000Z"),
+    const created = await ceremonyRepo.create(hallId, {
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
       contractConditions: {},
     });
+    await ceremonyRepo.updateStatus(hallId, created.ceremonyId, "upcoming", "ongoing");
+    await ceremonyRepo.updateStatus(hallId, created.ceremonyId, "ongoing", "done");
+    return created;
   }
 
   it("종료된 예식에는 ad-hoc 항목을 추가할 수 없다", async () => {
@@ -501,7 +505,7 @@ describe("종료된 예식 수정 금지 (2026-07-27 대표 지시)", () => {
         description: null,
         stepName: "새 단계",
       }),
-    ).rejects.toThrow("종료된 예식은 수정할 수 없습니다");
+    ).rejects.toThrow("진행 중이거나 종료된 예식은 수정할 수 없습니다");
   });
 
   it("종료된 예식의 항목은 수정/삭제할 수 없다", async () => {
@@ -513,9 +517,9 @@ describe("종료된 예식 수정 금지 (2026-07-27 대표 지시)", () => {
 
     await expect(
       updateInstanceItem(hall.id, ceremonyId, item.id, { title: "변경", description: null }),
-    ).rejects.toThrow("종료된 예식은 수정할 수 없습니다");
+    ).rejects.toThrow("진행 중이거나 종료된 예식은 수정할 수 없습니다");
     await expect(removeInstanceItem(hall.id, ceremonyId, item.id)).rejects.toThrow(
-      "종료된 예식은 수정할 수 없습니다",
+      "진행 중이거나 종료된 예식은 수정할 수 없습니다",
     );
   });
 
@@ -527,9 +531,9 @@ describe("종료된 예식 수정 금지 (2026-07-27 대표 지시)", () => {
 
     await expect(
       renameInstanceStep(hall.id, ceremonyId, { templateItemId: step.id }, "새 이름"),
-    ).rejects.toThrow("종료된 예식은 수정할 수 없습니다");
+    ).rejects.toThrow("진행 중이거나 종료된 예식은 수정할 수 없습니다");
     await expect(
       deleteInstanceStep(hall.id, ceremonyId, { templateItemId: step.id }),
-    ).rejects.toThrow("종료된 예식은 수정할 수 없습니다");
+    ).rejects.toThrow("진행 중이거나 종료된 예식은 수정할 수 없습니다");
   });
 });

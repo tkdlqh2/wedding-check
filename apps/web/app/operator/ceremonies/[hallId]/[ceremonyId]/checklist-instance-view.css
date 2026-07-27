@@ -108,9 +108,62 @@
   color: #ffffff;
 }
 
-.run-header-card__progress {
+.run-header-card__status-badge--ongoing {
+  background: var(--color-warning);
+  border-color: transparent;
+  color: var(--color-text-primary);
+}
+
+.run-header-card__side {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.run-header-card__progress {
   text-align: right;
+}
+
+/* 예식 시작/종료 — RunScreen.js 38~44행(초록 시작 / 빨강 종료 솔리드, ≥44px 타깃).
+   되돌릴 수 없는 전환이라 상태색 자체가 무게를 가진다. */
+.run-header-card__status-btn {
+  min-height: 44px;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--space-md) 22px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.run-header-card__status-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.run-header-card__status-btn--start {
+  background: var(--color-success);
+}
+
+.run-header-card__status-btn--start:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-success) 85%, black);
+}
+
+.run-header-card__status-btn--end {
+  background: var(--color-error);
+}
+
+.run-header-card__status-btn--end:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-error) 85%, black);
+}
+
+.run-screen__status-error {
+  color: var(--color-error);
+  font-size: 14px;
+  font-weight: 600;
+  margin: var(--space-sm) 0 0;
 }
 
 .run-header-card__progress-label {

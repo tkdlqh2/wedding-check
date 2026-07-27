@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { CeremonyWithHallName } from "@/lib/services/ceremony";
-import { isCeremonyDone } from "@/lib/ceremony-status";
+import { asCeremonyStatus, CEREMONY_STATUS_LABELS } from "@/lib/ceremony-status";
 
 // KST 고정 표시 — 이 제품은 국내 단일 웨딩홀 대상이라 서버/브라우저 로컬 타임존과
 // 무관하게 항상 한국 표준시로 표시한다(actions.ts의 입력 파싱과 대칭).
@@ -33,10 +33,10 @@ function contractLabel(conditions: Record<string, boolean>): string {
 }
 
 export function CeremonyRow({ ceremony }: { ceremony: CeremonyWithHallName }) {
-  const isDone = isCeremonyDone(ceremony.ceremonyAt);
+  const status = asCeremonyStatus(ceremony.status);
 
   return (
-    <li className={"ceremony-card" + (isDone ? " ceremony-card--done" : "")}>
+    <li className={"ceremony-card ceremony-card--" + status}>
       <div className="ceremony-card__body">
         <div className="ceremony-card__title">
           <span className="ceremony-card__time">{timeFormatter.format(ceremony.ceremonyAt)}</span>
@@ -67,10 +67,8 @@ export function CeremonyRow({ ceremony }: { ceremony: CeremonyWithHallName }) {
           <span className="ceremony-card__checklist-label">체크리스트</span>
           <span className="ceremony-card__checklist-count">{ceremony.itemCount}개</span>
         </div>
-        <span
-          className={"ceremony-card__status-badge" + (isDone ? " ceremony-card__status-badge--done" : "")}
-        >
-          {isDone ? "완료" : "예정"}
+        <span className={"ceremony-card__status-badge ceremony-card__status-badge--" + status}>
+          {CEREMONY_STATUS_LABELS[status]}
         </span>
         <Link href={`/admin/ceremonies/${ceremony.hallId}/${ceremony.id}`} className="btn-secondary">
           상세

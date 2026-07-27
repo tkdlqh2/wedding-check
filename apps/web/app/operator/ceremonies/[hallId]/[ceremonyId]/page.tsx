@@ -50,6 +50,7 @@ export default async function OperatorCeremonyPage({
           contractConditions: view.ceremony.contractConditions,
           groomName: view.ceremony.groomName,
           brideName: view.ceremony.brideName,
+          status: view.ceremony.status,
         }}
         initialItems={view.items.map((item) => ({
           id: item.id,

@@ -5,12 +5,13 @@ import { getCeremonyDetail, ChecklistInstanceValidationError } from "@/lib/servi
 import { listCeremonyAssignees } from "@/lib/services/ceremony";
 import { listMembers } from "@/lib/services/member";
 import { isValidUuid } from "@/lib/uuid";
+import { isBlobStorageConfigured } from "@/lib/storage/video-storage";
 import { InstanceItemRow } from "./instance-item-row";
 import { InstanceItemForm } from "./instance-item-form";
 import { InstanceStepHeader } from "./instance-step-header";
 import { AssigneePicker } from "./assignee-picker";
 import { groupItemsByStep } from "./group-by-step";
-import { isCeremonyDone } from "@/lib/ceremony-status";
+import { asCeremonyStatus, CEREMONY_STATUS_LABELS } from "@/lib/ceremony-status";
 import "./ceremony-detail.css";
 
 // prototype/js/screens/WeddingDetailScreen.js와 동일한 위계 — 시간+신랑신부가
@@ -70,7 +71,10 @@ export default async function CeremonyDetailPage({
     .filter((m) => m.role === "operator" && !m.banned)
     .map((m) => ({ id: m.id, name: m.name }));
   const stepGroups = groupItemsByStep(items);
-  const isDone = isCeremonyDone(ceremony.ceremonyAt);
+  const status = asCeremonyStatus(ceremony.status);
+  // 대표 지시(2026-07-27): 예정이 아닌 예식(진행중·종료)은 전체 읽기 전용.
+  const readOnly = status !== "upcoming";
+  const blobEnabled = isBlobStorageConfigured();
 
   return (
     <section className="ceremony-detail-page">
@@ -89,10 +93,10 @@ export default async function CeremonyDetailPage({
         </h1>
         <span
           className={
-            "ceremony-detail-page__status-badge" + (isDone ? " ceremony-detail-page__status-badge--done" : "")
+            "ceremony-detail-page__status-badge ceremony-detail-page__status-badge--" + status
           }
         >
-          {isDone ? "완료" : "예정"}
+          {CEREMONY_STATUS_LABELS[status]}
         </span>
       </div>
       <p className="ceremony-detail-page__meta">
@@ -104,14 +108,14 @@ export default async function CeremonyDetailPage({
         ceremonyId={ceremonyId}
         activeOperators={activeOperators}
         assignees={assignees}
-        readOnly={isDone}
+        readOnly={readOnly}
       />
 
-      {/* 프로토타입 24~28행 — 진행 전에는 warning 톤 "이 예식에만 반영" 안내, 종료 후에는
-          중립 톤 읽기 전용 안내. */}
-      {isDone ? (
+      {/* 프로토타입 24~28행 — 진행 전에는 warning 톤 "이 예식에만 반영" 안내, 진행중/종료
+          후에는 중립 톤 읽기 전용 안내. */}
+      {readOnly ? (
         <p className="ceremony-detail-page__notice ceremony-detail-page__notice--readonly">
-          종료된 예식은 체크리스트를 수정할 수 없습니다 — 읽기 전용.
+          진행 중이거나 종료된 예식은 체크리스트를 수정할 수 없습니다 — 읽기 전용.
         </p>
       ) : (
         <p className="ceremony-detail-page__notice">
@@ -140,7 +144,7 @@ export default async function CeremonyDetailPage({
                   stepName={first.stepName}
                   itemCount={stepItems.length}
                   stepKey={stepKey}
-                  readOnly={isDone}
+                  readOnly={readOnly}
                 />
                 <ul className="instance-item-list">
                   {stepItems.map((item) => (
@@ -149,14 +153,15 @@ export default async function CeremonyDetailPage({
                       hallId={hallId}
                       ceremonyId={ceremonyId}
                       item={item}
-                      readOnly={isDone}
+                      blobEnabled={blobEnabled}
+                      readOnly={readOnly}
                     />
                   ))}
                 </ul>
                 {/* 원본 템플릿 단계가 삭제된 orphan 항목(templateItemId/adHocGroupRootId
                     둘 다 null)은 "같은 단계에 추가"할 그룹 키가 없다 — 빠른 추가 폼을
                     숨긴다(항상 실패하는 폼을 노출하지 않음, Story 5.8 코덱스 리뷰 P2). */}
-                {!isDone && (first.templateItemId || first.adHocGroupRootId) && (
+                {!readOnly && (first.templateItemId || first.adHocGroupRootId) && (
                   <div className="instance-step-card__quick-add">
                     <InstanceItemForm
                       hallId={hallId}
@@ -174,7 +179,7 @@ export default async function CeremonyDetailPage({
         </div>
       )}
 
-      {!isDone && (
+      {!readOnly && (
         <div className="ceremony-detail-page__new-step">
           <InstanceItemForm hallId={hallId} ceremonyId={ceremonyId} isNewStep />
         </div>

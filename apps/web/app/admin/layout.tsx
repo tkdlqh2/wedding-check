@@ -1,8 +1,8 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { AdminNavLinks } from "./admin-nav-links";
+import { AccountMenu } from "./account-menu";
 import "../design-tokens.css";
 import "./admin-nav.css";
 
@@ -24,9 +24,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div className="admin-nav__inner">
           <div className="admin-nav__logo">웨딩체크</div>
           <AdminNavLinks />
-          <Link href="/admin/ceremonies" className="btn-primary">
-            새 예식 등록
-          </Link>
+          <AccountMenu />
         </div>
       </header>
       <main className="admin-content">

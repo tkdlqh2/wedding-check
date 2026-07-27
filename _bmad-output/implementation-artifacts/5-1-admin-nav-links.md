@@ -4,7 +4,7 @@ baseline_commit: 2fce15590c8dca27c21e9dc525fa5c42a9da6781
 
 # Story 5.1: 어드민 내비게이션 홀·템플릿 링크 연결
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -22,23 +22,22 @@ so that URL을 직접 입력하지 않고도 홀/체크리스트 템플릿을 �
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: 어드민 내비게이션 링크 배선 — `apps/web/app/admin/layout.tsx` (MODIFY, AC: 1, 2, 3)
-  - [ ] "템플릿" `<span className="admin-nav__link admin-nav__link--placeholder">템플릿</span>`(현재 25번째 줄)을 `<Link href="/admin/halls" className="admin-nav__link">`로 교체.
-  - [ ] "홀" 링크를 새로 추가한다: "템플릿" 링크 앞 또는 뒤 어디든, `<Link href="/admin/halls" className="admin-nav__link">홀</Link>`. 두 항목("홀", "템플릿")이 같은 목적지(`/admin/halls`)로 가는 것은 의도된 것이다 — 템플릿이 홀에 종속된 엔티티라 별도의 "템플릿 전용" 화면이 없기 때문(Dev Notes 참고).
-  - [ ] "인사이트" placeholder(`<span className="admin-nav__link admin-nav__link--placeholder">인사이트</span>`)는 그대로 둔다 — Epic 4가 아직 backlog이므로 이 스토리 범위 밖.
-  - [ ] 기존 "예식" `<Link>`와 우측 "새 예식 등록" CTA는 변경하지 않는다.
+- [x] Task 1: 어드민 내비게이션 링크 배선 — `apps/web/app/admin/layout.tsx` (MODIFY, AC: 1, 2, 3)
+  - [x] "템플릿" `<span className="admin-nav__link admin-nav__link--placeholder">템플릿</span>`(현재 25번째 줄)을 `<Link href="/admin/halls" className="admin-nav__link">`로 교체.
+  - [x] "홀" 링크를 새로 추가한다: "템플릿" 링크 앞 또는 뒤 어디든, `<Link href="/admin/halls" className="admin-nav__link">홀</Link>`. 두 항목("홀", "템플릿")이 같은 목적지(`/admin/halls`)로 가는 것은 의도된 것이다 — 템플릿이 홀에 종속된 엔티티라 별도의 "템플릿 전용" 화면이 없기 때문(Dev Notes 참고).
+  - [x] "인사이트" placeholder(`<span className="admin-nav__link admin-nav__link--placeholder">인사이트</span>`)는 그대로 둔다 — Epic 4가 아직 backlog이므로 이 스토리 범위 밖.
+  - [x] 기존 "예식" `<Link>`와 우측 "새 예식 등록" CTA는 변경하지 않는다.
 
-- [ ] Task 2: 현재 위치 표시(선택 사항이지만 권장) — `apps/web/app/admin/layout.tsx`, `apps/web/app/admin/admin-nav.css` (MODIFY, AC 없음 — UX 다듬기)
-  - [ ] Next.js `usePathname()`은 Server Component인 `AdminLayout`에서 직접 쓸 수 없다 — 이 레이아웃을 Client Component로 바꾸지 말고, 필요하다면 내비게이션 링크 목록만 별도의 작은 Client Component(`admin-nav-links.tsx`)로 분리해 `usePathname()`으로 현재 경로와 일치하는 링크에 `admin-nav__link--active` 클래스를 추가한다. 과설계 방지를 위해 AC에는 없으므로 시간이 부족하면 생략 가능 — 생략 시 Dev Notes에 명시.
+- [x] Task 2: 현재 위치 표시(선택 사항이지만 권장) — 생략함(Completion Notes 참고)
 
-- [ ] Task 3: 테스트 (AC: 1, 2, 3)
-  - [ ] 기존 컴포넌트/서비스 테스트 인프라 확인 — 이 스토리는 정적 JSX 링크 교체뿐이라 별도 유닛 테스트보다 아래 수동 검증이 더 적절하다. 다만 admin layout을 렌더링하는 기존 테스트가 있다면(예: 인증 가드 테스트) placeholder `<span>` 텍스트를 assert하고 있지 않은지 확인하고 있다면 갱신한다.
-  - [ ] `npm run test`, `npx tsc --noEmit`, `npm run lint`, `npm run build` 전부 클린 확인.
+- [x] Task 3: 테스트 (AC: 1, 2, 3)
+  - [x] 기존 컴포넌트/서비스 테스트 인프라 확인 — admin layout을 렌더링하거나 placeholder 텍스트를 assert하는 기존 테스트 없음(확인됨, 갱신 불필요).
+  - [x] `npm run test`(63 passed), `npx tsc --noEmit`(clean), `npm run lint`(clean), `npm run build`(clean, `/admin/halls` 라우트 정상 포함) 전부 클린 확인.
 
-- [ ] Task 4: 수동 검증
-  - [ ] 로컬 서버(`npm run dev`)에서 관리자 계정(01000000001/changeme123!)으로 로그인 → `/admin/ceremonies` 등 아무 admin 화면에서 상단 내비의 "홀"과 "템플릿"을 각각 클릭 → 둘 다 `/admin/halls`로 정상 이동하는지 확인.
-  - [ ] `/admin/halls`에서 홀 등록 → 생성된 홀 행의 "템플릿 관리" 버튼 클릭 → `/admin/templates/[hallId]`로 정상 이동하는지 확인(기존 동작이라 회귀만 없으면 됨).
-  - [ ] "인사이트" placeholder가 여전히 클릭 불가 상태(`<span>`, 색상 `--color-text-disabled`)인지 육안 확인.
+- [x] Task 4: 수동 검증
+  - [x] 로컬 서버에서 관리자 계정(01000000001/changeme123!)으로 `/api/auth/sign-in/phone-number` 실제 로그인 → `GET /admin/ceremonies` SSR HTML의 `<nav class="admin-nav__links">`를 확인 → "홀"/"템플릿" 둘 다 `<a href="/admin/halls">`로 렌더링됨을 직접 확인.
+  - [x] `GET /admin/halls` → 200, 응답 HTML에 기존 "템플릿 관리" 버튼 텍스트가 여전히 존재함을 확인(회귀 없음).
+  - [x] "인사이트"는 여전히 `<span class="admin-nav__link admin-nav__link--placeholder">`로 렌더링됨을 같은 HTML에서 확인.
 
 ## Dev Notes
 
@@ -96,16 +95,19 @@ Epic 1(홀·템플릿 관리)과 Epic 2(예식 등록)는 sprint-status.yaml상 
 
 ### Debug Log References
 
-(dev-story 실행 시 기록)
+없음(구현 중 예상치 못한 오류 없음).
 
 ### Completion Notes List
 
-(dev-story 실행 시 기록)
+- Task 2(현재 위치 표시)는 의도적으로 생략함 — AC에 없는 UX 다듬기 항목이고, 이 스토리의 핵심(내비게이션 배선 자체가 없던 문제)과 무관한 별도 스코프라 과설계 방지 원칙에 따라 뺐다. 필요해지면 별도 스토리로.
+- "홀"과 "템플릿" 두 내비 항목이 동일한 목적지(`/admin/halls`)로 연결된다 — 의도된 설계다(Dev Notes 참고, 템플릿이 홀에 종속된 엔티티라 별도 인덱스 화면이 없음).
+- SSR HTML 직접 확인(curl + 로그인 쿠키)으로 AC 1~3을 모두 검증했다 — 실제 브라우저 클릭 조작 도구는 이 세션에 없어 대체 검증.
 
 ### File List
 
-(dev-story 실행 시 기록)
+- `apps/web/app/admin/layout.tsx` (MODIFY)
 
 ## Change Log
 
 - 2026-07-27: 스토리 최초 작성 (create-story, Epic 5 프로토타입 리뷰 후속 4건 중 1번째).
+- 2026-07-27: 구현 완료 (dev-story) — 어드민 내비게이션에 "홀"/"템플릿" 실링크 추가, 테스트/빌드/수동 검증 전부 클린. Status → review.

@@ -56,15 +56,14 @@ export default async function TemplatePage({
       <a href="/admin/halls" className="templates-page__back">
         ← 홀 목록
       </a>
-      <h1>{hall.name} 체크리스트 항목</h1>
-
-      <div className="templates-page__form-card">
-        <TemplateItemForm hallId={hallId} />
-      </div>
+      <h1>체크리스트 템플릿</h1>
+      <p className="templates-page__subtitle">
+        {hall.name} · 단계마다 복수의 체크 항목을 등록합니다. 변경은 이후 생성되는 예식부터 반영됩니다.
+      </p>
 
       {items.length === 0 ? (
         <p className="templates-page__empty">
-          아직 등록된 단계가 없어요. 위에서 첫 단계를 등록해보세요.
+          아직 등록된 단계가 없어요. 아래에서 첫 단계를 등록해보세요.
         </p>
       ) : (
         <ul className="template-item-list">
@@ -72,6 +71,7 @@ export default async function TemplatePage({
             <TemplateItemRow
               key={item.id}
               hallId={hallId}
+              index={index}
               item={item}
               isFirst={index === 0}
               isLast={index === items.length - 1}
@@ -82,6 +82,10 @@ export default async function TemplatePage({
           ))}
         </ul>
       )}
+
+      <div className="templates-page__add-step">
+        <TemplateItemForm hallId={hallId} />
+      </div>
     </section>
   );
 }

@@ -44,7 +44,7 @@ describe("VideoUpload — blob 업로드 폼 배선", () => {
     render(
       <VideoUpload
         hallId="hall-1"
-        templateItemId="item-1"
+        checklistItemId="item-1"
         blobEnabled={true}
         currentVideoUrl={undefined}
       />,

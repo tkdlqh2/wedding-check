@@ -18,12 +18,12 @@ export async function addInstanceItemAction(
   await requireAdminSession();
   const hallId = String(formData.get("hallId") ?? "");
   const ceremonyId = String(formData.get("ceremonyId") ?? "");
-  const templateItemId = String(formData.get("templateItemId") ?? "");
-  if (!isValidUuid(hallId) || !isValidUuid(ceremonyId) || !isValidUuid(templateItemId)) {
+  const checklistItemId = String(formData.get("checklistItemId") ?? "");
+  if (!isValidUuid(hallId) || !isValidUuid(ceremonyId) || !isValidUuid(checklistItemId)) {
     return { error: "잘못된 요청입니다" };
   }
   try {
-    await addInstanceItem(hallId, ceremonyId, templateItemId);
+    await addInstanceItem(hallId, ceremonyId, checklistItemId);
   } catch (err) {
     if (err instanceof ChecklistInstanceValidationError) return { error: err.message };
     throw err;

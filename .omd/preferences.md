@@ -79,3 +79,18 @@ source_context: "C:\\Users\\tkdlq\\AppData\\Local\\Temp\\claude\\c--Users-tkdlq-
 ```
 
 Introduced off-palette color(s) #1a1a1a, #232323, #2b2b2b in C:/Users/tkdlq/AppData/Local/Temp/claude/c--Users-tkdlq-OneDrive----wedding-check/744deb11-f3f5-46f1-ae01-3c4d8fbc3e98/scratchpad/ceremony-checklist-template.html — not in DESIGN.md
+
+## 2026-07-27T03:57:29.787Z — introduced-off-palette-color-s-eef5fd-in
+
+```omd-meta
+id: pref_ms2p4j7f_12edb973
+timestamp: 2026-07-27T03:57:29.787Z
+scope: color
+signal: ambient
+confidence: inferred
+status: pending
+source_agent: claude-code
+source_context: "c:\\Users\\tkdlq\\OneDrive\\문서\\wedding-check\\apps\\web\\app\\admin\\templates\\[hallId]\\templates.css"
+```
+
+Introduced off-palette color(s) #eef5fd in c:/Users/tkdlq/OneDrive/문서/wedding-check/apps/web/app/admin/templates/[hallId]/templates.css — not in DESIGN.md

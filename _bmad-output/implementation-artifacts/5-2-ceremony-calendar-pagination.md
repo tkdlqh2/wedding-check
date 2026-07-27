@@ -4,7 +4,7 @@ baseline_commit: 03e3c84
 
 # Story 5.2: 예식 목록 날짜 필터 캘린더 및 페이지네이션
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -31,55 +31,55 @@ Story 착수 중 대표가 "지금 구조가 프로토타입이랑 너무 다르
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: 리포지토리 레이어 — `apps/web/lib/db/repositories/ceremony.ts` (MODIFY, AC: 1, 3)
-  - [ ] `findAllByHall(hallId): Promise<CeremonyWithItemCount[]>` 추가 — `findByHallForDateRange`와 동일한 JOIN/그룹핑 구조에서 날짜 WHERE절만 제거. AD-2(hallId 필수 첫 인자) 준수.
-  - [ ] `findByHallForDateRange`는 그대로 재사용한다(하루 범위 필터와 월 범위 필터 양쪽에 재사용 가능 — 새 함수 불필요).
+- [x] Task 1: 리포지토리 레이어 — `apps/web/lib/db/repositories/ceremony.ts` (MODIFY, AC: 1, 3)
+  - [x] `findAllByHall(hallId): Promise<CeremonyWithItemCount[]>` 추가 — `findByHallForDateRange`와 동일한 JOIN/그룹핑 구조에서 날짜 WHERE절만 제거. AD-2(hallId 필수 첫 인자) 준수.
+  - [x] `findByHallForDateRange`는 그대로 재사용한다(하루 범위 필터와 월 범위 필터 양쪽에 재사용 가능 — 새 함수 불필요).
 
-- [ ] Task 2: 서비스 레이어 — `apps/web/lib/services/ceremony.ts` (MODIFY, AC: 1, 2, 3, 4)
-  - [ ] 기존 `todayRangeKST()`를 일반화한 `dayRangeKST(dateIso: string): { start: Date; end: Date }` 추가(또는 `todayRangeKST`를 `dayRangeKST(new Date())` 호출로 재작성) — KST 자정 경계 계산 로직은 그대로 재사용.
-  - [ ] `monthRangeKST(year: number, month: number): { start: Date; end: Date }` 추가 — 해당 KST 월의 시작/다음달 시작 UTC 경계.
-  - [ ] `listCeremoniesForDate(dateIso: string): Promise<CeremonyWithHallName[]>` 추가 — `listTodaysCeremonies`와 동일한 홀별 조회+병합 패턴, `dayRangeKST(dateIso)` 사용.
-  - [ ] `listCeremoniesPaginated(input: { page: number; pageSize: number }): Promise<{ ceremonies: CeremonyWithHallName[]; totalCount: number; totalPages: number }>` 추가 — 활성 홀 전체에 대해 `ceremonyRepo.findAllByHall` 호출·병합 후 `ceremonyAt` 역순 정렬, 메모리에서 페이지 슬라이스. `[ASSUMPTION]` 단일 사업체 소규모 데이터셋 전제(PRD §8.1) — 교차 홀 SQL 페이지네이션 대신 기존 `listTodaysCeremonies` 병합 패턴을 그대로 확장(AD-2가 요구하는 hallId 스코프 리포지토리 함수 원칙과 일치).
-  - [ ] `listCeremonyDatesForMonth(year: number, month: number): Promise<Set<string>>` 추가 — 활성 홀 전체에 대해 `ceremonyRepo.findByHallForDateRange(hall.id, ...monthRangeKST(year, month))` 호출 후, 각 결과의 `ceremonyAt`을 KST 기준 `YYYY-MM-DD` 문자열로 변환해 Set에 모음(캘린더 점 표시용). UTC→KST 날짜 문자열 변환은 `dayRangeKST`와 동일한 KST_OFFSET_MS 상수를 재사용.
+- [x] Task 2: 서비스 레이어 — `apps/web/lib/services/ceremony.ts` (MODIFY, AC: 1, 2, 3, 4)
+  - [x] 기존 `todayRangeKST()`를 일반화한 `dayRangeKST(dateIso: string): { start: Date; end: Date }` 추가(또는 `todayRangeKST`를 `dayRangeKST(new Date())` 호출로 재작성) — KST 자정 경계 계산 로직은 그대로 재사용.
+  - [x] `monthRangeKST(year: number, month: number): { start: Date; end: Date }` 추가 — 해당 KST 월의 시작/다음달 시작 UTC 경계.
+  - [x] `listCeremoniesForDate(dateIso: string): Promise<CeremonyWithHallName[]>` 추가 — `listTodaysCeremonies`와 동일한 홀별 조회+병합 패턴, `dayRangeKST(dateIso)` 사용.
+  - [x] `listCeremoniesPaginated(input: { page: number; pageSize: number }): Promise<{ ceremonies: CeremonyWithHallName[]; totalCount: number; totalPages: number }>` 추가 — 활성 홀 전체에 대해 `ceremonyRepo.findAllByHall` 호출·병합 후 `ceremonyAt` 역순 정렬, 메모리에서 페이지 슬라이스. `[ASSUMPTION]` 단일 사업체 소규모 데이터셋 전제(PRD §8.1) — 교차 홀 SQL 페이지네이션 대신 기존 `listTodaysCeremonies` 병합 패턴을 그대로 확장(AD-2가 요구하는 hallId 스코프 리포지토리 함수 원칙과 일치).
+  - [x] `listCeremonyDatesForMonth(year: number, month: number): Promise<Set<string>>` 추가 — 활성 홀 전체에 대해 `ceremonyRepo.findByHallForDateRange(hall.id, ...monthRangeKST(year, month))` 호출 후, 각 결과의 `ceremonyAt`을 KST 기준 `YYYY-MM-DD` 문자열로 변환해 Set에 모음(캘린더 점 표시용). UTC→KST 날짜 문자열 변환은 `dayRangeKST`와 동일한 KST_OFFSET_MS 상수를 재사용.
 
-- [ ] Task 3: 캘린더 컴포넌트 — 신규 (AC: 1, 2, 4, 6, 7)
-  - [ ] `apps/web/app/admin/ceremonies/ceremony-calendar.tsx` (NEW) — 순수 Server Component. `year`/`month`/`selectedDate`/`markedDates(Set<string>)` props를 받아 월 그리드를 렌더링. 이전/다음달 버튼과 날짜 셀 모두 `<Link>`로 구현(`?year=&month=`, `?date=`) — 클라이언트 상태나 `"use client"` 불필요(관리자 데스크톱 화면은 페이지 단위 내비게이션으로 충분, Operator 태블릿 화면과 달리 DESIGN.md의 0ms 즉시 반응 요구가 적용되는 화면이 아님).
-  - [ ] 선택된 날짜 셀: `#E8552D` 배경 + 흰 텍스트. 예식이 있는(미선택) 날짜: 점 마커 `#E8552D`. 같은 날짜를 다시 클릭하면 `date` 파라미터가 제거된 링크(AC 4, "선택 해제").
-  - [ ] 스타일은 `prototype/js/screens/WeddingScreen.js`의 캘린더 블록(38~34px 셀, 11px 요일 헤더, 6px radius 버튼)을 참고하되 DESIGN.md 라운딩 스케일(4/8/12px)에 맞춰 6px는 4px로 스냅.
+- [x] Task 3: 캘린더 컴포넌트 — 신규 (AC: 1, 2, 4, 6, 7)
+  - [x] `apps/web/app/admin/ceremonies/ceremony-calendar.tsx` (NEW) — 순수 Server Component. `year`/`month`/`selectedDate`/`markedDates(Set<string>)` props를 받아 월 그리드를 렌더링. 이전/다음달 버튼과 날짜 셀 모두 `<Link>`로 구현(`?year=&month=`, `?date=`) — 클라이언트 상태나 `"use client"` 불필요(관리자 데스크톱 화면은 페이지 단위 내비게이션으로 충분, Operator 태블릿 화면과 달리 DESIGN.md의 0ms 즉시 반응 요구가 적용되는 화면이 아님).
+  - [x] 선택된 날짜 셀: `#E8552D` 배경 + 흰 텍스트. 예식이 있는(미선택) 날짜: 점 마커 `#E8552D`. 같은 날짜를 다시 클릭하면 `date` 파라미터가 제거된 링크(AC 4, "선택 해제").
+  - [x] 스타일은 `prototype/js/screens/WeddingScreen.js`의 캘린더 블록(38~34px 셀, 11px 요일 헤더, 6px radius 버튼)을 참고하되 DESIGN.md 라운딩 스케일(4/8/12px)에 맞춰 6px는 4px로 스냅.
 
-- [ ] Task 4: 페이지네이션 컴포넌트 — 신규 (AC: 3, 4)
-  - [ ] `apps/web/app/admin/ceremonies/ceremony-pagination.tsx` (NEW) — Server Component, `<Link>` 기반 이전/다음 + 페이지 번호. `date` 파라미터가 있을 때는 렌더링하지 않음(날짜 필터 중엔 페이지네이션 없음, AC 3·4).
+- [x] Task 4: 페이지네이션 컴포넌트 — 신규 (AC: 3, 4)
+  - [x] `apps/web/app/admin/ceremonies/ceremony-pagination.tsx` (NEW) — Server Component, `<Link>` 기반 이전/다음 + 페이지 번호. `date` 파라미터가 있을 때는 렌더링하지 않음(날짜 필터 중엔 페이지네이션 없음, AC 3·4).
 
-- [ ] Task 5: 예식 목록 페이지 재구성 — `apps/web/app/admin/ceremonies/page.tsx` (MODIFY, AC: 1, 2, 3, 4, 7)
-  - [ ] `searchParams: Promise<{ date?: string; year?: string; month?: string; page?: string }>` 시그니처로 변경(Next.js 15+ 비동기 searchParams 컨벤션 — `headers()`를 이미 `await`하는 `admin/layout.tsx`와 동일 관례).
-  - [ ] `year`/`month` 미지정 시 KST 기준 이번 달로 기본값 계산.
-  - [ ] `date` 파라미터가 있으면 `listCeremoniesForDate(date)` 호출, 없으면 `listCeremoniesPaginated({ page, pageSize: 10 })` 호출.
-  - [ ] `listCeremonyDatesForMonth(year, month)`로 점 마커용 날짜 Set 조회.
-  - [ ] 마크업을 2단 그리드로 재구성(AC 7): 왼쪽 `.ceremonies-page__form-card`(고정폭), 오른쪽 컬럼 = `<CeremonyCalendar>` 위 + 목록 섹션 아래. 목록 섹션 제목은 `date`가 있으면 "N월 D일 예식", 없으면 "등록된 예식".
-  - [ ] 빈 상태 문구 조정: 날짜 필터 중 결과 없음 = "이 날짜에 등록된 예식이 없습니다."(DESIGN.md §14 Empty state 톤 유지), 필터 없음+예식 0건 = 기존 "등록된 예식이 없습니다..." 문구 유지.
+- [x] Task 5: 예식 목록 페이지 재구성 — `apps/web/app/admin/ceremonies/page.tsx` (MODIFY, AC: 1, 2, 3, 4, 7)
+  - [x] `searchParams: Promise<{ date?: string; year?: string; month?: string; page?: string }>` 시그니처로 변경(Next.js 15+ 비동기 searchParams 컨벤션 — `headers()`를 이미 `await`하는 `admin/layout.tsx`와 동일 관례).
+  - [x] `year`/`month` 미지정 시 KST 기준 이번 달로 기본값 계산.
+  - [x] `date` 파라미터가 있으면 `listCeremoniesForDate(date)` 호출, 없으면 `listCeremoniesPaginated({ page, pageSize: 10 })` 호출.
+  - [x] `listCeremonyDatesForMonth(year, month)`로 점 마커용 날짜 Set 조회.
+  - [x] 마크업을 2단 그리드로 재구성(AC 7): 왼쪽 `.ceremonies-page__form-card`(고정폭), 오른쪽 컬럼 = `<CeremonyCalendar>` 위 + 목록 섹션 아래. 목록 섹션 제목은 `date`가 있으면 "N월 D일 예식", 없으면 "등록된 예식".
+  - [x] 빈 상태 문구 조정: 날짜 필터 중 결과 없음 = "이 날짜에 등록된 예식이 없습니다."(DESIGN.md §14 Empty state 톤 유지), 필터 없음+예식 0건 = 기존 "등록된 예식이 없습니다..." 문구 유지.
 
-- [ ] Task 6: 어드민 내비게이션 활성 탭 스타일 — `apps/web/app/admin/layout.tsx`, 신규 `admin-nav-links.tsx` (MODIFY/NEW, AC: 5, 6)
-  - [ ] 현재 `AdminLayout`은 세션 체크 후 리다이렉트하는 async Server Component다(Story 5.1 Dev Notes와 동일 — Client Component로 바꾸지 말 것). `usePathname()`으로 활성 탭을 판별하려면 nav 링크 부분만 별도 `"use client"` 컴포넌트로 분리한다: `apps/web/app/admin/admin-nav-links.tsx` (NEW).
-  - [ ] 활성 판정: 현재 경로가 링크의 href로 시작하면 활성(`/admin/ceremonies/[hallId]/[ceremonyId]`처럼 하위 경로여도 "예식" 탭이 활성이어야 함). "인사이트" placeholder는 계속 비활성 `<span>`으로 둔다(Epic 4 backlog, Story 5.1 결정 유지).
-  - [ ] `.admin-nav__link`에 활성 상태 클래스 추가 — 배경 `var(--color-brand-tint)`, 텍스트 `var(--color-brand)`, `border-radius: var(--radius-md)`, `padding: 10px 16px`(prototype `AdminScreen.js` 참고).
+- [x] Task 6: 어드민 내비게이션 활성 탭 스타일 — `apps/web/app/admin/layout.tsx`, 신규 `admin-nav-links.tsx` (MODIFY/NEW, AC: 5, 6)
+  - [x] 현재 `AdminLayout`은 세션 체크 후 리다이렉트하는 async Server Component다(Story 5.1 Dev Notes와 동일 — Client Component로 바꾸지 말 것). `usePathname()`으로 활성 탭을 판별하려면 nav 링크 부분만 별도 `"use client"` 컴포넌트로 분리한다: `apps/web/app/admin/admin-nav-links.tsx` (NEW).
+  - [x] 활성 판정: 현재 경로가 링크의 href로 시작하면 활성(`/admin/ceremonies/[hallId]/[ceremonyId]`처럼 하위 경로여도 "예식" 탭이 활성이어야 함). "인사이트" placeholder는 계속 비활성 `<span>`으로 둔다(Epic 4 backlog, Story 5.1 결정 유지).
+  - [x] `.admin-nav__link`에 활성 상태 클래스 추가 — 배경 `var(--color-brand-tint)`, 텍스트 `var(--color-brand)`, `border-radius: var(--radius-md)`, `padding: 10px 16px`(prototype `AdminScreen.js` 참고).
 
-- [ ] Task 7: CSS 정렬 — `apps/web/app/admin/admin-nav.css`, `apps/web/app/admin/ceremonies/ceremonies.css` (MODIFY, AC: 6, 7)
-  - [ ] `.admin-nav` 내부 콘텐츠에 `max-width: 1200px; margin: 0 auto;` 래퍼 추가(현재 풀블리드 — prototype `AdminScreen.js` `maxWidth:1200`과 정렬). `.admin-content`도 동일 max-width로 정렬.
-  - [ ] `.ceremonies-page` 폭 제약(현재 `max-width: 640px`)을 제거하고 2단 그리드(`grid-template-columns: 360px 1fr`, `gap: var(--space-lg)`)로 교체 — prototype `WeddingScreen.js` 구조.
-  - [ ] 캘린더/페이지네이션 컴포넌트용 클래스 추가. 색상·라운딩·간격은 반드시 `apps/web/app/design-tokens.css`의 기존 CSS 변수만 사용한다(신규 hex 값이나 임의 radius 금지 — `.omd/preferences.md`에 이미 기록된 반복 위반 패턴, DESIGN.md §2/§7 참고).
+- [x] Task 7: CSS 정렬 — `apps/web/app/admin/admin-nav.css`, `apps/web/app/admin/ceremonies/ceremonies.css` (MODIFY, AC: 6, 7)
+  - [x] `.admin-nav` 내부 콘텐츠에 `max-width: 1200px; margin: 0 auto;` 래퍼 추가(현재 풀블리드 — prototype `AdminScreen.js` `maxWidth:1200`과 정렬). `.admin-content`도 동일 max-width로 정렬.
+  - [x] `.ceremonies-page` 폭 제약(현재 `max-width: 640px`)을 제거하고 2단 그리드(`grid-template-columns: 360px 1fr`, `gap: var(--space-lg)`)로 교체 — prototype `WeddingScreen.js` 구조.
+  - [x] 캘린더/페이지네이션 컴포넌트용 클래스 추가. 색상·라운딩·간격은 반드시 `apps/web/app/design-tokens.css`의 기존 CSS 변수만 사용한다(신규 hex 값이나 임의 radius 금지 — `.omd/preferences.md`에 이미 기록된 반복 위반 패턴, DESIGN.md §2/§7 참고).
 
-- [ ] Task 8: 테스트 (AC: 1, 2, 3, 4)
-  - [ ] `apps/web/tests/repositories/ceremony.test.ts`에 `findAllByHall` 테스트 추가(빈 목록, 여러 건, 다른 홀 데이터 미포함 확인).
-  - [ ] `apps/web/tests/services/ceremony.test.ts`에 `listCeremoniesForDate`, `listCeremoniesPaginated`(페이지 슬라이스·totalCount·totalPages 경계값 포함), `listCeremonyDatesForMonth`(월 경계에 걸친 날짜 KST 변환 정확성 — 기존 `create()` UTC/KST 버그 사례처럼 자정 근처 케이스를 반드시 커버) 테스트 추가.
-  - [ ] 신규 컴포넌트(`ceremony-calendar.tsx`, `ceremony-pagination.tsx`)는 순수 Server Component이므로 렌더링 스냅샷보다 서비스 레이어 테스트로 로직을 충분히 커버하고, 필요 시 링크 href 조합만 최소 컴포넌트 테스트로 확인.
-  - [ ] `npm run test`, `npx tsc --noEmit`, `npm run lint`, `npm run build` 전부 클린 확인.
+- [x] Task 8: 테스트 (AC: 1, 2, 3, 4)
+  - [x] `apps/web/tests/repositories/ceremony.test.ts`에 `findAllByHall` 테스트 추가(빈 목록, 여러 건, 다른 홀 데이터 미포함 확인).
+  - [x] `apps/web/tests/services/ceremony.test.ts`에 `listCeremoniesForDate`, `listCeremoniesPaginated`(페이지 슬라이스·totalCount·totalPages 경계값 포함), `listCeremonyDatesForMonth`(월 경계에 걸친 날짜 KST 변환 정확성 — 기존 `create()` UTC/KST 버그 사례처럼 자정 근처 케이스를 반드시 커버) 테스트 추가.
+  - [x] 신규 컴포넌트(`ceremony-calendar.tsx`, `ceremony-pagination.tsx`)는 순수 Server Component이므로 렌더링 스냅샷보다 서비스 레이어 테스트로 로직을 충분히 커버하고, 필요 시 링크 href 조합만 최소 컴포넌트 테스트로 확인.
+  - [x] `npm run test`, `npx tsc --noEmit`, `npm run lint`, `npm run build` 전부 클린 확인.
 
-- [ ] Task 9: 수동 검증
-  - [ ] 로컬 서버에서 관리자 로그인 후 `/admin/ceremonies` 접속 → 폼 오른쪽에 캘린더가 있고 예식 있는 날짜에 점이 찍히는지 확인.
-  - [ ] 날짜 클릭 → 그 날짜 예식만 표시, 페이지네이션 사라짐 확인.
-  - [ ] 같은 날짜 재클릭(또는 "전체 보기") → 전체 목록 + 페이지네이션 복귀 확인.
-  - [ ] 내비게이션에서 "홀"/"예식"/"템플릿" 각 화면 방문 시 해당 탭만 강조되는지 확인.
-  - [ ] `/admin/halls`, `/admin/templates/[hallId]` 등 이 스토리에서 스타일을 건드리지 않은 화면이 깨지지 않았는지(회귀 없음) 확인 — 특히 `.admin-content` max-width 변경이 다른 페이지 레이아웃을 깨지 않는지.
+- [x] Task 9: 수동 검증
+  - [x] 로컬 서버에서 관리자 로그인 후 `/admin/ceremonies` 접속 → 폼 오른쪽에 캘린더가 있고 예식 있는 날짜에 점이 찍히는지 확인.
+  - [x] 날짜 클릭 → 그 날짜 예식만 표시, 페이지네이션 사라짐 확인.
+  - [x] 같은 날짜 재클릭(또는 "전체 보기") → 전체 목록 + 페이지네이션 복귀 확인.
+  - [x] 내비게이션에서 "홀"/"예식"/"템플릿" 각 화면 방문 시 해당 탭만 강조되는지 확인.
+  - [x] `/admin/halls`, `/admin/templates/[hallId]` 등 이 스토리에서 스타일을 건드리지 않은 화면이 깨지지 않았는지(회귀 없음) 확인 — 특히 `.admin-content` max-width 변경이 다른 페이지 레이아웃을 깨지 않는지.
 
 ## Dev Notes
 
@@ -147,14 +147,36 @@ vitest 이중 environment(`.test.ts` = node/DB 통합, `.test.tsx` = jsdom). 신
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-sonnet-5
 
 ### Debug Log References
 
+없음(구현 중 예상치 못한 오류 없음). 단, 로컬 검증 인프라 이슈 1건 발생 — Completion Notes 참고.
+
 ### Completion Notes List
 
+- **로컬 DB 격리 이슈(구현과 무관, 환경 문제):** 공유 로컬 Postgres 컨테이너(`wedding-check-db`, 포트 5434)의 `wedding_check`/`wedding_check_test` DB가 이미 Story 5.5(다른 워크트리에서 진행 중)의 두 단계 구조 마이그레이션(0010)까지 적용된 상태였다. 이 스토리는 main(03e3c84, pre-5.5) 기준이라 스키마가 맞지 않아 기존 테스트 33건이 스키마 불일치로 실패했다 — 코드 결함이 아님을 확인 후, 이 워크트리 전용 격리 Postgres 컨테이너(`wedding-check-db-52`, 포트 5435)를 새로 띄우고 이 브랜치의 마이그레이션(0000~0009)만 적용해 `.env.test`/`.env.local`을 로컬에서만(둘 다 gitignore 대상, 커밋되지 않음) 그쪽으로 돌렸다. 이후 전체 테스트 77건 통과. 다른 세션의 Story 5.5 작업(공유 DB, 3000번 포트 dev 서버)에는 영향 없음.
+- AC 1~4(캘린더/페이지네이션)와 AC 5~7(디자인 정렬)을 모두 이 스토리 안에서 함께 구현했다 — 후자는 착수 중 대표 요청으로 추가된 범위(스토리 파일 상단 참고).
+- 캘린더·페이지네이션 모두 순수 Server Component + `<Link>` 쿼리 파라미터(`?date=&year=&month=&page=`) 기반으로 구현하고 클라이언트 상태를 쓰지 않았다 — Dev Notes에 미리 정한 설계 결정 그대로 구현.
+- 내비게이션 활성 탭 판별을 위해 `admin-nav-links.tsx`를 `"use client"` 컴포넌트로 분리했다(`usePathname()` 필요) — `layout.tsx`의 세션 체크는 그대로 Server Component에 남겨 Story 5.1 Dev Notes 원칙을 지켰다.
+- 수동 검증은 로컬 서버(포트 3001, curl+로그인 쿠키)로 수행했다 — 이 세션에 브라우저 조작 도구가 없어 이전 스토리들과 동일한 대체 검증 방식을 썼다: (1) 로그인 후 `/admin/ceremonies` SSR HTML에서 캘린더 점 마커(marked dates 2건 확인), 폼+캘린더 2단 그리드 마크업, 페이지네이션 "1 / 2"(15건, 페이지당 10) 확인. (2) `?date=YYYY-MM-DD`로 필터링 시 목록 제목이 "N월 D일 예식"으로 바뀌고 페이지네이션이 사라지며, "전체 보기" 링크가 `?year=&month=`(date 파라미터 제거)로 연결되는 것 확인(AC 4). (3) 예식이 없는 날짜로 필터링 시 "이 날짜에 등록된 예식이 없습니다." 빈 상태 확인. (4) `/admin/halls`, `/admin/templates/[hallId]`가 여전히 200으로 정상 렌더링되고 "홀" 탭이 올바르게 활성화되는 것으로 내비게이션 스타일 변경의 회귀 없음을 확인.
+- 스코프 경계를 지켰다: 홀/템플릿/회원/인사이트 화면의 스타일·구조는 손대지 않았고, Story 5.3(신랑신부 이름)·5.4(회원 관리) 관련 필드도 선점하지 않았다.
+
 ### File List
+
+- `apps/web/lib/db/repositories/ceremony.ts` (MODIFY) — `findAllByHall` 추가
+- `apps/web/lib/services/ceremony.ts` (MODIFY) — `dayRangeKST`, `monthRangeKST`, `toKstDateString`, `listCeremoniesForDate`, `listCeremoniesPaginated`, `listCeremonyDatesForMonth` 추가; `todayRangeKST`를 공용 헬퍼 기반으로 재작성
+- `apps/web/app/admin/ceremonies/ceremony-calendar.tsx` (NEW)
+- `apps/web/app/admin/ceremonies/ceremony-pagination.tsx` (NEW)
+- `apps/web/app/admin/ceremonies/page.tsx` (MODIFY) — 2단 그리드 재구성, searchParams 기반 필터/페이지네이션
+- `apps/web/app/admin/ceremonies/ceremonies.css` (MODIFY) — 2단 그리드 + 캘린더/페이지네이션 스타일
+- `apps/web/app/admin/admin-nav-links.tsx` (NEW) — 활성 탭 Client Component
+- `apps/web/app/admin/layout.tsx` (MODIFY) — nav를 `AdminNavLinks`로 교체, max-width 컨테이너 wrapper 추가
+- `apps/web/app/admin/admin-nav.css` (MODIFY) — max-width 1200px 정렬, 활성 탭 스타일
+- `apps/web/tests/repositories/ceremony.test.ts` (MODIFY) — `findAllByHall` 테스트
+- `apps/web/tests/services/ceremony.test.ts` (MODIFY) — `listCeremoniesForDate`, `listCeremoniesPaginated`, `listCeremonyDatesForMonth` 테스트(KST 경계 케이스 포함)
 
 ## Change Log
 
 - 2026-07-27: 스토리 최초 작성 (create-story). 착수 중 대표 요청으로 어드민 내비게이션+예식 화면의 프로토타입 디자인 정렬 범위 추가(AC 5~7, 사용자 확인: 이 스토리가 만지는 화면으로만 한정).
+- 2026-07-27: 구현 완료 (dev) — AC 1~7 전부 구현, vitest 77건/tsc/lint/build 전부 클린, 로컬 서버 curl 수동 검증 완료. Status → review.

@@ -1,18 +1,25 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { createMemberAction, type MemberFormState } from "./actions";
 
 const initialState: MemberFormState = {};
 
+const ROLE_OPTIONS: { value: "operator" | "admin"; label: string }[] = [
+  { value: "operator", label: "오퍼레이터" },
+  { value: "admin", label: "관리자" },
+];
+
 export function MemberForm() {
   const [state, formAction, isPending] = useActionState(createMemberAction, initialState);
+  const [role, setRole] = useState<"operator" | "admin">("operator");
   const wasPending = useRef(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     if (wasPending.current && !isPending && !state.error) {
       formRef.current?.reset();
+      setRole("operator");
     }
     wasPending.current = isPending;
   }, [isPending, state.error]);
@@ -38,6 +45,24 @@ export function MemberForm() {
         className={state.error ? "input input--error" : "input"}
         aria-invalid={Boolean(state.error)}
       />
+      <span id="member-role-label">역할</span>
+      <div className="member-form__role-toggle" role="group" aria-labelledby="member-role-label">
+        {ROLE_OPTIONS.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => setRole(option.value)}
+            className={
+              "member-form__role-pill" +
+              (role === option.value ? " member-form__role-pill--active" : "")
+            }
+            aria-pressed={role === option.value}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <input type="hidden" name="role" value={role} />
       <label htmlFor="member-password">초기 비밀번호</label>
       <input
         id="member-password"
@@ -50,7 +75,8 @@ export function MemberForm() {
         aria-invalid={Boolean(state.error)}
       />
       <p className="member-form__hint">
-        오퍼레이터 계정으로 등록됩니다. 등록 후 이 전화번호와 비밀번호로 바로 로그인할 수 있습니다.
+        {role === "admin" ? "관리자" : "오퍼레이터"} 계정으로 등록됩니다. 등록 후 이 전화번호와
+        비밀번호로 바로 로그인할 수 있습니다.
       </p>
       {state.error && (
         <p className="field-error" role="alert">

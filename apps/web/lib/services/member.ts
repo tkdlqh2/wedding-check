@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { APIError } from "better-auth";
 import * as memberRepo from "../db/repositories/member";
 import type { Member } from "../db/repositories/member";
-import { auth } from "../auth";
+import { auth, type Role } from "../auth";
 import { normalizePhoneNumber } from "../phone";
 
 export type { Member };
@@ -33,10 +33,65 @@ export async function listMembers(): Promise<Member[]> {
   return memberRepo.findAll();
 }
 
+export type PaginatedMembers = {
+  members: Member[];
+  page: number;
+  totalPages: number;
+  totalCount: number;
+  activeCount: number;
+  inactiveCount: number;
+  activeAdminCount: number;
+};
+
+// Story 5.7 AC 4, 5: 전체/활성/비활성 카운트는 항상 "전체 회원 목록" 기준이다(코덱스
+// 리뷰 P2 — 이름 검색(search)이 있어도 이 요약 숫자는 검색 범위로 좁혀지지 않는다. AC 4가
+// 요구하는 "전체 N명 · 활성 N명 · 비활성 N명"은 검색과 무관한 전체 회원 현황이고, 검색은
+// 그 아래 목록·페이지네이션에만 영향을 준다). activeAdminCount도 동일하게 항상 전체
+// 목록 기준 — 마지막 활성 관리자 보호(setMemberRole)를 위한 안전 계산값이다.
+export async function listMembersPaginated(input: {
+  page: number;
+  pageSize: number;
+  showInactive: boolean;
+  search?: string;
+}): Promise<PaginatedMembers> {
+  const all = await memberRepo.findAll();
+  const activeAdminCount = all.filter((m) => m.role === "admin" && !m.banned).length;
+  const totalCount = all.length;
+  const activeCount = all.filter((m) => !m.banned).length;
+  const inactiveCount = totalCount - activeCount;
+
+  const searchTerm = input.search?.trim().toLowerCase();
+  const searched = searchTerm
+    ? all.filter((m) => m.name.toLowerCase().includes(searchTerm))
+    : all;
+
+  // Array.prototype.sort는 안정 정렬(ECMA2019+)이라, banned 기준으로만 정렬해도
+  // findAll()의 기존 createdAt desc 순서가 각 그룹(활성/비활성) 내부에서 유지된다.
+  const sorted = [...searched].sort((a, b) => Number(a.banned) - Number(b.banned));
+  const filtered = input.showInactive ? sorted : sorted.filter((m) => !m.banned);
+
+  const filteredCount = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(filteredCount / input.pageSize));
+  const requestedPage = Number.isFinite(input.page) ? Math.trunc(input.page) : 1;
+  const page = Math.min(Math.max(1, requestedPage), totalPages);
+  const startIdx = (page - 1) * input.pageSize;
+
+  return {
+    members: filtered.slice(startIdx, startIdx + input.pageSize),
+    page,
+    totalPages,
+    totalCount,
+    activeCount,
+    inactiveCount,
+    activeAdminCount,
+  };
+}
+
 export async function createMember(input: {
   name: string;
   phoneNumber: string;
   password: string;
+  role?: Role;
 }): Promise<Member> {
   const name = input.name.trim();
   // 코덱스 리뷰 P2: 빈 값 여부만 trim으로 확인하고, 실제 저장되는 비밀번호는 원본
@@ -82,7 +137,7 @@ export async function createMember(input: {
         email,
         password,
         name,
-        role: "operator",
+        role: input.role ?? "operator",
         data: {
           phoneNumber,
           phoneNumberVerified: true,
@@ -135,6 +190,49 @@ export async function deactivateMember(id: string): Promise<void> {
 export async function reactivateMember(id: string): Promise<void> {
   await auth.api.unbanUser({
     body: { userId: id },
+    headers: await headers(),
+  });
+}
+
+// Story 5.7 AC 2: 역할 변경. better-auth의 setRole은 banUser의 YOU_CANNOT_BAN_YOURSELF와
+// 달리 자기 자신 보호 로직이 없다(routes.mjs 확인 완료) — 이 함수가 유일한 방어선이다.
+// AD-3에 따라 admin 세션만 이 화면에 접근할 수 있으므로, "활성 관리자가 1명뿐인" 상황의
+// 그 1명은 항상 호출자 자신이다 — 그래도 target.id === currentUserId를 명시적으로
+// 검사해 카운트 로직 버그가 다른 사람의 역할 변경까지 막지 않도록 한다.
+//
+// 코덱스 리뷰 P2: 이 보호를 "카운트 확인 → setRole 호출" 두 단계로 나누면 두 관리자가
+// 동시에 자기 자신을 강등할 때 TOCTOU 경합으로 활성 관리자가 0명이 될 수 있다 — 자기
+// 자신을 admin에서 내리는 경로는 memberRepo.demoteIfNotLastActiveAdmin()의 단일 원자적
+// SQL 문(FOR UPDATE 잠금 기반)에 위임한다. 이 경로는 better-auth의 setRole을 거치지
+// 않지만, 호출자 권한은 이미 Server Action의 requireAdminSession()이 검증했고
+// setRole 자체도 결국 동일한 internalAdapter.updateUser(userId, { role })일 뿐이라
+// 안전하다(routes.mjs 확인 완료).
+export async function setMemberRole(
+  currentUserId: string,
+  targetId: string,
+  role: string,
+): Promise<void> {
+  if (role !== "operator" && role !== "admin") {
+    throw new MemberValidationError("잘못된 역할입니다");
+  }
+
+  const target = await memberRepo.findById(targetId);
+  if (!target) {
+    throw new MemberValidationError("존재하지 않는 회원입니다");
+  }
+
+  if (target.id === currentUserId && target.role === "admin" && role !== "admin") {
+    const demoted = await memberRepo.demoteIfNotLastActiveAdmin(targetId);
+    if (!demoted) {
+      throw new MemberValidationError(
+        "마지막 활성 관리자는 역할을 변경할 수 없습니다. 다른 계정을 관리자로 지정한 뒤 다시 시도하세요.",
+      );
+    }
+    return;
+  }
+
+  await auth.api.setRole({
+    body: { userId: targetId, role },
     headers: await headers(),
   });
 }

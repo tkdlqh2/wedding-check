@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: "07-26-2026 16:19"
-last_updated: "07-27-2026 14:55"
+last_updated: "07-27-2026 15:05"
 project: wedding-check
 project_key: WEDCHK
 tracking_system: file-system
@@ -77,13 +77,21 @@ development_status:
   5-1-admin-nav-links: done
   5-2-ceremony-calendar-pagination: done
   5-3-ceremony-couple-names: done
-  5-4-member-management: review
+  5-4-member-management: done
   5-5-checklist-two-level-structure: done
   epic-5-retrospective: optional
 
 # Per-story git pipeline substage (see GIT PIPELINE STAGE legend above).
 # 번호가 매겨진 스토리가 아닌 개별 수정(fix/*)도 동일한 파이프라인으로 추적한다.
 git_pipeline:
+  5-4-member-management:
+    stage: merged
+    branch: story/5-4-member-management
+    pr_url: "https://github.com/tkdlqh2/wedding-check/pull/16"
+    merge_commit: "1c0f560"
+    notes: "git worktree(.claude/worktrees/story-5-4-member-management)로 착수, main(0a8882d) 기준 분기. FR-14 — 2026-07-27 대표의 어드민 화면 점검 후속 4건 중 4번째(마지막). 오퍼레이터/관리자 계정을 어드민 화면에서 조회·등록(오퍼레이터 전용)·비활성화할 수 있게 함(/admin/members). 스토리 작성 단계에서 node_modules/better-auth/dist/plugins/admin/ 실제 소스를 직접 읽어, 커스텀 isActive 컬럼/훅 대신 better-auth 공식 admin 플러그인(banned/banReason/banExpires 컬럼 + createUser/banUser/unbanUser API + 세션 생성 시 자동 로그인 차단 훅)을 쓰는 것으로 설계 확정 — 로그인 차단 로직을 직접 재구현하지 않음. accessControl을 operator(권한 없음)/admin(전체 권한)으로 명시 등록(문자열 우연 일치에 기대지 않음). 회원 등록 폼은 오퍼레이터 계정만 생성(관리자 셀프 생성 UI 없음, [ASSUMPTION]). 코덱스 리뷰 6라운드(1~4차 전부 실결함 발견 후 수정, 병합 충돌 해결 후 5~6차 클린) — 코덱스 발견 8건, 전부 실결함: (1차 P2) 저장되는 초기 비밀번호가 trim되어 관리자가 실제 입력한 값과 달라짐 — 공백 여부 확인에만 trim, 저장은 원본 유지. (1차 P2) 비밀번호 정책 위반 시 auth.api.createUser의 APIError가 번역 없이 그대로 던져져 Server Action이 일반 오류로 실패 — MemberValidationError로 번역. (1차 P2) findByPhoneNumber 사전검사와 실제 생성 사이 동시 요청 경합 시 better-auth 자체 중복검사(USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL)가 그대로 흘러나감 — 번역 추가. (1차 P2) 회원 목록에 로그인 중인 관리자 자신에게도 비활성화 버튼이 노출돼 눌러도 better-auth가 YOU_CANNOT_BAN_YOURSELF로 거부 — 자기 자신 행에는 버튼 대신 안내 문구 표시. (2차 P2) 더 좁은 경합 창(better-auth 자체 사전조회까지 통과 후 DB unique 제약에서 실패)에서 raw Postgres 23505 에러가 그대로 던져짐 — err.code 확인 추가. (3차 P2) drizzle-orm이 raw Postgres 에러를 DrizzleQueryError로 감싸 err.code가 아니라 err.cause.code에 실제 코드가 있음(node_modules/drizzle-orm/errors.js 확인) — 2차 수정이 놓친 경로, err.cause.code도 확인하도록 보강. (4차 P2) auth.api.createUser가 회원가입(sign-up) 경로와 달리 better-auth의 최소 비밀번호 길이 정책(기본 8자)을 검사하지 않아 한 글자짜리 비밀번호도 그대로 발급 가능 — createMember에 동일 정책 직접 적용. 병합 충돌: 병행 세션의 Story 5.3(couple names, 마이그레이션 0014)과 Story 5.5(checklist 2단계 구조, 0010~0013)가 먼저 병합돼 이 스토리의 마이그레이션 번호 0010이 충돌 — main의 0010~0014를 그대로 취하고 이 스토리의 마이그레이션(banned/banReason/banExpires)을 0015로 재배치. drizzle-kit generate가 이 환경(비TTY)에서 컬럼 충돌 확인 인터랙티브 프롬프트를 요구해 실패(로컬 drizzle-kit 대화형 명령 이슈, chore-vitest-test-infra 회고에 이미 기록된 것과 동일 계열) — 0014_snapshot.json을 베이스로 banned/ban_reason/ban_expires 3개 컬럼만 추가한 0015_snapshot.json을 직접 구성하고, 격리 DB에 0000~0015 전체를 처음부터 적용해 실제 동작을 검증(CI의 '마이그레이션 적용' 스텝도 그린으로 재확인). schema.ts는 서로 다른 테이블(user vs ceremonies/checklist_*)을 건드려 git이 깨끗하게 자동 병합. vitest 신규 25건(리포지토리 4건, 서비스 21건 — AC 4/AC 3 전부 실제 auth.api.signInPhoneNumber 성공/실패로 검증, mock 기반 결정적 경합 재현 포함), 병합 후 전체 125건 통과, tsc/lint/build 전부 클린. 로컬 서버 curl로 회원 등록/중복거부/로그인/비활성화/자기계정 비활성화 버튼 숨김/오퍼레이터 접근차단/기존 홀·예식 화면 회귀 없음 전부 수동 검증. gh pr merge가 이 워크트리에서 main을 로컬로 체크아웃하려다 primary 워크트리와 충돌해 실패했지만 원격 병합 자체는 성공(GitHub API로 확인) — 원격 브랜치는 API로 직접 삭제, done 처리 커밋은 primary 워크트리(main 체크아웃)에서 수행."
+    last_updated: "07-27-2026 15:05"
+
   5-3-ceremony-couple-names:
     stage: merged
     branch: story/5-3-ceremony-couple-names

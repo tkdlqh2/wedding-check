@@ -4,7 +4,7 @@ baseline_commit: 0a8882d
 
 # Story 5.4: 회원(계정) 관리
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -205,3 +205,4 @@ claude-sonnet-5
 
 - 2026-07-27: 스토리 최초 작성 (create-story). better-auth `admin` 플러그인 실제 소스(`node_modules/better-auth/dist/plugins/admin/`)를 직접 읽고 검증해, 커스텀 `isActive` 컬럼/훅 대신 공식 플러그인(banned/banReason/banExpires + createUser/banUser/unbanUser + 세션 생성 시 자동 차단 훅)을 쓰는 것으로 설계 확정 — headers 필요 여부가 엔드포인트마다 다르다는 점(createUser는 불필요, banUser/unbanUser/listUsers는 필수)도 소스 확인으로 못박음.
 - 2026-07-27: 구현 완료 (dev) — AC 1~5 전부 구현. `roles` 명시 설정(계획 대비 유일한 변경, tsc가 실제로 타입 불일치를 잡아냄)을 제외하면 스토리 계획과 구현이 그대로 일치. vitest 신규 13건(리포지토리 5건, 서비스 8건 — 실제 로그인 성공/실패로 AC 4 검증) 포함 전체 94건 통과, tsc/lint/build 전부 클린. 로컬 서버 curl + `tsx` 스크립트로 등록/중복거부/로그인/비활성화/오퍼레이터 접근차단 전부 수동 검증. Status → review.
+- 2026-07-27: PR #16 생성 → 코덱스 리뷰 5라운드(1~4차 실결함 8건 발견/수정, 5차 클린) → main과 병합 충돌(병행 세션의 Story 5.3/5.5가 먼저 병합돼 마이그레이션 번호 0010이 선점됨) 해결 → 병합 후 6차 리뷰 클린 → main으로 일반 merge(1c0f560), 브랜치 삭제, main CI 그린 확인. 코덱스 발견 8건 상세는 sprint-status.yaml git_pipeline 참고. Status → done.

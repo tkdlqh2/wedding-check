@@ -12,10 +12,46 @@ import "./ceremonies.css";
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const PAGE_SIZE = 10;
+const DATE_PARAM_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function currentKstYearMonth(): { year: number; month: number } {
   const kstNow = new Date(Date.now() + KST_OFFSET_MS);
   return { year: kstNow.getUTCFullYear(), month: kstNow.getUTCMonth() + 1 };
+}
+
+// 코덱스 리뷰(P2): year/month/date/page는 사용자가 URL을 직접 조작할 수 있는 값이다.
+// 검증 없이 Number()로 바로 변환해 DB 쿼리에 넘기면 NaN이 Invalid Date를 만들어
+// 500을 일으키거나, 범위 밖 값(예: month=13)이 조용히 엉뚱한 날짜로 굴러떨어질 수
+// 있다 — 여기서 형식과 범위를 검증하고, 유효하지 않으면 필터 없음/기본값으로 처리한다.
+function parseDateParam(value: string | undefined): string | undefined {
+  if (!value || !DATE_PARAM_RE.test(value)) return undefined;
+  const [y, m, d] = value.split("-").map(Number);
+  const roundTrip = new Date(Date.UTC(y, m - 1, d));
+  const isRealDate =
+    roundTrip.getUTCFullYear() === y &&
+    roundTrip.getUTCMonth() === m - 1 &&
+    roundTrip.getUTCDate() === d;
+  return isRealDate ? value : undefined;
+}
+
+function parseYearMonthParams(
+  yearParam: string | undefined,
+  monthParam: string | undefined,
+  fallback: { year: number; month: number },
+): { year: number; month: number } {
+  const year = yearParam ? Number(yearParam) : NaN;
+  const month = monthParam ? Number(monthParam) : NaN;
+  const validYear = Number.isInteger(year) && year >= 1970 && year <= 2200;
+  const validMonth = Number.isInteger(month) && month >= 1 && month <= 12;
+  return {
+    year: validYear ? year : fallback.year,
+    month: validMonth ? month : fallback.month,
+  };
+}
+
+function parsePageParam(value: string | undefined): number {
+  const page = value ? Number(value) : 1;
+  return Number.isInteger(page) && page >= 1 ? page : 1;
 }
 
 export default async function CeremoniesPage({
@@ -24,11 +60,9 @@ export default async function CeremoniesPage({
   searchParams: Promise<{ date?: string; year?: string; month?: string; page?: string }>;
 }) {
   const params = await searchParams;
-  const defaultYearMonth = currentKstYearMonth();
-  const year = params.year ? Number(params.year) : defaultYearMonth.year;
-  const month = params.month ? Number(params.month) : defaultYearMonth.month;
-  const selectedDate = params.date;
-  const page = params.page ? Number(params.page) : 1;
+  const { year, month } = parseYearMonthParams(params.year, params.month, currentKstYearMonth());
+  const selectedDate = parseDateParam(params.date);
+  const page = parsePageParam(params.page);
 
   const [halls, markedDates, listResult] = await Promise.all([
     listActiveHalls(),
@@ -36,6 +70,7 @@ export default async function CeremoniesPage({
     selectedDate
       ? listCeremoniesForDate(selectedDate).then((ceremonies) => ({
           ceremonies,
+          page: 1,
           totalCount: ceremonies.length,
           totalPages: 1,
         }))
@@ -79,7 +114,9 @@ export default async function CeremoniesPage({
             </ul>
           )}
 
-          {!selectedDate && <CeremonyPagination page={page} totalPages={listResult.totalPages} />}
+          {!selectedDate && (
+            <CeremonyPagination page={listResult.page} totalPages={listResult.totalPages} />
+          )}
         </div>
       </div>
     </section>

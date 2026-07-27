@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+// "템플릿"은 여기 없다 — fix/admin-nav-remove-redundant-template-tab(03e3c84, 이 스토리의
+// 베이스 커밋)에서 "홀"과 같은 목적지(/admin/halls)로 가는 중복 탭이라 이미 제거됐다.
 const LINKS = [
   { href: "/admin/halls", label: "홀" },
-  { href: "/admin/halls", label: "템플릿" },
   { href: "/admin/ceremonies", label: "예식" },
 ] as const;
 

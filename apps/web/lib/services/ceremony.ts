@@ -113,6 +113,7 @@ export async function listCeremoniesForDate(dateIso: string): Promise<CeremonyWi
 
 export type PaginatedCeremonies = {
   ceremonies: CeremonyWithHallName[];
+  page: number;
   totalCount: number;
   totalPages: number;
 };
@@ -136,11 +137,17 @@ export async function listCeremoniesPaginated(input: {
 
   const totalCount = all.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / input.pageSize));
-  const page = Math.min(Math.max(1, input.page), totalPages);
+  // 호출부(page.tsx)가 URL 쿼리 파라미터를 그대로 넘길 수 있어 NaN/음수/소수가 들어올
+  // 수 있다 — 여기서 안전한 정수로 정규화한 뒤 clamp한다. 코덱스 리뷰(P2): ?page=999처럼
+  // 범위 밖 값이 와도 화면에는 실제로 보여준 페이지 번호가 표시돼야 하므로, clamp된 값을
+  // 반환값에 포함해 호출부가 원본 쿼리 파라미터 대신 이 값을 렌더링하게 한다.
+  const requestedPage = Number.isFinite(input.page) ? Math.trunc(input.page) : 1;
+  const page = Math.min(Math.max(1, requestedPage), totalPages);
   const startIdx = (page - 1) * input.pageSize;
 
   return {
     ceremonies: all.slice(startIdx, startIdx + input.pageSize),
+    page,
     totalCount,
     totalPages,
   };

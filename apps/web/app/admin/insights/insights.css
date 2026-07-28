@@ -1,0 +1,215 @@
+/* Story 4.1(FR-10) — prototype/js/screens/InsightScreen.js 이식.
+   DESIGN.md 토큰만 사용한다(임의 hex 금지, PR #27에서 확립된 규칙). */
+
+.insights-page__title {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0;
+}
+
+/* 프로토타입 15행: 제목 옆 인라인 배지(뮤트 톤 — 상태색이 아니라 성격 표시). */
+.insights-page__badge {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: var(--space-sm);
+  background: var(--color-text-muted);
+  color: var(--color-surface);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--space-sm);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.insights-page__description {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.insights-page__stats {
+  display: flex;
+  gap: var(--space-base);
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.insights-stat {
+  flex: 1;
+  min-width: 180px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+
+.insights-stat__label {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+/* DESIGN.md §3: 숫자는 두드러지고 굵게 — 인사이트의 운영적 진실. */
+.insights-stat__value {
+  font-size: 28px;
+  font-weight: 700;
+  margin-top: var(--space-xs);
+}
+
+/* ── 갱신 중 스켈레톤 (AC 2) ───────────────────────────────────────────── */
+
+.insights-recompute {
+  margin-top: 20px;
+}
+
+/* §14 Skeleton: 정확한 크기의 --color-surface-soft 블록. 목록을 덮지 않고 위에 놓인다. */
+.insights-recompute__skeleton {
+  height: 72px;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-soft);
+  animation: insights-skeleton-pulse 1.6s ease-in-out infinite;
+}
+
+.insights-recompute__text {
+  margin: var(--space-sm) 0 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+@keyframes insights-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* ── 클러스터 목록 ─────────────────────────────────────────────────────── */
+
+.insights-page__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-top: 20px;
+}
+
+.insights-page__empty {
+  margin-top: 20px;
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+
+.insight-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.insight-card__header {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  background: var(--color-surface);
+  border: none;
+  padding: 18px var(--space-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--space-base);
+  font-family: inherit;
+  color: var(--color-text-primary);
+}
+
+.insight-card__header:hover {
+  background: var(--color-surface-soft);
+}
+
+/* 프로토타입 35행: 반복 횟수는 브랜드 색 + 24px/700. 화면에서 가장 먼저 읽혀야 한다. */
+.insight-card__count {
+  flex: none;
+  min-width: 64px;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-brand);
+}
+
+.insight-card__headings {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.insight-card__label {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.insight-card__subtitle {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.insight-card__toggle {
+  margin-left: auto;
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ── 근거 목록 (AC 4) ──────────────────────────────────────────────────── */
+
+.insight-card__evidence {
+  border-top: 1px solid var(--color-border-light);
+  background: var(--color-surface-soft);
+  padding: var(--space-sm) var(--space-lg) var(--space-base);
+}
+
+.insight-evidence {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: var(--space-md) var(--space-base);
+  margin-top: var(--space-sm);
+}
+
+.insight-evidence__situation {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.insight-evidence__meta {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.insight-card__footnote {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* §15 Reduce motion: 예외 없이 motion-instant로 축소 — 스켈레톤 펄스도 정지시킨다. */
+@media (prefers-reduced-motion: reduce) {
+  .insights-recompute__skeleton {
+    animation: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .insights-page__stats {
+    flex-direction: column;
+  }
+
+  .insight-card__header {
+    flex-wrap: wrap;
+  }
+
+  .insight-card__toggle {
+    margin-left: 0;
+  }
+}

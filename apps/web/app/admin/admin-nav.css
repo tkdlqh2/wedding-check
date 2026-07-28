@@ -48,9 +48,8 @@
   color: var(--color-brand);
 }
 
-.admin-nav__link--placeholder {
-  color: var(--color-text-disabled);
-}
+/* Story 4.1: --placeholder(미구현 내비 항목의 비활성 표시)는 마지막 사용처였던
+   "인사이트"가 실제 라우트로 연결되면서 사라졌다 — 규칙도 함께 제거한다. */
 
 /* Story 5.6 — "새 예식 등록" CTA(예식 탭과 중복 경로) 대신 계정 메뉴(비밀번호 변경/로그아웃). */
 .admin-nav__account {

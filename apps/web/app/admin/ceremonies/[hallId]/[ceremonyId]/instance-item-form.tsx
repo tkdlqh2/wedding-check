@@ -95,35 +95,28 @@ export function InstanceItemForm({
         </form>
 
         {/* 템플릿 편집기(checklist-item-form.tsx)와 동일한 시연 영상 섹션 — 재생 +
-            업로드/교체(대표 지시 2026-07-28: 여기서도 업로드 허용). 영상은 템플릿의
-            체크리스트 항목(demo_videos)에 붙는 홀 공용 자산이므로, 교체가 모든 예식에
-            함께 반영된다는 사실은 숨기지 않고 문구로 안내한다. 이 예식에만 추가된
-            ad-hoc 항목은 붙을 템플릿 항목이 없어 업로드 대상이 없다. */}
+            업로드/교체. 대표 지시(2026-07-28): 여기서 올린 영상은 이 예식에만 반영된다
+            — 인스턴스 항목의 전용 영상(checklist_instance_items.video_url)으로 저장돼
+            홀 템플릿의 공용 영상은 바뀌지 않는다(전용 업로드 라우트). 템플릿 영상이
+            있는 항목은 교체(오버라이드), ad-hoc 항목은 신규 등록이 된다. */}
         <div className="instance-item-form-panel__video">
           <span className="instance-item-form-panel__video-label">시연 영상</span>
           {item.videoUrl ? (
             <video controls preload="metadata" src={item.videoUrl} />
           ) : (
-            <p className="instance-item-form-panel__video-empty">
-              {item.templateItemCheckId
-                ? "영상 없음"
-                : "영상 없음 — 이 예식에만 추가된 항목은 시연 영상을 붙일 수 없습니다"}
-            </p>
+            <p className="instance-item-form-panel__video-empty">영상 없음</p>
           )}
-          {item.templateItemCheckId && (
-            <>
-              <VideoUpload
-                hallId={hallId}
-                checklistItemId={item.templateItemCheckId}
-                blobEnabled={Boolean(blobEnabled)}
-                currentVideoUrl={item.videoUrl ?? undefined}
-              />
-              <p className="instance-item-form-panel__video-hint">
-                영상은 홀 공용 자산입니다 — 여기서 등록/교체하면 이 홀의 모든 예식에 함께
-                반영됩니다.
-              </p>
-            </>
-          )}
+          <VideoUpload
+            hallId={hallId}
+            checklistItemId={item.id}
+            endpointBase={`/api/ceremonies/${hallId}/${ceremonyId}/items/${item.id}/video`}
+            blobEnabled={Boolean(blobEnabled)}
+            currentVideoUrl={item.videoUrl ?? undefined}
+          />
+          <p className="instance-item-form-panel__video-hint">
+            여기서 올린 영상은 <strong>이 예식에만</strong> 반영됩니다 — 홀 템플릿의 공용
+            영상은 바뀌지 않습니다.
+          </p>
         </div>
 
         <div className="instance-item-form-panel__footer">

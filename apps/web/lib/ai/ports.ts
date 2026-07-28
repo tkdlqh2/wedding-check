@@ -23,6 +23,14 @@ export interface LLMPort {
   generateStream(input: GenerateInput): AsyncIterable<GenerateChunk>;
 }
 
+// Story 3.3: 비대칭 검색(문서는 "document", 검색 질의는 "query"로 임베딩)을 위한
+// 선택 옵션 — 스파인 AD-1 확정 시그니처의 하위호환 확장이다(기존 호출부 무수정).
+// query/document 구분은 Voyage 전용 개념이 아니라 임베딩 검색 일반 개념이므로
+// 포트 경계를 깨지 않는다. 생략 시 어댑터가 "document"로 동작한다.
+export interface EmbedOptions {
+  inputType?: "document" | "query";
+}
+
 export interface EmbeddingPort {
-  embed(texts: string[]): Promise<number[][]>;
+  embed(texts: string[], options?: EmbedOptions): Promise<number[][]>;
 }

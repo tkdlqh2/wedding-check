@@ -1,9 +1,9 @@
-import type { EmbeddingPort } from "../ports";
+import type { EmbeddingPort, EmbedOptions } from "../ports";
 
 const EXPECTED_DIMENSIONS = 1024;
 
 export class VoyageEmbeddingAdapter implements EmbeddingPort {
-  async embed(texts: string[]): Promise<number[][]> {
+  async embed(texts: string[], options?: EmbedOptions): Promise<number[][]> {
     const apiKey = process.env.VOYAGE_API_KEY;
     if (!apiKey) {
       throw new Error("VOYAGE_API_KEY 환경변수가 설정되지 않았습니다");
@@ -18,7 +18,9 @@ export class VoyageEmbeddingAdapter implements EmbeddingPort {
       body: JSON.stringify({
         model: "voyage-3.5",
         input: texts,
-        input_type: "document",
+        // Story 3.3: 확정 시점의 변수 케이스 임베딩은 "document", 실행 중 질의는
+        // "query" — Voyage 공식 권장 비대칭 검색 조합(NFR-4 매칭 품질에 직결).
+        input_type: options?.inputType ?? "document",
         output_dimension: EXPECTED_DIMENSIONS,
       }),
     });

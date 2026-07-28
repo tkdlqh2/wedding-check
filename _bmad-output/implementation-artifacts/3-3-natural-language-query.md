@@ -77,7 +77,8 @@ so that 동료에게 물어볼 수 없는 순간에도 즉시 도움을 받을 �
 
 ### Review Findings
 
-(코드 리뷰 후 기록)
+- [x] [Review][Patch] 새 질의 대기 중 이전 질의의 매칭 카드가 계속 노출 — 다른 상황에 대한 낡은 판단이 새 질문의 근거처럼 보임(1차 P2). 질의 시작 시 matches 즉시 초기화 [apps/web/app/operator/ceremonies/[hallId]/[ceremonyId]/query-panel.tsx]
+- [x] [Review][Patch] 대기 중 입력을 바꾸면 늦게 도착한 응답(2차 P2)/실패 문구(3차 P2)가 제출한 적 없는 새 입력의 결과처럼 노출 — 최종적으로 사용자 지침(2026-07-28)에 따라 in-flight 동안 입력창 disabled 잠금 단순 차단으로 계열 전체 해소(중간 단계의 submittedText 결합은 지침에 따라 제거, 4차 리뷰에서 이 설계로 클린 확인) [apps/web/app/operator/ceremonies/[hallId]/[ceremonyId]/query-panel.tsx]
 
 ## Dev Notes
 
@@ -182,7 +183,7 @@ claude-fable-5
 - LLM 미사용 결정([ASSUMPTION], Dev Notes) 그대로 구현 — `/api/query`는 임베딩 1회 + pgvector 검색만 수행, `generateStream` 미사용 유지.
 - UI는 프로토타입 RunScreen.js 106~154행 문자 그대로: 질의 카드(제목 18/700, 헬퍼 13 muted, 입력+120px 고정폭 브랜드 버튼), 로딩 중 disabled+스피너+너비 유지(AC 3, pendingRef로 리렌더 전 더블클릭/Enter 재진입 차단), 매칭 카드(유사도 배지/결과 배지/상황/사후 판단, 120ms ease-enter + reduced-motion 대응). 빈 결과는 뮤트 톤 플레인 텍스트, 오류는 인라인 즉시 노출 — 정식 카드/재시도 문구/홀 태그 표시는 3.4 경계 표대로 남김.
 - 오프라인(AD-5): 질의 버튼 disabled + 오프라인 배너에 "AI 질의만 잠시 사용할 수 없습니다." 문장 추가(프로토타입 13행 — 단, 현 구현과 다른 "체크와 피드백은 저장되고" 부분은 가져오지 않음).
-- vitest 290건 전체 통과(신규 26건 — 리포지토리 6, 서비스 8, 컴포넌트 10, Voyage 어댑터 2), tsc/lint/build 클린. AC 2/4는 가짜 EmbeddingPort(통제된 벡터 매핑) + 실제 pgvector 검색으로 결정적으로 검증 — 실제 Voyage 임베딩의 의미 유사도는 실키 미보유로 로컬 실증 불가(3.2와 동일 한계, 프로덕션 키 투입 후 SM-2 검수 세트로 검증).
+- vitest 293건 전체 통과(신규 29건 — 리포지토리 6, 서비스 8, 컴포넌트 13, Voyage 어댑터 2), tsc/lint/build 클린. AC 2/4는 가짜 EmbeddingPort(통제된 벡터 매핑) + 실제 pgvector 검색으로 결정적으로 검증 — 실제 Voyage 임베딩의 의미 유사도는 실키 미보유로 로컬 실증 불가(3.2와 동일 한계, 프로덕션 키 투입 후 SM-2 검수 세트로 검증).
 
 ### File List
 
@@ -203,3 +204,4 @@ claude-fable-5
 
 - 2026-07-28: 스토리 최초 작성 (create-story, Epic 3 세 번째 스토리 — 3.2가 구축한 임베딩 인프라 위에 질의 파이프라인을 얹는 스토리. 스키마 변경 없음. LLM 미사용 결정과 3.4 경계를 명시).
 - 2026-07-28: 구현 완료 (dev) — AC 1~4 전부 구현. EmbeddingPort inputType 하위호환 확장, variable-case 검색 리포지토리(AD-6 사업체 전체 + NFR-1 tie-break), /api/query Route Handler(AD-10 query_failed 로그), 프로토타입 그대로의 질의 패널(AC 3 중복 방지 포함), AD-5 오프라인 처리. vitest 290건(신규 26건) 통과, tsc/lint/build 클린, 격리 DB+실서버 종단 검증(401/400/502/SSR 렌더링). Status → review.
+- 2026-07-28: 코덱스 리뷰 4라운드 — 1차 P2(대기 중 이전 매칭 카드 노출, matches 초기화로 수정), 2차 P2(대기 중 입력 변경 시 응답이 새 입력 결과처럼 노출, submittedText 결합으로 수정), 3차 P2(같은 계열 — 실패 문구도 결합 필요, 수정). 이후 사용자 지침(2026-07-28)으로 2~3차 해법을 'in-flight 동안 입력창 disabled 잠금' 단순 차단으로 교체(요청 순번 추적/응답 무효화 금지 지침), 4차 리뷰에서 이 설계로 클린 확인. 최종 vitest 293건 통과, tsc/lint/build 클린, 실서버 재확인.

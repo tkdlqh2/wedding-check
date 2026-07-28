@@ -162,13 +162,15 @@ export default async function CeremonyDetailPage({
                   </p>
                 ) : (
                   <ul className="instance-item-list">
-                    {visibleItems.map((item) => (
+                    {visibleItems.map((item, itemIndex) => (
                       <InstanceItemRow
                         key={item.id}
                         hallId={hallId}
                         ceremonyId={ceremonyId}
                         item={item}
                         blobEnabled={blobEnabled}
+                        isFirst={itemIndex === 0}
+                        isLast={itemIndex === visibleItems.length - 1}
                         readOnly={readOnly}
                       />
                     ))}

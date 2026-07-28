@@ -356,6 +356,45 @@ export async function moveInstanceStep(
   }
 }
 
+// 대표 지시(2026-07-28): 단계 안 개별 체크 항목도 화살표로 순서를 바꾼다 — 템플릿
+// 편집기의 moveChecklistItem과 동일하게 이웃이 없으면(맨 위/맨 아래, UI가 버튼을
+// 비활성화하지만 재제출 등으로 들어와도) 조용히 no-op으로 수렴한다. 이웃이 있는데도
+// 0행이면 경합(예식이 그 사이 시작됨 등)이므로 사용자 오류로 번역한다.
+export async function moveInstanceItem(
+  hallId: string,
+  ceremonyId: string,
+  itemId: string,
+  direction: "up" | "down",
+): Promise<void> {
+  await requireEditableCeremony(hallId, ceremonyId);
+  const instance = await requireInstance(hallId, ceremonyId);
+  const items = await instanceRepo.listItems(hallId, instance.id);
+  const target = items.find((item) => item.id === itemId);
+  if (!target) {
+    throw new ChecklistInstanceValidationError("존재하지 않는 체크리스트 항목입니다");
+  }
+  const groupKeyOf = (item: ChecklistInstanceItem) =>
+    item.templateItemId ?? item.adHocGroupRootId ?? `orphan:${item.id}`;
+  const visibleGroup = items.filter(
+    (item) => item.title !== null && groupKeyOf(item) === groupKeyOf(target),
+  );
+  const idx = visibleGroup.findIndex((item) => item.id === itemId);
+  const hasNeighbor =
+    direction === "up" ? idx > 0 : idx !== -1 && idx < visibleGroup.length - 1;
+  if (!hasNeighbor) {
+    // 맨 위에서 위로/맨 아래에서 아래로 — UI가 비활성화하지만 재제출 등은 조용히 무시.
+    return;
+  }
+  const moved = await instanceRepo.moveItemAdjacent(hallId, instance.id, itemId, direction);
+  if (moved === 0) {
+    return throwLockedOrMissing(
+      hallId,
+      ceremonyId,
+      "항목 순서를 바꾸지 못했습니다 — 새로고침 후 다시 시도해주세요",
+    );
+  }
+}
+
 // 프로토타입 WeddingDetailScreen.js 단계 헤더의 "수정"/"단계 삭제" — 이 예식 스냅샷의
 // 단계 이름 변경/단계 통째 삭제. 그룹 키는 group-by-step.ts의 그룹핑과 동일한 3단
 // 위계(템플릿 단계 → ad-hoc 단계 → orphan 단일 항목)를 액션 레이어에서 받아 그대로

@@ -9,6 +9,7 @@ import {
   renameInstanceStep,
   deleteInstanceStep,
   moveInstanceStep,
+  moveInstanceItem,
   ChecklistInstanceValidationError,
 } from "@/lib/services/checklist-instance";
 import type { StepGroupKey } from "@/lib/db/repositories/checklist-instance";
@@ -167,6 +168,31 @@ export async function moveInstanceStepAction(formData: FormData): Promise<void> 
   }
   try {
     await moveInstanceStep(hallId, ceremonyId, key, direction);
+  } catch (err) {
+    if (!(err instanceof ChecklistInstanceValidationError)) throw err;
+  }
+  revalidatePath(`/admin/ceremonies/${hallId}/${ceremonyId}`);
+}
+
+// 대표 지시(2026-07-28): 단계 헤더의 화살표(moveInstanceStepAction)와 동일한 UX로
+// 단계 안 개별 체크 항목 순서도 바꾼다. void 액션 원칙도 동일 — 오류 메시지 표시는
+// 생략하고 화면 갱신(revalidatePath)으로 수렴시킨다.
+export async function moveInstanceItemAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const hallId = String(formData.get("hallId") ?? "");
+  const ceremonyId = String(formData.get("ceremonyId") ?? "");
+  const itemId = String(formData.get("itemId") ?? "");
+  const direction = String(formData.get("direction") ?? "");
+  if (
+    !isValidUuid(hallId) ||
+    !isValidUuid(ceremonyId) ||
+    !isValidUuid(itemId) ||
+    (direction !== "up" && direction !== "down")
+  ) {
+    return;
+  }
+  try {
+    await moveInstanceItem(hallId, ceremonyId, itemId, direction);
   } catch (err) {
     if (!(err instanceof ChecklistInstanceValidationError)) throw err;
   }

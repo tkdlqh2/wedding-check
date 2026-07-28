@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type FetchState = "idle" | "loading" | "error";
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -35,12 +35,16 @@ export function StepFeedback({
   hallId,
   ceremonyId,
   templateItemId,
+  autoExpand,
 }: {
   hallId: string;
   ceremonyId: string;
   templateItemId: string;
+  // 대표 지시(2026-07-28): 예식 종료 후 피드백 섹션에서는 토글 없이 마운트 즉시
+  // 패널을 펼치고 기존 피드백을 불러온다(칩이 곧 토글 역할).
+  autoExpand?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(Boolean(autoExpand));
   const [fetchState, setFetchState] = useState<FetchState>("idle");
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [structureState, setStructureState] = useState<StructureState>("idle");
@@ -74,12 +78,7 @@ export function StepFeedback({
     setFieldsDirty(false);
   }
 
-  async function handleExpand() {
-    if (expanded) {
-      setExpanded(false);
-      return;
-    }
-    setExpanded(true);
+  async function loadFeedback() {
     setFetchState("loading");
     try {
       const res = await fetch(`${apiUrl}?templateItemId=${templateItemId}`, {
@@ -96,6 +95,26 @@ export function StepFeedback({
       setFetchState("error");
     }
   }
+
+  async function handleExpand() {
+    if (expanded) {
+      setExpanded(false);
+      return;
+    }
+    setExpanded(true);
+    await loadFeedback();
+  }
+
+  // autoExpand 마운트 시 즉시 기존 피드백을 불러온다 — queueMicrotask로 렌더 커밋
+  // 이후에 상태 갱신을 시작한다(react-hooks/set-state-in-effect 회피, 프로젝트 공통
+  // 패턴). templateItemId가 바뀌면 호출부가 key로 리마운트한다.
+  useEffect(() => {
+    if (!autoExpand) return;
+    queueMicrotask(() => {
+      void loadFeedback();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 마운트 1회 로드 전용
+  }, []);
 
   function handleContentChange(value: string) {
     setContent(value);
@@ -206,14 +225,16 @@ export function StepFeedback({
 
   return (
     <div className="step-feedback">
-      <button
-        type="button"
-        className="btn-secondary step-feedback__toggle"
-        onClick={handleExpand}
-        disabled={fetchState === "loading"}
-      >
-        {expanded ? "피드백 접기" : "피드백 남기기"}
-      </button>
+      {!autoExpand && (
+        <button
+          type="button"
+          className="btn-secondary step-feedback__toggle"
+          onClick={handleExpand}
+          disabled={fetchState === "loading"}
+        >
+          {expanded ? "피드백 접기" : "피드백 남기기"}
+        </button>
+      )}
 
       {expanded ? (
         <div className="step-feedback__panel">

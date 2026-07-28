@@ -17,6 +17,7 @@ function makeItem(overrides: Partial<ChecklistInstanceItem>): ChecklistInstanceI
     stepName: "단계",
     title: "제목",
     description: null,
+    videoUrl: null,
     sortOrder: 1,
     createdAt: new Date(),
     ...overrides,

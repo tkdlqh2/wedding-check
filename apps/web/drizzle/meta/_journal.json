@@ -155,6 +155,20 @@
       "when": 1785297001000,
       "tag": "0021_ceremony-status",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1785297002000,
+      "tag": "0022_instance-items-title-nullable",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1785297003000,
+      "tag": "0023_instance-items-video-url",
+      "breakpoints": true
     }
   ]
 }

@@ -13,9 +13,10 @@ import type {
 
 export class ChecklistInstanceValidationError extends Error {}
 
-// 시연 영상은 템플릿의 체크리스트 항목(demo_videos.checklistItemId)에 붙는다 — 인스턴스
-// 항목은 templateItemCheckId 소프트 참조로 그 영상을 조회해 함께 보여준다(관리자 상세
-// 편집 폼과 오퍼레이터 실행 화면 둘 다). 원본이 삭제됐거나 영상이 없으면 null.
+// 시연 영상은 기본적으로 템플릿의 체크리스트 항목(demo_videos.checklistItemId)에 붙는
+// 홀 공용 자산이고, 인스턴스 항목은 templateItemCheckId 소프트 참조로 조회한다. 대표
+// 지시(2026-07-28): 예식 상세에서 올린 영상은 이 예식에만 반영돼야 하므로 인스턴스
+// 행의 videoUrl(0023)이 있으면 그것이 템플릿 영상보다 우선한다(오버라이드).
 export type ChecklistInstanceItemWithVideo = ChecklistInstanceItem & {
   videoUrl: string | null;
 };
@@ -25,15 +26,18 @@ async function withVideoUrls(
   items: ChecklistInstanceItem[],
 ): Promise<ChecklistInstanceItemWithVideo[]> {
   const checkIds = items
+    .filter((item) => item.videoUrl === null)
     .map((item) => item.templateItemCheckId)
     .filter((id): id is string => id !== null);
   const videos = await demoVideoRepo.findByChecklistItemIds(hallId, checkIds);
   const videoByCheckId = new Map(videos.map((v) => [v.checklistItemId, v.videoUrl]));
   return items.map((item) => ({
     ...item,
-    videoUrl: item.templateItemCheckId
-      ? (videoByCheckId.get(item.templateItemCheckId) ?? null)
-      : null,
+    videoUrl:
+      item.videoUrl ??
+      (item.templateItemCheckId
+        ? (videoByCheckId.get(item.templateItemCheckId) ?? null)
+        : null),
   }));
 }
 
@@ -80,7 +84,10 @@ async function throwLockedOrMissing(
   throw new ChecklistInstanceValidationError(missingMessage);
 }
 
-export type OperatorInstanceItem = ChecklistInstanceItemWithVideo;
+// 오퍼레이터 화면 항목은 실제 체크 대상만 담는다 — 항목 없는 단계의 자리표시 행
+// (title IS NULL, 0022)은 체크할 것이 없으므로 여기서 걸러지고 title은 string으로
+// 좁혀진다(체크 진행 N/M 집계·캐시 셰이프도 그대로 유지).
+export type OperatorInstanceItem = ChecklistInstanceItemWithVideo & { title: string };
 
 export type OperatorInstanceView = {
   ceremony: Ceremony;
@@ -100,7 +107,13 @@ export async function getOperatorInstanceView(
   }
   const instance = await requireInstance(hallId, ceremonyId);
   const items = await instanceRepo.listItems(hallId, instance.id);
-  return { ceremony, items: await withVideoUrls(hallId, items) };
+  const withVideos = await withVideoUrls(hallId, items);
+  return {
+    ceremony,
+    items: withVideos.filter(
+      (item): item is OperatorInstanceItem => item.title !== null,
+    ),
+  };
 }
 
 export async function getCeremonyDetail(hallId: string, ceremonyId: string): Promise<CeremonyDetail> {
@@ -234,6 +247,113 @@ export async function addAdHocInstanceItem(
     return throwLockedOrMissing(hallId, ceremonyId, "체크 항목을 추가하지 못했습니다");
   }
   return added;
+}
+
+// 대표 지시(2026-07-28): 템플릿 편집기의 "단계 추가"와 동일하게 단계명만으로 이 예식
+// 전용 새 단계를 만든다 — 항목은 만들어진 단계 카드의 빠른 추가로 이어서 등록한다.
+export async function addAdHocInstanceStep(
+  hallId: string,
+  ceremonyId: string,
+  stepName: string,
+): Promise<ChecklistInstanceItem> {
+  const trimmed = stepName.trim();
+  if (!trimmed) {
+    throw new ChecklistInstanceValidationError("단계 이름을 입력해주세요");
+  }
+  await requireEditableCeremony(hallId, ceremonyId);
+  const instance = await requireInstance(hallId, ceremonyId);
+  const added = await instanceRepo.addAdHocStep(hallId, instance.id, trimmed);
+  if (!added) {
+    return throwLockedOrMissing(hallId, ceremonyId, "단계를 추가하지 못했습니다");
+  }
+  return added;
+}
+
+// 대표 지시(2026-07-28): 예식 상세에서 올린 시연 영상은 이 예식에만 반영된다 — 업로드
+// 라우트가 저장 시점에 호출한다. 홀 공용 demo_videos는 건드리지 않는다.
+export async function setInstanceItemVideo(
+  hallId: string,
+  ceremonyId: string,
+  itemId: string,
+  videoUrl: string,
+): Promise<void> {
+  await requireEditableCeremony(hallId, ceremonyId);
+  const instance = await requireInstance(hallId, ceremonyId);
+  const updated = await instanceRepo.updateItemVideo(hallId, instance.id, itemId, videoUrl);
+  if (!updated) {
+    return throwLockedOrMissing(hallId, ceremonyId, "존재하지 않는 체크리스트 항목입니다");
+  }
+}
+
+// 업로드 토큰 발급 전 인가/소유권 검증(템플릿 경로의 assertChecklistItemOwnedByHall과
+// 동일 역할) — 항목이 이 홀·이 예식의 인스턴스에 실제로 속하고, 예식이 아직 수정
+// 가능한 상태(upcoming)인지 확인한다.
+export async function assertInstanceItemEditable(
+  hallId: string,
+  ceremonyId: string,
+  itemId: string,
+): Promise<void> {
+  await requireEditableCeremony(hallId, ceremonyId);
+  const instance = await requireInstance(hallId, ceremonyId);
+  const items = await instanceRepo.listItems(hallId, instance.id);
+  if (!items.some((item) => item.id === itemId)) {
+    throw new ChecklistInstanceValidationError("존재하지 않는 체크리스트 항목입니다");
+  }
+}
+
+// 대표 지시(2026-07-28): 예식 상세에서도 화살표로 단계 순서를 바꾼다 — 현재 순서에서
+// 인접한 단계 그룹을 찾아 리포지토리의 원자적 스왑에 넘긴다. 0행(경합으로 순서가
+// 이미 바뀜/잠김)은 사용자 오류로 번역한다.
+export async function moveInstanceStep(
+  hallId: string,
+  ceremonyId: string,
+  key: instanceRepo.StepGroupKey,
+  direction: "up" | "down",
+): Promise<void> {
+  await requireEditableCeremony(hallId, ceremonyId);
+  const instance = await requireInstance(hallId, ceremonyId);
+  const items = await instanceRepo.listItems(hallId, instance.id);
+
+  // group-by-step.ts와 동일한 3단 그룹 키로 연속 블록을 묶는다.
+  const groupKeyOf = (item: ChecklistInstanceItem) =>
+    item.templateItemId ?? item.adHocGroupRootId ?? `orphan:${item.id}`;
+  const groups: ChecklistInstanceItem[][] = [];
+  for (const item of items) {
+    const last = groups[groups.length - 1];
+    if (last && groupKeyOf(last[0]) === groupKeyOf(item)) last.push(item);
+    else groups.push([item]);
+  }
+
+  const matchesKey = (first: ChecklistInstanceItem) => {
+    if ("templateItemId" in key) return first.templateItemId === key.templateItemId;
+    if ("groupRootId" in key) return first.adHocGroupRootId === key.groupRootId;
+    return first.id === key.itemId;
+  };
+  const index = groups.findIndex((group) => matchesKey(group[0]));
+  if (index === -1) {
+    throw new ChecklistInstanceValidationError("존재하지 않는 단계입니다");
+  }
+  const neighborIndex = direction === "up" ? index - 1 : index + 1;
+  const neighbor = groups[neighborIndex];
+  if (!neighbor) {
+    // 맨 위에서 위로/맨 아래에서 아래로 — UI가 비활성화하지만 재제출 등은 조용히 무시.
+    return;
+  }
+  const neighborFirst = neighbor[0];
+  const neighborKey: instanceRepo.StepGroupKey = neighborFirst.templateItemId
+    ? { templateItemId: neighborFirst.templateItemId }
+    : neighborFirst.adHocGroupRootId
+      ? { groupRootId: neighborFirst.adHocGroupRootId }
+      : { itemId: neighborFirst.id };
+
+  const swapped = await instanceRepo.swapStepGroups(hallId, instance.id, key, neighborKey);
+  if (swapped === 0) {
+    return throwLockedOrMissing(
+      hallId,
+      ceremonyId,
+      "단계 순서를 바꾸지 못했습니다 — 새로고침 후 다시 시도해주세요",
+    );
+  }
 }
 
 // 프로토타입 WeddingDetailScreen.js 단계 헤더의 "수정"/"단계 삭제" — 이 예식 스냅샷의

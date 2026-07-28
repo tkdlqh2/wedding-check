@@ -6,7 +6,6 @@ import {
   updateInstanceItemAction,
   type InstanceItemFormState,
 } from "./actions";
-
 const initialState: InstanceItemFormState = {};
 
 // Story 5.8: apps/web/app/admin/templates/[hallId]/checklist-item-form.tsx와 동일한
@@ -25,7 +24,13 @@ export function InstanceItemForm({
 }: {
   hallId: string;
   ceremonyId: string;
-  item?: { id: string; title: string; description: string | null };
+  item?: {
+    id: string;
+    title: string;
+    description: string | null;
+    templateItemCheckId?: string | null;
+    videoUrl?: string | null;
+  };
   stepContext?: { templateItemId?: string | null; groupRootId?: string | null };
   isNewStep?: boolean;
   onSuccess?: () => void;
@@ -79,6 +84,32 @@ export function InstanceItemForm({
             placeholder="필요하면 자세한 설명을 남기세요"
           />
         </form>
+
+        {/* 템플릿 편집기(checklist-item-form.tsx)와 동일한 시연 영상 섹션 — 영상은
+            템플릿의 체크리스트 항목(demo_videos)에 붙는 공용 자산이라, 이 화면("이
+            예식에만 반영" 약속)에서 업로드/교체를 노출하면 모든 예식의 영상이 조용히
+            바뀐다(코덱스 리뷰 P1) — 여기서는 재생만 제공하고, 등록/교체는 홀 템플릿
+            편집기로 안내한다. */}
+        <div className="instance-item-form-panel__video">
+          <span className="instance-item-form-panel__video-label">시연 영상</span>
+          {item.videoUrl ? (
+            <video controls preload="metadata" src={item.videoUrl} />
+          ) : (
+            <p className="instance-item-form-panel__video-empty">
+              {item.templateItemCheckId
+                ? "영상 없음"
+                : "영상 없음 — 이 예식에만 추가된 항목은 시연 영상을 붙일 수 없습니다"}
+            </p>
+          )}
+          {item.templateItemCheckId && (
+            <p className="instance-item-form-panel__video-hint">
+              영상은 홀 공용 자산이라 여기서는 재생만 됩니다 — 등록/교체는{" "}
+              <a href={`/admin/templates/${hallId}`}>홀 체크리스트 템플릿</a>에서 하세요
+              (모든 예식에 함께 반영됩니다).
+            </p>
+          )}
+        </div>
+
         <div className="instance-item-form-panel__footer">
           <button type="button" className="btn-secondary" onClick={onCancel}>
             취소

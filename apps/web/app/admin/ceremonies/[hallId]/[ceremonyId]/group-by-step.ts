@@ -36,9 +36,9 @@ export function groupCandidatesByStep(
 // 확인해야 ad-hoc 단계에 항목을 여러 개 추가해도 하나의 그룹으로 표시된다. 정말
 // adHocGroupRootId조차 없는 경우(템플릿 단계가 삭제되어 templateItemId만 null이 된
 // 옛 데이터)에만 각 항목의 고유 id를 키로 써서 서로 합쳐지지 않게 한다.
-export function groupItemsByStep(
-  items: ChecklistInstanceItem[],
-): [string, ChecklistInstanceItem[]][] {
+export function groupItemsByStep<
+  T extends Pick<ChecklistInstanceItem, "id" | "templateItemId" | "adHocGroupRootId">,
+>(items: T[]): [string, T[]][] {
   return groupSequentialByKey(
     items,
     (i) => i.templateItemId ?? i.adHocGroupRootId ?? `orphan:${i.id}`,

@@ -3,6 +3,7 @@ import * as templateItemRepo from "../db/repositories/template-item";
 import * as checklistItemRepo from "../db/repositories/checklist-item";
 import * as ceremonyRepo from "../db/repositories/ceremony";
 import * as demoVideoRepo from "../db/repositories/demo-video";
+import { isEditableStatus } from "../ceremony-status";
 import type { Ceremony } from "../db/repositories/ceremony";
 import type {
   ChecklistInstance,
@@ -12,10 +13,34 @@ import type {
 
 export class ChecklistInstanceValidationError extends Error {}
 
+// 시연 영상은 템플릿의 체크리스트 항목(demo_videos.checklistItemId)에 붙는다 — 인스턴스
+// 항목은 templateItemCheckId 소프트 참조로 그 영상을 조회해 함께 보여준다(관리자 상세
+// 편집 폼과 오퍼레이터 실행 화면 둘 다). 원본이 삭제됐거나 영상이 없으면 null.
+export type ChecklistInstanceItemWithVideo = ChecklistInstanceItem & {
+  videoUrl: string | null;
+};
+
+async function withVideoUrls(
+  hallId: string,
+  items: ChecklistInstanceItem[],
+): Promise<ChecklistInstanceItemWithVideo[]> {
+  const checkIds = items
+    .map((item) => item.templateItemCheckId)
+    .filter((id): id is string => id !== null);
+  const videos = await demoVideoRepo.findByChecklistItemIds(hallId, checkIds);
+  const videoByCheckId = new Map(videos.map((v) => [v.checklistItemId, v.videoUrl]));
+  return items.map((item) => ({
+    ...item,
+    videoUrl: item.templateItemCheckId
+      ? (videoByCheckId.get(item.templateItemCheckId) ?? null)
+      : null,
+  }));
+}
+
 export type CeremonyDetail = {
   ceremony: Ceremony;
   instance: ChecklistInstance;
-  items: ChecklistInstanceItem[];
+  items: ChecklistInstanceItemWithVideo[];
   candidates: CandidateChecklistItem[];
 };
 
@@ -27,12 +52,35 @@ async function requireInstance(hallId: string, ceremonyId: string): Promise<Chec
   return instance;
 }
 
-export type OperatorInstanceItem = ChecklistInstanceItem & {
-  // 실행 화면 "상세" 펼침에서 재생할 시연 영상(FR-3) — 인스턴스 항목의
-  // templateItemCheckId(원본 체크리스트 항목 소프트 참조)로 demo_videos를 조회해
-  // 병합한다. 원본이 삭제됐거나 영상이 없으면 null.
-  videoUrl: string | null;
-};
+// 대표 지시(2026-07-27): 예정이 아닌 예식(진행중·종료)의 체크리스트는 수정할 수 없다 —
+// 라이브 예식과 지난 예식의 기록은 그대로 보존되어야 한다. 모든 변경 계열 함수가 이
+// 가드를 거친다(조회는 무관).
+async function requireEditableCeremony(hallId: string, ceremonyId: string): Promise<void> {
+  const ceremony = await ceremonyRepo.findById(hallId, ceremonyId);
+  if (!ceremony) {
+    throw new ChecklistInstanceValidationError("존재하지 않는 예식입니다");
+  }
+  if (!isEditableStatus(ceremony.status)) {
+    throw new ChecklistInstanceValidationError("진행 중이거나 종료된 예식은 수정할 수 없습니다");
+  }
+}
+
+// 코덱스 리뷰 P1(TOCTOU): 리포지토리 변경 쿼리에 내장된 upcoming 가드가 경합에서
+// 차단하면 0행/undefined가 돌아온다 — 실제 상태를 재확인해, 그 사이 예식이 시작된
+// 것이면 잠금 오류로, 아니면 대상 없음 오류로 번역한다.
+async function throwLockedOrMissing(
+  hallId: string,
+  ceremonyId: string,
+  missingMessage: string,
+): Promise<never> {
+  const ceremony = await ceremonyRepo.findById(hallId, ceremonyId);
+  if (ceremony && !isEditableStatus(ceremony.status)) {
+    throw new ChecklistInstanceValidationError("진행 중이거나 종료된 예식은 수정할 수 없습니다");
+  }
+  throw new ChecklistInstanceValidationError(missingMessage);
+}
+
+export type OperatorInstanceItem = ChecklistInstanceItemWithVideo;
 
 export type OperatorInstanceView = {
   ceremony: Ceremony;
@@ -52,20 +100,7 @@ export async function getOperatorInstanceView(
   }
   const instance = await requireInstance(hallId, ceremonyId);
   const items = await instanceRepo.listItems(hallId, instance.id);
-  const checkIds = items
-    .map((item) => item.templateItemCheckId)
-    .filter((id): id is string => id !== null);
-  const videos = await demoVideoRepo.findByChecklistItemIds(hallId, checkIds);
-  const videoByCheckId = new Map(videos.map((v) => [v.checklistItemId, v.videoUrl]));
-  return {
-    ceremony,
-    items: items.map((item) => ({
-      ...item,
-      videoUrl: item.templateItemCheckId
-        ? (videoByCheckId.get(item.templateItemCheckId) ?? null)
-        : null,
-    })),
-  };
+  return { ceremony, items: await withVideoUrls(hallId, items) };
 }
 
 export async function getCeremonyDetail(hallId: string, ceremonyId: string): Promise<CeremonyDetail> {
@@ -83,7 +118,7 @@ export async function getCeremonyDetail(hallId: string, ceremonyId: string): Pro
     instanceRepo.listItems(hallId, instance.id),
     instanceRepo.listCandidateChecklistItems(hallId, instance.id),
   ]);
-  return { ceremony, instance, items, candidates };
+  return { ceremony, instance, items: await withVideoUrls(hallId, items), candidates };
 }
 
 // AD-2 2-hop 재검증: instanceId만으로 항목 추가를 허용하지 않는다. instance와
@@ -98,6 +133,7 @@ export async function addInstanceItem(
   ceremonyId: string,
   checklistItemId: string,
 ): Promise<ChecklistInstanceItem> {
+  await requireEditableCeremony(hallId, ceremonyId);
   const instance = await requireInstance(hallId, ceremonyId);
   const checklistItem = await checklistItemRepo.findById(hallId, checklistItemId);
   if (!checklistItem) {
@@ -107,13 +143,17 @@ export async function addInstanceItem(
   if (!step) {
     throw new ChecklistInstanceValidationError("존재하지 않는 단계입니다");
   }
-  return instanceRepo.addItem(hallId, instance.id, {
+  const added = await instanceRepo.addItem(hallId, instance.id, {
     id: checklistItem.id,
     title: checklistItem.title,
     description: checklistItem.description,
     stepId: step.id,
     stepName: step.stepName,
   });
+  if (!added) {
+    return throwLockedOrMissing(hallId, ceremonyId, "존재하지 않는 체크리스트 항목입니다");
+  }
+  return added;
 }
 
 export async function removeInstanceItem(
@@ -121,6 +161,7 @@ export async function removeInstanceItem(
   ceremonyId: string,
   itemId: string,
 ): Promise<void> {
+  await requireEditableCeremony(hallId, ceremonyId);
   const instance = await requireInstance(hallId, ceremonyId);
   await instanceRepo.removeItem(hallId, instance.id, itemId);
 }
@@ -147,6 +188,7 @@ export async function addAdHocInstanceItem(
   }
   const description = input.description?.trim() || null;
 
+  await requireEditableCeremony(hallId, ceremonyId);
   const instance = await requireInstance(hallId, ceremonyId);
 
   let stepId: string | null = null;
@@ -181,13 +223,17 @@ export async function addAdHocInstanceItem(
     throw new ChecklistInstanceValidationError("단계 이름을 입력해주세요");
   }
 
-  return instanceRepo.addAdHocItem(hallId, instance.id, {
+  const added = await instanceRepo.addAdHocItem(hallId, instance.id, {
     stepName,
     title,
     description,
     stepId,
     groupRootId,
   });
+  if (!added) {
+    return throwLockedOrMissing(hallId, ceremonyId, "체크 항목을 추가하지 못했습니다");
+  }
+  return added;
 }
 
 // 프로토타입 WeddingDetailScreen.js 단계 헤더의 "수정"/"단계 삭제" — 이 예식 스냅샷의
@@ -204,10 +250,11 @@ export async function renameInstanceStep(
   if (!trimmed) {
     throw new ChecklistInstanceValidationError("단계 이름을 입력해주세요");
   }
+  await requireEditableCeremony(hallId, ceremonyId);
   const instance = await requireInstance(hallId, ceremonyId);
   const updated = await instanceRepo.renameStepGroup(hallId, instance.id, key, trimmed);
   if (updated === 0) {
-    throw new ChecklistInstanceValidationError("존재하지 않는 단계입니다");
+    return throwLockedOrMissing(hallId, ceremonyId, "존재하지 않는 단계입니다");
   }
 }
 
@@ -216,10 +263,11 @@ export async function deleteInstanceStep(
   ceremonyId: string,
   key: instanceRepo.StepGroupKey,
 ): Promise<void> {
+  await requireEditableCeremony(hallId, ceremonyId);
   const instance = await requireInstance(hallId, ceremonyId);
   const deleted = await instanceRepo.deleteStepGroup(hallId, instance.id, key);
   if (deleted === 0) {
-    throw new ChecklistInstanceValidationError("존재하지 않는 단계입니다");
+    return throwLockedOrMissing(hallId, ceremonyId, "존재하지 않는 단계입니다");
   }
 }
 
@@ -236,10 +284,11 @@ export async function updateInstanceItem(
   }
   const description = input.description?.trim() || null;
 
+  await requireEditableCeremony(hallId, ceremonyId);
   const instance = await requireInstance(hallId, ceremonyId);
   const updated = await instanceRepo.updateItem(hallId, instance.id, itemId, { title, description });
   if (!updated) {
-    throw new ChecklistInstanceValidationError("존재하지 않는 체크리스트 항목입니다");
+    return throwLockedOrMissing(hallId, ceremonyId, "존재하지 않는 체크리스트 항목입니다");
   }
   return updated;
 }

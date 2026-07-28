@@ -120,6 +120,33 @@ describe("VoyageEmbeddingAdapter", () => {
     );
   });
 
+  // Story 3.3: 비대칭 검색 — 문서(확정 시점)는 "document", 실행 중 질의는 "query".
+  it("inputType을 지정하지 않으면 input_type 'document'로 요청한다(3.2 경로 불변)", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [{ embedding: dummyEmbedding(1), index: 0 }] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await new VoyageEmbeddingAdapter().embed(["텍스트"]);
+
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(requestBody.input_type).toBe("document");
+  });
+
+  it("inputType 'query'를 지정하면 input_type 'query'로 요청한다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [{ embedding: dummyEmbedding(1), index: 0 }] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await new VoyageEmbeddingAdapter().embed(["텍스트"], { inputType: "query" });
+
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(requestBody.input_type).toBe("query");
+  });
+
   it("VOYAGE_API_KEY가 없으면 에러를 던진다", async () => {
     delete process.env.VOYAGE_API_KEY;
 

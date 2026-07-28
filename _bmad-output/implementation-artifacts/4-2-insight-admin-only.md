@@ -4,7 +4,7 @@ baseline_commit: 68fad71
 
 # Story 4.2: 인사이트 관리자 전용 노출 (FR-11)
 
-Status: in-progress
+Status: review
 
 ## Story
 
@@ -96,33 +96,33 @@ Next.js에는 이 용도의 전용 API가 있다(`forbidden()` + `forbidden.tsx`
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: `requireAdminPage()` + 전 admin 페이지 적용 (AC: #1, #2)**
-  - [ ] `lib/auth-guard.ts`에 `requireAdminPage()` 추가 — 세션 없음 `redirect("/login")`, admin 아님 `redirect("/operator")`(D-4). 세션 반환.
-  - [ ] 세션 조회를 `React.cache`로 감싼 `getCurrentSession()`으로 통일하고 `requireAdminSession`/`requireSession`도 그것을 쓰게 한다(D-5).
-  - [ ] `app/admin/**/page.tsx` 7곳 전부에 `await requireAdminPage()`를 첫 줄로(D-1 결함 계열).
-  - [ ] `app/admin/layout.tsx`는 유지하되 같은 분기(`/operator`)를 쓰도록 맞추고, 왜 두 겹인지 주석으로 남긴다.
+- [x] **Task 1: `requireAdminPage()` + 전 admin 페이지 적용 (AC: #1, #2)**
+  - [x] `lib/auth-guard.ts`에 `requireAdminPage()` 추가 — 세션 없음 `redirect("/login")`, admin 아님 `redirect("/operator")`(D-4). 세션 반환.
+  - [x] 세션 조회를 `React.cache`로 감싼 `getCurrentSession()`으로 통일하고 `requireAdminSession`/`requireSession`도 그것을 쓰게 한다(D-5).
+  - [x] `app/admin/**/page.tsx` 7곳 전부에 `await requireAdminPage()`를 첫 줄로(D-1 결함 계열).
+  - [x] `app/admin/layout.tsx`는 유지하되 같은 분기(`/operator`)를 쓰도록 맞추고, 왜 두 겹인지 주석으로 남긴다.
 
-- [ ] **Task 2: `hasAggregated` 파생 (AC: #3)**
-  - [ ] `InsightsView`에 `hasAggregated: boolean` 추가 — `lastCompletedAt !== null || clusters.length > 0`(D-6).
-  - [ ] AD-7 원칙대로 저장 필드를 새로 만들지 않는다(읽기 시점 파생).
+- [x] **Task 2: `hasAggregated` 파생 (AC: #3)**
+  - [x] `InsightsView`에 `hasAggregated: boolean` 추가 — `lastCompletedAt !== null || clusters.length > 0`(D-6).
+  - [x] AD-7 원칙대로 저장 필드를 새로 만들지 않는다(읽기 시점 파생).
 
-- [ ] **Task 3: 화면 (AC: #3)**
-  - [ ] 통계 카드를 `insight-stats.tsx`로 추출(순수 표현 컴포넌트 — 테스트 가능하게). 클러스터 카드만 `hasAggregated=false`에서 `—`.
-  - [ ] `—`는 `--color-text-disabled`로(§14 Disabled/플레이스홀더 톤). 28px/700 기하는 유지해 집계 후 레이아웃이 흔들리지 않게 한다.
-  - [ ] 빈 상태 문구 분기: 미집계 → "아직 집계 전입니다. 매일 새벽 1회 갱신됩니다." / 집계 완료 + 0개 → 기존 문구 유지.
-  - [ ] `insights.css`에 플레이스홀더 modifier 추가(임의 hex 금지, 토큰만).
+- [x] **Task 3: 화면 (AC: #3)**
+  - [x] 통계 카드를 `insight-stats.tsx`로 추출(순수 표현 컴포넌트 — 테스트 가능하게). 클러스터 카드만 `hasAggregated=false`에서 `—`.
+  - [x] `—`는 `--color-text-disabled`로(§14 Disabled/플레이스홀더 톤). 28px/700 기하는 유지해 집계 후 레이아웃이 흔들리지 않게 한다.
+  - [x] 빈 상태 문구 분기: 미집계 → "아직 집계 전입니다. 매일 새벽 1회 갱신됩니다." / 집계 완료 + 0개 → 기존 문구 유지.
+  - [x] `insights.css`에 플레이스홀더 modifier 추가(임의 hex 금지, 토큰만).
 
-- [ ] **Task 4: 테스트 (AC 전부)**
-  - [ ] `tests/lib/auth-guard.test.ts`(신규): 세션 없음 → `/login` / 오퍼레이터 → `/operator` / 관리자 → 통과(AC 1, 2). `requireAdminSession`의 throw 경로도 함께 고정.
-  - [ ] `tests/components/insight-stats.test.tsx`(신규): 미집계 시 클러스터 카드 `—`이고 **`0개`가 화면에 없다** / 집계 후 `0개` 표시 / 나머지 두 카드는 미집계에도 실제 숫자(D-6) / 빈 상태 문구 분기.
-  - [ ] `tests/services/insight.test.ts`: `hasAggregated` — 최초 false / 배치 후 true / 클러스터만 있고 `lastCompletedAt`이 null이어도 true.
-  - [ ] 회귀: 기존 435건 그대로 통과.
+- [x] **Task 4: 테스트 (AC 전부)**
+  - [x] `tests/lib/auth-guard.test.ts`(신규): 세션 없음 → `/login` / 오퍼레이터 → `/operator` / 관리자 → 통과(AC 1, 2). `requireAdminSession`의 throw 경로도 함께 고정.
+  - [x] `tests/components/insight-stats.test.tsx`(신규): 미집계 시 클러스터 카드 `—`이고 **`0개`가 화면에 없다** / 집계 후 `0개` 표시 / 나머지 두 카드는 미집계에도 실제 숫자(D-6) / 빈 상태 문구 분기.
+  - [x] `tests/services/insight.test.ts`: `hasAggregated` — 최초 false / 배치 후 true / 클러스터만 있고 `lastCompletedAt`이 null이어도 true.
+  - [x] 회귀: 기존 435건 그대로 통과.
 
-- [ ] **Task 5: 검증 (AC 전부)**
-  - [ ] 격리 DB + 실서버 종단: 오퍼레이터 세션으로 `/admin/insights` → `/operator` 리다이렉트, 관리자 세션 → 200, 미로그인 → `/login`.
-  - [ ] **D-1의 강등 시나리오 실검증**: 관리자 세션 쿠키를 유지한 채 그 계정을 오퍼레이터로 강등하고 페이지만 재요청(soft navigation과 동일한 RSC 요청) → 차단되는지.
-  - [ ] `—` 렌더링을 실제 SSR 응답에서 확인(집계 전 / 집계 후).
-  - [ ] `tsc` / `lint` / `build` / vitest 전체 클린.
+- [x] **Task 5: 검증 (AC 전부)**
+  - [x] 격리 DB + 실서버 종단: 오퍼레이터 세션으로 `/admin/insights` → `/operator` 리다이렉트, 관리자 세션 → 200, 미로그인 → `/login`.
+  - [x] **D-1의 강등 시나리오 실검증**: 관리자 세션 쿠키를 유지한 채 그 계정을 오퍼레이터로 강등하고 페이지만 재요청(soft navigation과 동일한 RSC 요청) → 차단되는지.
+  - [x] `—` 렌더링을 실제 SSR 응답에서 확인(집계 전 / 집계 후).
+  - [x] `tsc` / `lint` / `build` / vitest 전체 클린.
 
 ## Dev Notes
 
@@ -137,6 +137,8 @@ Next.js에는 이 용도의 전용 API가 있다(`forbidden()` + `forbidden.tsx`
 | 날짜 | 변경 | 사유 |
 |---|---|---|
 | 2026-07-29 | 스토리 파일 작성 | Epic 4 마지막 스토리 착수 |
+| 2026-07-29 | 스코프를 "인사이트 1개 화면"에서 "`/admin` 페이지 7곳"으로 확대 | 같은 구멍이 7곳에 동일하게 있었고, 인사이트만 고치면 나머지는 뚫린 채 남는다(D-1) |
+| 2026-07-29 | `members/page.tsx`의 세션 조회를 `Promise.all`에서 순차 실행으로 | 권한 확인 전에 회원 목록 쿼리가 이미 나가고 있었다 |
 
 ## Dev Agent Record
 
@@ -145,4 +147,48 @@ Next.js에는 이 용도의 전용 API가 있다(`forbidden()` + `forbidden.tsx`
 - `_bmad-output/planning-artifacts/epics.md` §Epic 4 / Story 4.2
 - `_bmad-output/planning-artifacts/prds/prd-wedding-check-2026-07-23/prd.md` §4.5 FR-11
 - `node_modules/next/dist/docs/01-app/02-guides/authentication.md` §Layouts and auth checks
+- `node_modules/next/dist/docs/01-app/03-api-reference/04-functions/forbidden.md`(D-3의 근거)
 - `_bmad-output/implementation-artifacts/4-1-pattern-clustering.md`(선행 스토리, 경계 표)
+
+### Completion Notes
+
+**AC 충족**
+
+| AC | 검증 방식 |
+|---|---|
+| 1 | 실서버(포트 3016) 관리자 세션 → `/admin/insights` **200**. 나머지 관리자 화면 4곳도 회귀 확인(200 또는 의도된 307). |
+| 2 | 오퍼레이터 세션 → **307 `/operator`**, 미로그인 → **307 `/login`**. `/admin` 하위 5개 경로 전부 동일하게 차단. 단위 테스트 5건이 분기를 고정. |
+| 3 | 집계 전 SSR에서 클러스터 카드가 `—`(+`--placeholder` 클래스)이고 **`0개`가 응답 전체에 0회 등장**. 배치 실행 후 같은 카드가 `0개`로 바뀌고 플레이스홀더 클래스는 사라짐. 빈 상태 문구도 두 문장이 서로 배타적으로 렌더됨. |
+
+**D-1(이 스토리의 전제)을 실제로 재현해 확인했다**
+
+주장만으로 끝내지 않고 강등 시나리오를 실서버에서 돌렸다:
+
+1. 관리자 세션으로 `/admin/insights` 요청 → 200, RSC 페이로드에 인사이트가 실제로 렌더됨.
+2. **쿠키는 그대로 둔 채** 그 계정의 `role`을 `operator`로 강등.
+3. 같은 쿠키로 재요청 → 일반 GET **307 `/operator`**, RSC 요청은 페이로드에
+   `NEXT_REDIRECT;replace;/operator;307;`을 담고 **인사이트 문자열은 0회**
+   (`누적 확정 피드백` / `insights-page` / `관리자 전용 · 읽기 전용` 모두 0).
+
+RSC 페이로드의 리다이렉트 지시 스택 프레임에 `requireAdminPage`가 찍혀 있어, 차단한 주체가
+이번에 추가한 가드라는 것도 함께 확인됐다.
+
+**검증**
+
+- 격리 DB(포트 5439, pgvector) `0000~0024` 전체 체인 적용, 앱 포트 3016.
+- vitest **458건** 통과(435 → 458, 신규 23건 = `auth-guard.test.ts` 10 + `insight-stats.test.tsx` 8 + `insight.test.ts` 확장 5), `tsc`/`lint`/`build` 클린.
+- 마이그레이션·스키마 변경 없음.
+
+**코덱스 리뷰**
+
+1차 **클린(P1 없음 / P2 없음)**. 요청한 5개 위험 지점을 코덱스가 각각 근거를 들어 확인했다:
+
+- `React.cache`는 요청 스코프이고 `unstable_cache`(요청·사용자 간 영속)와 다르므로 인가를 약화시키지 않는다. 메모이제이션이 적용되지 않는 실행 문맥이 있더라도 결과는 "중복 조회"일 뿐 다른 요청의 세션이 재사용되지는 않는다.
+- `/admin/**` 페이지 7개 모두 데이터 조회 **전에** 가드를 호출하고, 관리자 전용 Server Action·영상 Route Handler도 이미 보호돼 있으며, 관리자 트리 안에 별도 Route Handler나 `generateMetadata` 진입점은 없다(가드 누락 표면 없음).
+- `redirect()`가 `try/catch`에 삼켜지는 경로 없음 — 가드 호출이 페이지의 데이터용 `try/catch`보다 앞에 있고 가드 자체에도 catch가 없다.
+- `hasAggregated`가 세 가지 상태(최초 0개 성공 / 클러스터는 있는데 완료 기록 실패 / 한 번도 성공 안 함)를 모순 없이 구분한다.
+
+**남은 것 / 후속 판단이 필요한 항목**
+
+- 차단된 오퍼레이터는 **아무 설명 없이** 자기 홈으로 되돌아간다. 오퍼레이터 내비에 인사이트 링크가 없어 이 경로로 들어오는 경우가 (a) URL 직접 입력 (b) 강등 후 남은 탭 두 가지뿐이라 v1에서는 이 처리가 맞다고 판단했다. 설명 문구가 필요하다는 판단이 서면 `forbidden()`이 안정화된 뒤 403 화면으로 옮기는 것이 자연스럽다(D-3).
+- `app/operator/layout.tsx`에는 역할 검사가 없어 **관리자는 오퍼레이터 화면에 들어갈 수 있다.** AD-3/FR-11이 요구하는 방향이 아니고 대표가 오퍼레이터 화면을 확인하는 것을 막을 이유도 없어 의도된 비대칭으로 남겼다.

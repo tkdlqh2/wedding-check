@@ -26,12 +26,6 @@ export function QueryPanel({ isOffline }: { isOffline: boolean }) {
   const [text, setText] = useState("");
   const [state, setState] = useState<QueryState>("idle");
   const [matches, setMatches] = useState<QueryMatchDto[] | null>(null);
-  // 코덱스 리뷰 2차 P2: 결과는 "그 결과를 만든 질의 텍스트"에 묶여야 한다 — 대기 중
-  // 또는 도착 후에 입력을 다른 상황으로 바꾸면, 화면의 입력과 매칭 카드가 서로 다른
-  // 질의를 가리키게 되어 잘못된 근거 연결이 생긴다("근거는 신성하다"). 제출 시점의
-  // 텍스트를 보존하고, 현재 입력이 그것과 일치할 때만 결과를 렌더링한다(입력을
-  // 되돌리면 다시 보인다 — 응답 자체는 폐기하지 않음).
-  const [submittedText, setSubmittedText] = useState<string | null>(null);
   // AC 3: disabled 리렌더 전의 더블클릭/Enter 재진입을 동기적으로 차단한다
   // (step-feedback.tsx의 confirmingRef와 동일한 이유 — 임베딩 API 중복 호출 방지).
   const pendingRef = useRef(false);
@@ -50,7 +44,6 @@ export function QueryPanel({ isOffline }: { isOffline: boolean }) {
     // 상태로 숨겨져 있던 이전 결과가 로딩 전환 순간 되살아나는 경로)도 같은
     // 계열이라 함께 막힌다.
     setMatches(null);
-    setSubmittedText(text);
     try {
       const res = await fetch("/api/query", {
         method: "POST",
@@ -80,6 +73,10 @@ export function QueryPanel({ isOffline }: { isOffline: boolean }) {
         순서를 갑자기 바꿨어요&quot;
       </p>
       <div className="run-query__form">
+        {/* 사용자 지침(2026-07-28) + 코덱스 리뷰 2~3차 P2: 요청이 in-flight인 동안
+            입력창도 함께 잠근다 — 대기 중 입력이 바뀌면 도착한 응답(성공/실패)이
+            제출한 적 없는 새 입력의 결과처럼 보이는 계열 결함을 단순 차단으로
+            원천 제거한다(요청 순번 추적/응답 무효화 같은 추가 장치 불필요). */}
         <input
           className="input run-query__input"
           type="text"
@@ -89,6 +86,7 @@ export function QueryPanel({ isOffline }: { isOffline: boolean }) {
           onKeyDown={(e) => {
             if (e.key === "Enter" && !loading) runQuery();
           }}
+          disabled={loading}
         />
         <button
           type="button"
@@ -104,16 +102,13 @@ export function QueryPanel({ isOffline }: { isOffline: boolean }) {
         </button>
       </div>
 
-      {/* 코덱스 리뷰 3차 P2: 오류 피드백도 성공 결과와 동일하게 제출 텍스트와
-          결합한다 — 대기 중 입력을 B로 바꾼 뒤 A 요청이 실패하면, 결합 없이
-          state만 보고 렌더링할 경우 제출한 적 없는 B가 실패한 것처럼 보인다. */}
-      {state === "error" && text === submittedText ? (
+      {state === "error" ? (
         <p className="run-query__error" role="status">
           질의에 실패했습니다 — 다시 시도해주세요.
         </p>
       ) : null}
 
-      {matches !== null && state !== "error" && text === submittedText ? (
+      {matches !== null && state !== "error" ? (
         matches.length > 0 ? (
           <div className="run-query__results">
             {matches.map((match, index) => {

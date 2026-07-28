@@ -237,10 +237,10 @@ describe("QueryPanel (AC 1, 3)", () => {
     expect(await screen.findByText("관련 사례 없음 — 선임에게 연락하세요")).toBeInTheDocument();
   });
 
-  // 코덱스 리뷰 2차 P2: 대기 중 입력을 다른 상황으로 바꾸면 늦게 도착한 응답이
-  // 새 입력의 결과처럼 노출됐다 — 결과는 제출된 질의 텍스트와 입력이 일치할 때만
-  // 렌더링된다(입력을 되돌리면 정확한 짝으로 다시 보인다).
-  it("대기 중 입력을 바꾸면 도착한 응답이 새 입력의 결과처럼 노출되지 않는다", async () => {
+  // 사용자 지침(2026-07-28) + 코덱스 리뷰 2~3차 P2: 요청이 in-flight인 동안 입력창도
+  // 함께 잠근다 — 대기 중 입력이 바뀌어 도착한 응답(성공/실패)이 제출한 적 없는 새
+  // 입력의 결과처럼 보이는 계열 결함을 단순 차단으로 원천 제거. 완료되면 다시 풀린다.
+  it("질의 대기 중에는 입력창도 비활성화되고, 완료되면 다시 풀린다", async () => {
     let resolveFetch: (value: unknown) => void = () => {};
     const fetchMock = vi.fn().mockImplementationOnce(
       () =>
@@ -253,69 +253,29 @@ describe("QueryPanel (AC 1, 3)", () => {
     render(<QueryPanel isOffline={false} />);
     const input = screen.getByPlaceholderText("지금 상황을 그대로 적어보세요");
     fireEvent.change(input, { target: { value: "질의 A" } });
-    fireEvent.click(screen.getByRole("button", { name: "질의하기" }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "질의하기" }));
+    });
 
-    fireEvent.change(input, { target: { value: "전혀 다른 질의 B" } });
+    expect(input).toBeDisabled();
+
     await act(async () => {
       resolveFetch({ ok: true, json: async () => ({ matches: [makeMatch()] }) });
     });
-
-    // 입력 B 아래에 A의 매칭 카드가 보이면 안 된다.
-    expect(screen.queryByText("주례자가 예고 없이 순서를 바꿈")).not.toBeInTheDocument();
-
-    // 입력을 제출했던 A로 되돌리면 정확한 짝으로 다시 보인다(응답 폐기가 아님).
-    fireEvent.change(input, { target: { value: "질의 A" } });
+    expect(input).not.toBeDisabled();
     expect(screen.getByText("주례자가 예고 없이 순서를 바꿈")).toBeInTheDocument();
   });
 
-  it("결과 표시 후 입력을 바꾸면 매칭 카드가 사라진다 (질의-결과 짝 유지)", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ matches: [makeMatch()] }) }),
-    );
-
-    render(<QueryPanel isOffline={false} />);
-    const input = screen.getByPlaceholderText("지금 상황을 그대로 적어보세요");
-    fireEvent.change(input, { target: { value: "질의 A" } });
-    fireEvent.click(screen.getByRole("button", { name: "질의하기" }));
-    await screen.findByText("주례자가 예고 없이 순서를 바꿈");
-
-    fireEvent.change(input, { target: { value: "질의 A 수정" } });
-
-    expect(screen.queryByText("주례자가 예고 없이 순서를 바꿈")).not.toBeInTheDocument();
-  });
-
-  // 코덱스 리뷰 3차 P2: 오류 피드백도 성공 결과처럼 제출 텍스트와 결합되어야 한다 —
-  // 대기 중 입력을 바꾼 뒤 이전 요청이 실패하면, 제출한 적 없는 새 입력이 실패한
-  // 것처럼 보이면 안 된다.
-  it("대기 중 입력을 바꾸면 이전 질의의 실패가 새 입력의 실패처럼 노출되지 않는다", async () => {
-    let rejectFetch: (reason?: unknown) => void = () => {};
-    const fetchMock = vi.fn().mockImplementationOnce(
-      () =>
-        new Promise((_, reject) => {
-          rejectFetch = reject;
-        }),
-    );
-    vi.stubGlobal("fetch", fetchMock);
+  it("질의 실패 후에도 입력창 잠금이 풀린다", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
 
     render(<QueryPanel isOffline={false} />);
     const input = screen.getByPlaceholderText("지금 상황을 그대로 적어보세요");
     fireEvent.change(input, { target: { value: "질의 A" } });
     fireEvent.click(screen.getByRole("button", { name: "질의하기" }));
 
-    fireEvent.change(input, { target: { value: "전혀 다른 질의 B" } });
-    await act(async () => {
-      rejectFetch(new Error("network down"));
-    });
-
-    // 입력 B 아래에 A의 실패 문구가 보이면 안 된다.
-    expect(
-      screen.queryByText("질의에 실패했습니다 — 다시 시도해주세요."),
-    ).not.toBeInTheDocument();
-
-    // 입력을 제출했던 A로 되돌리면 실패 문구가 정확한 짝으로 다시 보인다.
-    fireEvent.change(input, { target: { value: "질의 A" } });
-    expect(screen.getByText("질의에 실패했습니다 — 다시 시도해주세요.")).toBeInTheDocument();
+    await screen.findByText("질의에 실패했습니다 — 다시 시도해주세요.");
+    expect(input).not.toBeDisabled();
   });
 
   it("오류 후 재질의에 성공하면 오류 문구가 사라지고 결과가 표시된다", async () => {

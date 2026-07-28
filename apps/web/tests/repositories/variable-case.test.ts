@@ -143,9 +143,9 @@ describe("variableCaseRepo.listSimilarPairs", () => {
     // a와 유사도 0.95 — 임계값 위
     const near = await createConfirmedCase(hall, mixedVector(0, 1, 0.95));
     // a와 직교(유사도 0) — 임계값 아래
-    await createConfirmedCase(hall, unitVector(2));
+    const far = await createConfirmedCase(hall, unitVector(2));
 
-    const pairs = await variableCaseRepo.listSimilarPairs(0.9);
+    const pairs = await variableCaseRepo.listSimilarPairs(0.9, [a.id, near.id, far.id]);
 
     expect(pairs).toHaveLength(1);
     expect([pairs[0].aId, pairs[0].bId].sort()).toEqual([a.id, near.id].sort());
@@ -154,11 +154,13 @@ describe("variableCaseRepo.listSimilarPairs", () => {
   // a.id < b.id 조건이 각 쌍을 정확히 한 번만 내려보내고 자기 자신과의 비교도 제거한다.
   it("각 쌍은 한 번만 나오고 자기 자신과 짝지어지지 않는다", async () => {
     const hall = await createTestHall();
-    await createConfirmedCase(hall, unitVector(0));
-    await createConfirmedCase(hall, unitVector(0));
-    await createConfirmedCase(hall, unitVector(0));
+    const ids = [
+      (await createConfirmedCase(hall, unitVector(0))).id,
+      (await createConfirmedCase(hall, unitVector(0))).id,
+      (await createConfirmedCase(hall, unitVector(0))).id,
+    ];
 
-    const pairs = await variableCaseRepo.listSimilarPairs(0.9);
+    const pairs = await variableCaseRepo.listSimilarPairs(0.9, ids);
 
     // 동일 벡터 3건이면 서로 다른 쌍은 3개(3C2)뿐이어야 한다.
     expect(pairs).toHaveLength(3);
@@ -168,25 +170,39 @@ describe("variableCaseRepo.listSimilarPairs", () => {
     }
   });
 
-  it("케이스가 1건뿐이면 빈 배열을 반환한다", async () => {
+  // 코덱스 1차 P2: 케이스 목록 조회와 쌍 조회는 서로 다른 DB 스냅샷을 본다. 쌍 조회를
+  // 확정된 id 집합 안으로 못 박아, 그 사이 추가된 케이스가 그래프에 반쯤 끼어드는 것을 막는다.
+  it("candidateIds 밖의 케이스와는 짝지어지지 않는다 (스냅샷 불일치 차단)", async () => {
     const hall = await createTestHall();
-    await createConfirmedCase(hall, unitVector(0));
+    const a = await createConfirmedCase(hall, unitVector(0));
+    const b = await createConfirmedCase(hall, unitVector(0));
+    // 배치가 대상 목록을 확정한 뒤에 확정된 케이스를 흉내낸다 — 같은 벡터라 임계값은
+    // 넘지만, 이번 배치의 대상이 아니므로 엣지로 나와서는 안 된다.
+    const late = await createConfirmedCase(hall, unitVector(0));
 
-    expect(await variableCaseRepo.listSimilarPairs(0.5)).toEqual([]);
+    const pairs = await variableCaseRepo.listSimilarPairs(0.9, [a.id, b.id]);
+
+    expect(pairs).toHaveLength(1);
+    expect(pairs.flatMap((p) => [p.aId, p.bId])).not.toContain(late.id);
   });
 
-  it("케이스가 없으면 빈 배열을 반환한다", async () => {
-    expect(await variableCaseRepo.listSimilarPairs(0.5)).toEqual([]);
+  it("candidateIds가 1건 이하면 쿼리 없이 빈 배열을 반환한다", async () => {
+    const hall = await createTestHall();
+    const a = await createConfirmedCase(hall, unitVector(0));
+    await createConfirmedCase(hall, unitVector(0));
+
+    expect(await variableCaseRepo.listSimilarPairs(0.5, [a.id])).toEqual([]);
+    expect(await variableCaseRepo.listSimilarPairs(0.5, [])).toEqual([]);
   });
 
   // AD-6: 클러스터링도 검색과 동일하게 홀 무관 사업체 전체 범위다.
   it("서로 다른 홀의 케이스도 짝지어진다 (AD-6)", async () => {
     const hallA = await createTestHall({ name: "A홀" });
     const hallB = await createTestHall({ name: "B홀" });
-    await createConfirmedCase(hallA, unitVector(0));
-    await createConfirmedCase(hallB, unitVector(0));
+    const a = await createConfirmedCase(hallA, unitVector(0));
+    const b = await createConfirmedCase(hallB, unitVector(0));
 
-    expect(await variableCaseRepo.listSimilarPairs(0.9)).toHaveLength(1);
+    expect(await variableCaseRepo.listSimilarPairs(0.9, [a.id, b.id])).toHaveLength(1);
   });
 });
 

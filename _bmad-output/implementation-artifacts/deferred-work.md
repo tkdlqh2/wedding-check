@@ -24,6 +24,7 @@
 - **`insight_clusters.member_case_ids`(jsonb)에 FK 무결성이 없다** — `variable_cases`가 v1에서 append-only라 실질 위험이 없고, `db.transaction()`이 neon-http에서 throw해 원자 교체를 단일 문장으로 해야 하는 제약에서 나온 선택. 케이스 삭제 경로가 생기면 재검토.
 - **배치 실행 결과 알림 없음** — `insight_recompute_done` / `insight_recompute_failed` 구조화 로그만 남는다. AD-10이 알림 채널을 v1 범위 밖으로 둔 기존 결정과 동일. 배치가 며칠 연속 실패해도 화면의 "마지막 갱신" 시각으로만 알 수 있다.
 - **인사이트 → 템플릿 자동 승격 없음** — PRD §8.2 v2 범위. 화면 꼬리말에 "템플릿 반영 여부는 사람이 판단합니다"로 명시했다.
+- **오류 로그에서 메시지를 통째로 버린다(`lib/safe-error.ts`)** — NFR-5를 지키려고 오류 종류 + Postgres SQLSTATE만 남기고 메시지는 기록하지 않는다(drizzle이 실패한 쿼리의 파라미터를, 벤더 어댑터가 응답 본문을 메시지에 싣기 때문). 대가로 "왜 실패했는지"를 로그만 보고 알기 어려워졌다 — 벤더/DB 콘솔을 함께 봐야 한다. 더 나은 해법은 어댑터·리포지토리가 처음부터 **원문을 담지 않는 타입화된 오류**를 던지는 것이고, 그러면 메시지를 안전하게 로깅할 수 있다. 오류 타입 정리가 필요해지면 그때 재검토.
 
 ## Deferred from: story-3-4-evidence-based-response (2026-07-28) — 이어서
 

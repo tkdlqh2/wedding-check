@@ -190,6 +190,26 @@ describe("recomputeInsights — 동시 실행 차단 (AC 3)", () => {
     // 실패했으면 다음 배치가 곧바로 다시 시도할 수 있어야 한다.
     expect(await insightRepo.acquireLock(10)).toBe(true);
   });
+
+  // 코덱스 1차 P1: drizzle은 실패한 쿼리의 파라미터를 오류 메시지에 싣는다. 그 메시지를
+  // 그대로 저장하면 상황 설명 원문이 상태 행에 남아 NFR-5를 깬다.
+  it("실패를 기록할 때 상황 설명 원문이 last_error에 남지 않는다 (NFR-5)", async () => {
+    const { a } = await seedOneCluster();
+    generateMock.mockImplementation(async () => {
+      await db.delete(variableCases).where(eq(variableCases.id, a.id));
+      return labelResponse("라벨");
+    });
+
+    await expect(recomputeInsights()).rejects.toThrow();
+
+    const { lastError } = await insightRepo.readState();
+    expect(lastError).not.toBeNull();
+    // 시드한 두 케이스의 상황 설명 어느 조각도 들어 있으면 안 된다.
+    expect(lastError).not.toContain("축가 반주가 늦게 나왔다");
+    expect(lastError).not.toContain("MR 페이더");
+    // 저장되는 것은 오류 종류(+SQLSTATE) 라벨뿐이다.
+    expect(lastError).toMatch(/^[A-Za-z]+(\(\w+\))?$/);
+  });
 });
 
 describe("getInsights — 표시값은 저장값이 아니라 파생값이다", () => {

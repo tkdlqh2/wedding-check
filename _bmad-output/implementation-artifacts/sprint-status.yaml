@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: "07-26-2026 16:19"
-last_updated: "07-28-2026 21:20"
+last_updated: "07-28-2026 21:35"
 project: wedding-check
 project_key: WEDCHK
 tracking_system: file-system
@@ -87,6 +87,14 @@ development_status:
 # Per-story git pipeline substage (see GIT PIPELINE STAGE legend above).
 # 번호가 매겨진 스토리가 아닌 개별 수정(fix/*)도 동일한 파이프라인으로 추적한다.
 git_pipeline:
+  fix-login-page-visual-polish:
+    stage: merged
+    branch: fix/login-page-visual-polish
+    pr_url: "https://github.com/tkdlqh2/wedding-check/pull/30"
+    merge_commit: "e4d02da"
+    notes: "대표 피드백(2026-07-28, \"로그인 창만 어떻게 좀 고쳐봐 너무 구려\") — 로그인 화면 시각 완성도 개선. 기존 폼은 제출 버튼이 무스타일(브라우저 기본 회색 버튼)로 렌더링되고 입력창도 전역 .input 토큰 미적용, 카드 그림자 없이 밋밋했던 게 핵심 문제. design-tokens.css의 기존 DESIGN.md 토큰만 재사용(신규 색상 없음): 오렌지 워드마크(웨딩체크)+서브카피로 브랜드 정체성 부여, 입력창을 .input/.input--error로 통일, 제출 버튼을 .btn-primary(풀폭)로, 카드에 --shadow-card 적용. Playwright(playwright-core, 기존 캐시된 chromium-1228 실행파일 재사용, 프로젝트 의존성 미변경)로 정상/에러 두 상태 스크린샷 확인. 코덱스 리뷰 1라운드에서 P2 발견 — 브랜드 타이틀을 <div>로 바꾸며 로그인 화면의 유일한 <h1>이 사라져 스크린리더 헤딩 내비게이션이 끊기는 접근성 회귀. 같은 클래스를 유지한 채 h1로 되돌리고 브라우저 기본 h1 마진을 margin:0으로 중화(추가 커밋). 2라운드 재리뷰 클린. CI 그린 확인 후 gh pr merge --merge --delete-branch로 병합(fast-forward)."
+    last_updated: "07-28-2026 21:35"
+
   fix-ceremony-instance-item-order-arrows:
     stage: merged
     branch: fix/ceremony-instance-item-order-arrows

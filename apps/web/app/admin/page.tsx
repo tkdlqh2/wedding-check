@@ -1,8 +1,7 @@
+import { redirect } from "next/navigation";
+
+// 대표 지시(2026-07-28): 관리자 로그인 직후 기본 홈은 예식 탭이다 — /admin 자체는
+// 별도 콘텐츠 없이 예식 목록으로 보낸다.
 export default function AdminHomePage() {
-  return (
-    <section>
-      <h1>관리자 홈</h1>
-      <p>홀·템플릿·예식·인사이트 관리 화면은 다음 스토리에서 채워집니다.</p>
-    </section>
-  );
+  redirect("/admin/ceremonies");
 }

@@ -3,22 +3,26 @@
 import { useActionState, useEffect, useRef } from "react";
 import {
   addAdHocItemAction,
+  addAdHocStepAction,
   updateInstanceItemAction,
   type InstanceItemFormState,
 } from "./actions";
+import { VideoUpload } from "../../../templates/[hallId]/video-upload";
 const initialState: InstanceItemFormState = {};
 
 // Story 5.8: apps/web/app/admin/templates/[hallId]/checklist-item-form.tsx와 동일한
 // useActionState 패턴 — "이 예식에만" 체크 항목을 추가/수정한다. 세 가지 쓰임:
-// (1) item이 있으면 수정 폼(제목+설명). (2) item 없이 stepContext가 있으면 기존 단계
-// (템플릿 단계 또는 이미 만든 ad-hoc 단계)에 항목을 추가하는 한 줄 빠른 입력.
-// (3) item 없이 isNewStep이면 완전히 새 단계 + 그 단계의 첫 항목을 함께 만드는 폼.
+// (1) item이 있으면 수정 폼(제목+설명+시연 영상). (2) item 없이 stepContext가 있으면
+// 기존 단계(템플릿 단계 또는 이미 만든 ad-hoc 단계)에 항목을 추가하는 한 줄 빠른 입력.
+// (3) item 없이 isNewStep이면 템플릿 편집기처럼 단계명만으로 새 단계를 만드는 폼
+// (대표 지시 2026-07-28 — 항목은 만들어진 단계 카드의 빠른 추가에서 이어서 등록).
 export function InstanceItemForm({
   hallId,
   ceremonyId,
   item,
   stepContext,
   isNewStep,
+  blobEnabled,
   onSuccess,
   onCancel,
 }: {
@@ -33,10 +37,15 @@ export function InstanceItemForm({
   };
   stepContext?: { templateItemId?: string | null; groupRootId?: string | null };
   isNewStep?: boolean;
+  blobEnabled?: boolean;
   onSuccess?: () => void;
   onCancel?: () => void;
 }) {
-  const action = item ? updateInstanceItemAction : addAdHocItemAction;
+  const action = item
+    ? updateInstanceItemAction
+    : isNewStep
+      ? addAdHocStepAction
+      : addAdHocItemAction;
   const [state, formAction, isPending] = useActionState(action, initialState);
   const formRef = useRef<HTMLFormElement>(null);
   const wasPending = useRef(false);
@@ -85,29 +94,29 @@ export function InstanceItemForm({
           />
         </form>
 
-        {/* 템플릿 편집기(checklist-item-form.tsx)와 동일한 시연 영상 섹션 — 영상은
-            템플릿의 체크리스트 항목(demo_videos)에 붙는 공용 자산이라, 이 화면("이
-            예식에만 반영" 약속)에서 업로드/교체를 노출하면 모든 예식의 영상이 조용히
-            바뀐다(코덱스 리뷰 P1) — 여기서는 재생만 제공하고, 등록/교체는 홀 템플릿
-            편집기로 안내한다. */}
+        {/* 템플릿 편집기(checklist-item-form.tsx)와 동일한 시연 영상 섹션 — 재생 +
+            업로드/교체. 대표 지시(2026-07-28): 여기서 올린 영상은 이 예식에만 반영된다
+            — 인스턴스 항목의 전용 영상(checklist_instance_items.video_url)으로 저장돼
+            홀 템플릿의 공용 영상은 바뀌지 않는다(전용 업로드 라우트). 템플릿 영상이
+            있는 항목은 교체(오버라이드), ad-hoc 항목은 신규 등록이 된다. */}
         <div className="instance-item-form-panel__video">
           <span className="instance-item-form-panel__video-label">시연 영상</span>
           {item.videoUrl ? (
             <video controls preload="metadata" src={item.videoUrl} />
           ) : (
-            <p className="instance-item-form-panel__video-empty">
-              {item.templateItemCheckId
-                ? "영상 없음"
-                : "영상 없음 — 이 예식에만 추가된 항목은 시연 영상을 붙일 수 없습니다"}
-            </p>
+            <p className="instance-item-form-panel__video-empty">영상 없음</p>
           )}
-          {item.templateItemCheckId && (
-            <p className="instance-item-form-panel__video-hint">
-              영상은 홀 공용 자산이라 여기서는 재생만 됩니다 — 등록/교체는{" "}
-              <a href={`/admin/templates/${hallId}`}>홀 체크리스트 템플릿</a>에서 하세요
-              (모든 예식에 함께 반영됩니다).
-            </p>
-          )}
+          <VideoUpload
+            hallId={hallId}
+            checklistItemId={item.id}
+            endpointBase={`/api/ceremonies/${hallId}/${ceremonyId}/items/${item.id}/video`}
+            blobEnabled={Boolean(blobEnabled)}
+            currentVideoUrl={item.videoUrl ?? undefined}
+          />
+          <p className="instance-item-form-panel__video-hint">
+            여기서 올린 영상은 <strong>이 예식에만</strong> 반영됩니다 — 홀 템플릿의 공용
+            영상은 바뀌지 않습니다.
+          </p>
         </div>
 
         <div className="instance-item-form-panel__footer">
@@ -142,15 +151,15 @@ export function InstanceItemForm({
         <>
           <input type="hidden" name="templateItemId" value={stepContext?.templateItemId ?? ""} />
           <input type="hidden" name="groupRootId" value={stepContext?.groupRootId ?? ""} />
+          <input
+            name="title"
+            type="text"
+            required
+            placeholder="이 예식에만 필요한 체크 항목 추가"
+            className={state.error ? "input input--error" : "input"}
+          />
         </>
       )}
-      <input
-        name="title"
-        type="text"
-        required
-        placeholder={isNewStep ? "이 단계의 첫 체크 항목" : "이 예식에만 필요한 체크 항목 추가"}
-        className={!isNewStep && state.error ? "input input--error" : "input"}
-      />
       <button type="submit" className={isNewStep ? "btn-primary" : "btn-secondary"} disabled={isPending}>
         {isPending ? "추가 중..." : isNewStep ? "단계 추가" : "추가"}
       </button>

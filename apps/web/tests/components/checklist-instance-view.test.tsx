@@ -19,6 +19,11 @@ const initialCeremony = {
   status: "upcoming",
 };
 
+// 대표 지시(2026-07-28): 체크는 진행중(ongoing)에만 가능하다 — 체크 동작을 검증하는
+// 테스트는 진행중 픽스처를 쓴다.
+const ongoingCeremony = { ...initialCeremony, status: "ongoing" };
+const doneCeremony = { ...initialCeremony, status: "done" };
+
 const initialItems = [
   {
     id: "item-1",
@@ -66,13 +71,13 @@ function makeItem(overrides: Partial<TestItem> & { id: string }): TestItem {
   };
 }
 
-function renderView() {
+function renderView(ceremony = initialCeremony) {
   return render(
     <ChecklistInstanceView
       hallId="hall-1"
       ceremonyId="ceremony-1"
       hallName="1층 홀"
-      initialCeremony={initialCeremony}
+      initialCeremony={ceremony}
       initialItems={initialItems}
     />,
   );
@@ -89,8 +94,8 @@ describe("ChecklistInstanceView", () => {
     vi.useRealTimers();
   });
 
-  it("체크 버튼 탭 시 즉시 완료 상태가 반영되고 진행 카운트가 오른다 (AC 1)", () => {
-    const { container } = renderView();
+  it("진행중 예식에서 체크 버튼 탭 시 즉시 완료 상태가 반영되고 진행 카운트가 오른다 (AC 1)", () => {
+    const { container } = renderView(ongoingCeremony);
 
     const progressDone = container.querySelector(".run-header-card__progress-done");
     const check = screen.getByRole("button", { name: "조명 전환 체크" });
@@ -102,6 +107,85 @@ describe("ChecklistInstanceView", () => {
     expect(check.className).toMatch(/run-item__check--done/);
     expect(check.getAttribute("aria-pressed")).toBe("true");
     expect(progressDone?.textContent).toBe("1");
+  });
+
+  // 대표 지시(2026-07-28): 예식 시작을 누르기 전에는 체크할 수 없다.
+  it("예정(upcoming) 상태에서는 체크 버튼이 잠겨 탭해도 완료되지 않는다", () => {
+    const { container } = renderView();
+
+    const check = screen.getByRole("button", { name: "조명 전환 체크" });
+    expect(check).toBeDisabled();
+
+    fireEvent.click(check);
+
+    expect(check.className).not.toMatch(/run-item__check--done/);
+    expect(container.querySelector(".run-header-card__progress-done")?.textContent).toBe("0");
+    expect(screen.getByText(/예식 시작을 누르면 체크할 수 있어요/)).toBeInTheDocument();
+  });
+
+  // 대표 지시(2026-07-28): 예식 종료 = 전체 완료 처리(새로고침해도 유지되도록 상태에서 파생).
+  it("종료(done) 상태에서는 모든 항목이 완료로 표시되고 체크가 잠긴다", () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ feedback: null }) }),
+    );
+    const { container } = renderView(doneCeremony);
+
+    expect(container.querySelector(".run-header-card__progress-done")?.textContent).toBe("2");
+    const check = screen.getByRole("button", { name: "조명 전환 체크" });
+    expect(check.className).toMatch(/run-item__check--done/);
+    expect(check).toBeDisabled();
+  });
+
+  // 프로토타입 RunScreen.js showFeedback: status === 'done' — 종료 후에만 피드백 섹션.
+  // 피드백 칩은 유효한 templateItemId(UUID)가 있는 단계만 노출된다(Story 3.1 AC 1).
+  it("종료(done) 상태에서만 피드백 섹션이 단계 칩과 함께 나타난다", () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ feedback: null }) }),
+    );
+    const uuidItems = [
+      makeItem({
+        id: "item-1",
+        templateItemId: "11111111-1111-4111-8111-111111111111",
+        stepName: "신랑입장",
+        title: "조명 전환",
+        sortOrder: 1,
+      }),
+      makeItem({
+        id: "item-2",
+        templateItemId: "22222222-2222-4222-8222-222222222222",
+        stepName: "축가",
+        title: "음향 준비",
+        sortOrder: 2,
+      }),
+    ];
+    const { unmount } = render(
+      <ChecklistInstanceView
+        hallId="hall-1"
+        ceremonyId="ceremony-1"
+        hallName="1층 홀"
+        initialCeremony={doneCeremony}
+        initialItems={uuidItems}
+      />,
+    );
+
+    expect(screen.getByText(/예식 피드백 남기기/)).toBeInTheDocument();
+    // 단계 칩 — 첫 단계가 자동 선택된다(피드백 칩은 aria-pressed 토글).
+    expect(screen.getByRole("button", { name: "신랑입장", pressed: true })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "축가", pressed: false })).toBeInTheDocument();
+    unmount();
+
+    render(
+      <ChecklistInstanceView
+        hallId="hall-1"
+        ceremonyId="ceremony-1"
+        hallName="1층 홀"
+        initialCeremony={ongoingCeremony}
+        initialItems={uuidItems}
+      />,
+    );
+    expect(screen.queryByText(/예식 피드백 남기기/)).not.toBeInTheDocument();
   });
 
   it("헤더 카드에 시간+신랑신부 제목이 표시된다", () => {

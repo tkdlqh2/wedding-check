@@ -10,10 +10,11 @@ export function HallRow({ hall }: { hall: { id: string; name: string } }) {
   if (editing) {
     return (
       <li className="hall-row hall-row--editing">
-        <HallForm hall={hall} onSuccess={() => setEditing(false)} />
-        <button type="button" className="btn-secondary" onClick={() => setEditing(false)}>
-          취소
-        </button>
+        <HallForm
+          hall={hall}
+          onSuccess={() => setEditing(false)}
+          onCancel={() => setEditing(false)}
+        />
       </li>
     );
   }

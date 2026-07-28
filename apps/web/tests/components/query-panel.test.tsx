@@ -330,6 +330,30 @@ describe("QueryPanel (AC 1, 3)", () => {
     expect(screen.getByText("주례자가 예고 없이 순서를 바꿈")).toBeInTheDocument();
   });
 
+  // 코덱스 리뷰 P2: 2xx인데 본문이 깨졌으면 렌더링 중 크래시해 오류 카드조차 뜨지
+  // 않는다 — 예식 중 화면이 죽는 것이 최악이다. 배열 원소 하나하나까지 검증한다.
+  it.each([
+    ["JSON이 아님", () => { throw new Error("not json"); }],
+    ["matches 키 없음", () => ({})],
+    ["matches가 배열이 아님", () => ({ matches: "nope" })],
+    ["원소가 null", () => ({ matches: [null] })],
+    ["원소에 필수 필드 누락", () => ({ matches: [{ id: "x", situation: "s" }] })],
+    ["similarity가 숫자가 아님", () => ({ matches: [makeMatch({ similarity: "높음" })] })],
+  ])("2xx인데 본문 셰이프가 깨지면 오류 카드로 드러낸다 — %s", async (_label, json) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => json() }));
+
+    render(<QueryPanel isOffline={false} />);
+    fireEvent.change(screen.getByPlaceholderText("지금 상황을 그대로 적어보세요"), {
+      target: { value: "질의" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "질의하기" }));
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.getByText("응답을 읽지 못했습니다. 다시 시도해주세요.")).toBeInTheDocument();
+    // 연결은 멀쩡하므로 네트워크 문구로 잘못 안내하지 않는다.
+    expect(screen.queryByText("네트워크 연결이 끊겼습니다")).not.toBeInTheDocument();
+  });
+
   // 예식 중 화면에 "Invalid Date"가 노출되면 안 된다 — 날짜 조각만 생략한다.
   it("createdAt이 잘못된 값이면 날짜 없이 홀·단계만 표시한다 (AC 1)", async () => {
     vi.stubGlobal(

@@ -40,6 +40,40 @@ const SESSION_ERROR: QueryError = {
   description: "다시 로그인한 뒤 질의해주세요.",
 };
 
+const MALFORMED_ERROR: QueryError = {
+  kind: "server",
+  title: "질의에 실패했습니다",
+  description: "응답을 읽지 못했습니다. 다시 시도해주세요.",
+};
+
+// 코덱스 리뷰 P2: 2xx인데 본문이 JSON이 아니거나 기대 셰이프가 아니면(프록시가 끼어든
+// HTML, 배포 중 구버전 응답 등) 렌더링 중 크래시해 오류 카드조차 뜨지 않는다 — 예식
+// 중에는 화면이 죽는 것이 최악이다. checklist-cache.ts가 확립한 검증 방식(최상위만
+// 보지 말고 배열 원소 하나하나까지, Story 2.3 코덱스 4차 P2 교훈)을 그대로 따른다.
+function isValidMatch(value: unknown): value is QueryMatchDto {
+  if (!value || typeof value !== "object") return false;
+  const m = value as Record<string, unknown>;
+  return (
+    typeof m.id === "string" &&
+    typeof m.stepName === "string" &&
+    typeof m.situation === "string" &&
+    typeof m.outcome === "string" &&
+    typeof m.rationale === "string" &&
+    Array.isArray(m.tags) &&
+    typeof m.hallName === "string" &&
+    typeof m.similarity === "number" &&
+    Number.isFinite(m.similarity) &&
+    typeof m.createdAt === "string"
+  );
+}
+
+function parseMatches(body: unknown): QueryMatchDto[] | null {
+  if (!body || typeof body !== "object") return null;
+  const matches = (body as { matches?: unknown }).matches;
+  if (!Array.isArray(matches) || !matches.every(isValidMatch)) return null;
+  return matches;
+}
+
 // 매칭 카드 메타(AC 1): 프로토타입 RunScreen.js 130행 {m.meta} 자리 — 발생 홀을
 // 표시용 태그로 붙인다(AD-6 — 검색 자체는 홀 무관 사업체 전체 범위다).
 const metaDateFormatter = new Intl.DateTimeFormat("ko-KR", {
@@ -123,8 +157,15 @@ export function QueryPanel({ isOffline }: { isOffline: boolean }) {
         setError(await toResponseError(res));
         return;
       }
-      const data: { matches: QueryMatchDto[] } = await res.json();
-      setMatches(data.matches);
+      // 본문 파싱 실패를 try의 catch로 흘려보내면 연결이 멀쩡한데도 "네트워크 연결이
+      // 끊겼습니다"로 잘못 안내된다 — 여기서 직접 받아 서버 오류로 구분한다.
+      const body: unknown = await res.json().catch(() => null);
+      const parsed = parseMatches(body);
+      if (parsed === null) {
+        setError(MALFORMED_ERROR);
+        return;
+      }
+      setMatches(parsed);
     } catch {
       // fetch 자체가 throw하는 경우만 실제 연결 실패다(Story 2.3 폴링과 동일 판별).
       // AD-5/DESIGN.md §14: 질의 실패는 조용한 재시도 없이 즉시 드러낸다.

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import {
   removeInstanceItem,
   addAdHocInstanceItem,
+  addAdHocInstanceStep,
   updateInstanceItem,
   renameInstanceStep,
   deleteInstanceStep,
@@ -56,6 +57,29 @@ export async function addAdHocItemAction(
       templateItemId: templateItemIdRaw || null,
       groupRootId: groupRootIdRaw || null,
     });
+  } catch (err) {
+    if (err instanceof ChecklistInstanceValidationError) return { error: err.message };
+    throw err;
+  }
+  revalidatePath(`/admin/ceremonies/${hallId}/${ceremonyId}`);
+  return {};
+}
+
+// 대표 지시(2026-07-28): 새 단계는 템플릿 편집기처럼 단계명만으로 추가한다 — 항목은
+// 만들어진 단계 카드의 빠른 추가에서 이어서 등록.
+export async function addAdHocStepAction(
+  _prevState: InstanceItemFormState,
+  formData: FormData,
+): Promise<InstanceItemFormState> {
+  await requireAdminSession();
+  const hallId = String(formData.get("hallId") ?? "");
+  const ceremonyId = String(formData.get("ceremonyId") ?? "");
+  if (!isValidUuid(hallId) || !isValidUuid(ceremonyId)) {
+    return { error: "잘못된 요청입니다" };
+  }
+  const stepName = String(formData.get("stepName") ?? "");
+  try {
+    await addAdHocInstanceStep(hallId, ceremonyId, stepName);
   } catch (err) {
     if (err instanceof ChecklistInstanceValidationError) return { error: err.message };
     throw err;

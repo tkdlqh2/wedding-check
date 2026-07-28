@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: "07-26-2026 16:19"
-last_updated: "07-28-2026 13:10"
+last_updated: "07-28-2026 21:10"
 project: wedding-check
 project_key: WEDCHK
 tracking_system: file-system
@@ -65,7 +65,7 @@ development_status:
   3-1-natural-language-feedback: done
   3-2-feedback-structuring-confirmation: done
   3-3-natural-language-query: done
-  3-4-evidence-based-response: backlog
+  3-4-evidence-based-response: ready-for-dev
   epic-3-retrospective: optional
 
   epic-4: backlog

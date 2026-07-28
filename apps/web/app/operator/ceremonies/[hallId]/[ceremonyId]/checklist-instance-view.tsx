@@ -103,6 +103,8 @@ export function ChecklistInstanceView({
   const [isOffline, setIsOffline] = useState(false);
   const [statusPending, setStatusPending] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
+  // 예식 종료 후 피드백 섹션에서 선택된 단계 칩(null = 첫 단계 자동 선택).
+  const [selectedFeedbackStepId, setSelectedFeedbackStepId] = useState<string | null>(null);
   // 오프라인(연결 자체 실패)과 구분되는 온라인 상태의 서버 오류(코덱스 리뷰 1차 P2) —
   // 이 경우 캐시로 조용히 되돌아가지 않고 별도로 표시한다. 세션 만료(401)만 로그인으로
   // 리다이렉트하고, 나머지(404/500 등)는 마지막 화면을 유지한 채 오류만 알린다.
@@ -206,6 +208,20 @@ export function ChecklistInstanceView({
     });
   }
 
+  // 대표 지시(2026-07-28): 예식 종료를 누르면 피드백 섹션이 바로 나타나야 한다 —
+  // 방금 이 화면에서 종료를 누른 경우에만(처음부터 done으로 열린 경우 제외) 렌더된
+  // 피드백 섹션으로 스크롤한다. ref 플래그라 setState 없이 소비된다.
+  const justEndedRef = useRef(false);
+  const feedbackSectionRef = useRef<HTMLDivElement>(null);
+  const ceremonyStatusForScroll = asCeremonyStatus(ceremony.status);
+
+  useEffect(() => {
+    if (ceremonyStatusForScroll === "done" && justEndedRef.current) {
+      justEndedRef.current = false;
+      feedbackSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [ceremonyStatusForScroll]);
+
   function toggleStep(groupKey: string) {
     setCollapsedSteps((prev) => {
       const next = new Set(prev);
@@ -251,6 +267,10 @@ export function ChecklistInstanceView({
       // POST가 진행되는 동안 새로 시작된 폴링이 있을 수도 있다 — 반영 직전에 한 번 더
       // 무효화해, 이 확정 상태가 어떤 폴링 응답에도 덮이지 않게 한다.
       latestRequestIdRef.current++;
+      // 방금 종료를 누른 경우에만 피드백 섹션으로 스크롤(위 useEffect가 소비).
+      if (asCeremonyStatus(updated.status) === "done") {
+        justEndedRef.current = true;
+      }
       setCeremony(updated);
       writeCache(ceremonyId, { ceremony: updated, items });
     } catch {
@@ -266,8 +286,29 @@ export function ChecklistInstanceView({
   const contractChips = Object.entries(ceremony.contractConditions)
     .filter(([, enabled]) => enabled)
     .map(([key]) => CONTRACT_LABELS[key] ?? key);
-  const doneCount = items.filter((item) => doneIds.has(item.id)).length;
+  // 대표 지시(2026-07-28): 체크는 진행중(ongoing)에만 가능하다 — 시작 전에는 잠겨
+  // 있고, 예식 종료를 누르면 전체 완료로 처리된다. 종료 상태의 완료는 doneIds가 아니라
+  // 상태에서 파생시켜 새로고침/다른 기기에서도 동일하게 보인다.
+  const checksLocked = ceremonyStatus !== "ongoing";
+  const allComplete = ceremonyStatus === "done";
+  const isItemDone = (itemId: string) => allComplete || doneIds.has(itemId);
+  const doneCount = allComplete
+    ? items.length
+    : items.filter((item) => doneIds.has(item.id)).length;
   const stepGroups = groupItemsByStep(items);
+  // 프로토타입 RunScreen.js 156~189행 — 예식 종료(status done) 후에만 나타나는 피드백
+  // 섹션. 피드백은 단계(templateItemId) 단위로 저장되므로 단계 칩으로 대상을 고른다.
+  const feedbackSteps = stepGroups
+    .map(([, stepItems]) => stepItems[0])
+    .filter(
+      (first): first is OperatorItem & { templateItemId: string } =>
+        Boolean(first.templateItemId && isValidUuid(first.templateItemId)),
+    )
+    .map((first) => ({ templateItemId: first.templateItemId, stepName: first.stepName }));
+  const activeFeedbackStepId =
+    feedbackSteps.find((s) => s.templateItemId === selectedFeedbackStepId)?.templateItemId ??
+    feedbackSteps[0]?.templateItemId ??
+    null;
 
   return (
     <div className="run-screen">
@@ -349,7 +390,14 @@ export function ChecklistInstanceView({
       )}
 
       <div className="run-screen__section-title">
-        체크리스트 <span>단계를 열어 항목별로 체크하세요</span>
+        체크리스트{" "}
+        <span>
+          {ceremonyStatus === "upcoming"
+            ? "예식 시작을 누르면 체크할 수 있어요"
+            : ceremonyStatus === "done"
+              ? "종료된 예식 — 전체 완료 처리됐어요"
+              : "단계를 열어 항목별로 체크하세요"}
+        </span>
       </div>
 
       {items.length === 0 ? (
@@ -357,7 +405,7 @@ export function ChecklistInstanceView({
       ) : (
         <div className="run-step-list">
           {stepGroups.map(([groupKey, stepItems], index) => {
-            const stepDone = stepItems.filter((item) => doneIds.has(item.id)).length;
+            const stepDone = stepItems.filter((item) => isItemDone(item.id)).length;
             const allDone = stepDone === stepItems.length;
             const expanded = !collapsedSteps.has(groupKey);
             return (
@@ -399,7 +447,7 @@ export function ChecklistInstanceView({
                 {expanded && (
                   <div className="run-step__body">
                     {stepItems.map((item) => {
-                      const itemDone = doneIds.has(item.id);
+                      const itemDone = isItemDone(item.id);
                       const hasDetail = Boolean(item.description || item.videoUrl);
                       const detailOpen = openDetailId === item.id;
                       return (
@@ -408,9 +456,14 @@ export function ChecklistInstanceView({
                             <button
                               type="button"
                               className={
-                                "run-item__check" + (itemDone ? " run-item__check--done" : "")
+                                "run-item__check" +
+                                (itemDone ? " run-item__check--done" : "") +
+                                (checksLocked ? " run-item__check--locked" : "")
                               }
-                              onClick={() => toggleDone(item.id)}
+                              onClick={() => {
+                                if (!checksLocked) toggleDone(item.id);
+                              }}
+                              disabled={checksLocked}
                               aria-pressed={itemDone}
                               aria-label={`${item.title} 체크`}
                             >
@@ -452,22 +505,60 @@ export function ChecklistInstanceView({
                         </div>
                       );
                     })}
-                    {/* Story 3.1(AC 1): 단계당 피드백은 유효한 templateItemId가 있어야
-                        저장할 수 있다 — 원본 단계가 삭제된 그룹은 건너뛴다. */}
-                    {stepItems[0].templateItemId && isValidUuid(stepItems[0].templateItemId) ? (
-                      <div className="run-step__feedback">
-                        <StepFeedback
-                          hallId={hallId}
-                          ceremonyId={ceremonyId}
-                          templateItemId={stepItems[0].templateItemId}
-                        />
-                      </div>
-                    ) : null}
                   </div>
                 )}
               </section>
             );
           })}
+        </div>
+      )}
+
+      {/* 프로토타입 RunScreen.js 156~189행 — 피드백은 예식 종료를 누르면 자동으로
+          나타난다(대표 지시 2026-07-28, showFeedback: status === 'done'). 피드백은
+          단계(templateItemId) 단위로 저장되므로(Story 3.1 AC 1) 단계 칩으로 대상을
+          고르고, 원본 단계가 삭제된 그룹은 칩에서 제외된다. */}
+      {ceremonyStatus === "done" && feedbackSteps.length > 0 && (
+        <div className="run-feedback" ref={feedbackSectionRef}>
+          <div className="run-feedback__title">
+            예식 피드백 남기기{" "}
+            <span>
+              방금 종료된 {timeFormatter.format(ceremonyAt)}
+              {couple ? ` ${couple}` : ""} 예식
+            </span>
+          </div>
+          <p className="run-feedback__subtitle">
+            기억이 생생할 때 적어주세요. 형식은 시스템이 알아서 정리합니다.
+          </p>
+          <div className="run-feedback__card">
+            <span className="run-feedback__chips-label">단계 선택</span>
+            <div className="run-feedback__chips">
+              {feedbackSteps.map((step) => (
+                <button
+                  key={step.templateItemId}
+                  type="button"
+                  className={
+                    "run-feedback__chip" +
+                    (step.templateItemId === activeFeedbackStepId
+                      ? " run-feedback__chip--selected"
+                      : "")
+                  }
+                  onClick={() => setSelectedFeedbackStepId(step.templateItemId)}
+                  aria-pressed={step.templateItemId === activeFeedbackStepId}
+                >
+                  {step.stepName}
+                </button>
+              ))}
+            </div>
+            {activeFeedbackStepId && (
+              <StepFeedback
+                key={activeFeedbackStepId}
+                hallId={hallId}
+                ceremonyId={ceremonyId}
+                templateItemId={activeFeedbackStepId}
+                autoExpand
+              />
+            )}
+          </div>
         </div>
       )}
     </div>

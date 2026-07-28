@@ -9,6 +9,9 @@ const LINKS = [
   { href: "/admin/halls", label: "홀" },
   { href: "/admin/ceremonies", label: "예식" },
   { href: "/admin/members", label: "회원" },
+  // Story 4.1: 화면이 생기기 전까지 --placeholder span으로만 있던 항목 — 이제 실제
+  // 라우트로 연결한다(Story 5.1의 교훈: 도달 경로 없는 화면을 남기지 않는다).
+  { href: "/admin/insights", label: "인사이트" },
 ] as const;
 
 // Story 5.2 AC 5: 현재 위치한 탭을 prototype/js/screens/AdminScreen.js와 동일하게
@@ -34,7 +37,6 @@ export function AdminNavLinks() {
           </Link>
         );
       })}
-      <span className="admin-nav__link admin-nav__link--placeholder">인사이트</span>
     </nav>
   );
 }

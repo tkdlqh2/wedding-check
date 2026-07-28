@@ -1,4 +1,5 @@
-import { asc, cosineDistance, desc, eq } from "drizzle-orm";
+import { and, asc, cosineDistance, desc, eq, inArray, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db } from "../index";
 import { halls, variableCases } from "../schema";
 
@@ -53,4 +54,118 @@ export async function searchBySimilarity(
     ...rest,
     similarity: 1 - Number(distance),
   }));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Story 4.1(FR-10): 클러스터링 입력. 위와 마찬가지로 **읽기 전용**이다.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ClusteringCase {
+  id: string;
+  stepName: string;
+  situation: string;
+  rationale: string;
+  hallId: string;
+  hallName: string;
+  createdAt: Date;
+}
+
+// 임베딩 컬럼은 select하지 않는다 — 1024차원 벡터 N개를 앱으로 실어올 이유가 없다.
+// 벡터가 필요한 유일한 계산(쌍 유사도)은 listSimilarPairs가 DB 안에서 끝낸다.
+export async function listAllForClustering(): Promise<ClusteringCase[]> {
+  return db
+    .select({
+      id: variableCases.id,
+      stepName: variableCases.stepName,
+      situation: variableCases.situation,
+      rationale: variableCases.rationale,
+      hallId: variableCases.hallId,
+      hallName: halls.name,
+      createdAt: variableCases.createdAt,
+    })
+    .from(variableCases)
+    .innerJoin(halls, eq(halls.id, variableCases.hallId))
+    .orderBy(asc(variableCases.createdAt), asc(variableCases.id));
+}
+
+/**
+ * 유사도가 `minSimilarity` 이상인 케이스 쌍(= 클러스터링 그래프의 엣지).
+ *
+ * `a.id < b.id` 조건이 각 쌍을 정확히 한 번만 내려보내고 자기 자신과의 비교도 제거한다.
+ * 임계값을 넘는 쌍만 반환하므로 결과가 희소하다 — 전체 N²이 앱으로 오지 않는다.
+ * ANN 인덱스는 쓰지 않는다(searchBySimilarity와 동일한 이유 — 근사 검색은 결정성을 해친다).
+ *
+ * `candidateIds`는 **필수**다(코덱스 1차 P2). 케이스 목록 조회와 이 쌍 조회는 서로 다른
+ * HTTP 문장이라 각자 다른 DB 스냅샷을 본다 — 그 사이에 새 변수 케이스가 확정되면
+ * 한쪽에만 나타난다. 쌍 조회를 "이미 확정된 대상 id 집합" 안으로 못 박으면 조회
+ * 순서·타이밍과 무관하게 항상 같은 그래프가 나온다(그 사이 추가된 케이스는 이번
+ * 배치에서 그냥 빠지고 다음 배치에 들어온다 — 정상 동작).
+ *
+ * [규모 한계] id를 바인드 파라미터로 두 번 넘기므로 케이스가 수만 건이 되면 Postgres
+ * 파라미터 상한(65535)에 닿는다. 파일럿 규모(수백 건)에서는 여유가 크고, 그 지경이면
+ * 정확 검색(ANN 미사용)과 O(N²) 쌍 계산부터 먼저 재설계 대상이다(deferred-work.md).
+ */
+export async function listSimilarPairs(
+  minSimilarity: number,
+  candidateIds: string[],
+): Promise<{ aId: string; bId: string }[]> {
+  if (candidateIds.length < 2) return [];
+
+  const a = alias(variableCases, "a");
+  const b = alias(variableCases, "b");
+  const maxDistance = 1 - minSimilarity;
+
+  return db
+    .select({ aId: a.id, bId: b.id })
+    .from(a)
+    .innerJoin(
+      b,
+      and(
+        sql`${a.id} < ${b.id}`,
+        sql`(${a.embedding} <=> ${b.embedding}) <= ${maxDistance}`,
+      ),
+    )
+    .where(and(inArray(a.id, candidateIds), inArray(b.id, candidateIds)))
+    // 출력 순서는 union-find 결과에 영향을 주지 않지만, 테스트 재현성과 NFR-1 관례상 고정한다.
+    .orderBy(asc(a.id), asc(b.id));
+}
+
+export interface EvidenceCase {
+  id: string;
+  stepName: string;
+  situation: string;
+  outcome: string;
+  rationale: string;
+  hallId: string;
+  hallName: string;
+  createdAt: Date;
+}
+
+/** 클러스터의 근거 목록(AC 4) 조회. 존재하지 않는 id는 결과에서 빠질 뿐 오류가 아니다. */
+export async function listByIds(ids: string[]): Promise<EvidenceCase[]> {
+  if (ids.length === 0) return [];
+  return db
+    .select({
+      id: variableCases.id,
+      stepName: variableCases.stepName,
+      situation: variableCases.situation,
+      outcome: variableCases.outcome,
+      rationale: variableCases.rationale,
+      hallId: variableCases.hallId,
+      hallName: halls.name,
+      createdAt: variableCases.createdAt,
+    })
+    .from(variableCases)
+    .innerJoin(halls, eq(halls.id, variableCases.hallId))
+    .where(inArray(variableCases.id, ids))
+    .orderBy(asc(variableCases.createdAt), asc(variableCases.id));
+}
+
+/** 통계 카드용. `since`를 주면 그 시각 이후 생성분만 센다. */
+export async function countCases(since?: Date): Promise<number> {
+  const rows = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(variableCases)
+    .where(since ? sql`${variableCases.createdAt} >= ${since}` : undefined);
+  return rows[0]?.count ?? 0;
 }

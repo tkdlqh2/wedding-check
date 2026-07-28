@@ -169,6 +169,13 @@
       "when": 1785297003000,
       "tag": "0023_instance-items-video-url",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1785297004000,
+      "tag": "0024_insight-clusters",
+      "breakpoints": true
     }
   ]
 }

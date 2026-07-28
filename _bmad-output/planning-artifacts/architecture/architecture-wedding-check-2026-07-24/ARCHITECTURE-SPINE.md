@@ -109,7 +109,7 @@ graph TD
   - **마이그레이션:** `drizzle-kit generate`로 생성한 마이그레이션은 CI(빌드 단계)에서 배포 전에 적용한다. 마이그레이션 실패 시 배포를 차단한다(실패한 스키마로 배포되는 상태 금지).
   - **FR-10 배치 실행:** Vercel Cron Job이 공유 시크릿 헤더로 보호된 Route Handler(`/api/cron/insight-recompute`)를 호출하는 방식으로 구현한다(장기 실행 워커 금지 — 서버리스 배포 모델과 불일치).
   - **관측성:** AI 질의 실패(FR-6/7 타임아웃·오류)와 "관련 사례 없음" 저신뢰 응답은 구조화된 JSON 로그로 구분 가능한 이벤트 타입을 남긴다(알림 연동은 v1 범위 밖, Deferred).
-  - **시크릿:** `OPENAI_API_KEY`는 Vercel 환경별(Preview/Production) 별도 값으로 관리한다. (2026-07-28 벤더 교체: `ANTHROPIC_API_KEY`+`VOYAGE_API_KEY` → `OPENAI_API_KEY` — AD-1 포트 경계 내 교체, 사용자 결정)
+  - **시크릿:** `OPENAI_API_KEY`와 `CRON_SECRET`은 Vercel 환경별(Preview/Production) 별도 값으로 관리한다. (2026-07-28 벤더 교체: `ANTHROPIC_API_KEY`+`VOYAGE_API_KEY` → `OPENAI_API_KEY` — AD-1 포트 경계 내 교체, 사용자 결정. `CRON_SECRET`은 Story 4.1에서 추가 — 미설정 시 배치 라우트가 503으로 fail closed.)
 
 ## Consistency Conventions
 

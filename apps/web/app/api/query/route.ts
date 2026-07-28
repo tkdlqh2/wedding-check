@@ -1,5 +1,6 @@
 import { requireSessionOr401 } from "@/lib/auth-guard";
 import { queryVariableCases, QueryValidationError } from "@/lib/services/query";
+import { toSafeErrorLabel } from "@/lib/safe-error";
 
 // Story 3.3(FR-6): 실행 중 자연어 상황 질의 Route Handler — 스파인 Structural
 // Seed/Capability Map이 확정한 경로(api/query). AD-3: 질의는 오퍼레이터 기능이지만
@@ -43,7 +44,10 @@ export async function POST(request: Request) {
     // AD-10 관측성: 임베딩 API 오류 등 예상 밖 실패를 로그 없이 502로만 뭉개면 실제
     // 버그와 일시적 장애를 구분할 수 없다(3.2 confirm 라우트와 동일 원칙). 이벤트
     // 타입을 남겨 질의 실패를 구조화 로그로 구분 가능하게 한다.
-    console.error(JSON.stringify({ event: "query_failed" }), err);
+    // raw err를 넘기지 않는다(Story 4.1 코덱스 1차 P1과 같은 계열): 임베딩 어댑터가
+    // 벤더 오류 본문(`await res.text()`)을 메시지에 붙이므로 질의 텍스트가 그 경로로
+    // 로그에 남을 수 있다 — 위에서 질의 텍스트를 제외한 것과 같은 이유(NFR-5).
+    console.error(JSON.stringify({ event: "query_failed", error: toSafeErrorLabel(err) }));
     return Response.json(
       { error: { code: "query_failed", message: "질의에 실패했습니다. 다시 시도해주세요" } },
       { status: 502 },

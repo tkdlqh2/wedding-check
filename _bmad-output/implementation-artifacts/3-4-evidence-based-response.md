@@ -4,7 +4,7 @@ baseline_commit: c4a1309
 
 # Story 3.4: 근거 기반 응답 및 관련 사례 없음 처리 (FR-7)
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -35,63 +35,69 @@ Story 3.3은 **질의 파이프라인**(질의창 → `/api/query` → 임베딩
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: 유사도 임계값 — 이 스토리의 안전장치 (AC: #3)**
-  - [ ] `lib/services/query.ts`에 `MIN_SIMILARITY = 0.5` 모듈 상수 추가. **환경변수로 덮어쓰지 않는다** — 이 값은 NFR-7/SM-2를 지키는 안전 게이트이며, 잘못된 설정 한 줄로 게이트가 꺼지는 경로를 만들지 않는다. NFR-1(결정성)도 상수여야 보장된다.
-  - [ ] 근거(아래 Dev Notes "임계값 0.5의 근거" 참고)를 상수 바로 위 주석으로 남긴다 — `[ASSUMPTION]`이며 실데이터 확보 후 SM-2 검수 세트로 재보정 필요.
-  - [ ] 필터는 **서비스에서** `searchBySimilarity` 결과에 적용한다(정책은 서비스, SQL 아님). `similarity >= MIN_SIMILARITY`인 것만 남긴다.
-  - [ ] **LIMIT 3 이후에 필터해도 정확하다** — 정렬이 distance 오름차순(= similarity 내림차순)이고 필터 술어가 distance에 단조이므로 `filter(top3) === top3(filter)`. 리포지토리를 over-fetch로 바꾸지 말 것(불필요한 변경).
-  - [ ] `queryVariableCases` 반환 타입을 `Promise<QueryResult>`로 변경: `{ matches: QueryMatch[]; topSimilarity: number | null }`. `topSimilarity`는 **필터 이전** 최고 유사도(케이스가 0건이면 `null`) — Task 3 관측성에만 쓰이며 클라이언트로 내려보내지 않는다.
-- [ ] **Task 2: 기존 서비스 테스트 회귀 수정 (AC: #2, #3)**
-  - [ ] ⚠️ `tests/services/query.test.ts`의 **"유사도 상위 3건까지만 반환한다"는 임계값 도입으로 반드시 깨진다** — 케이스 4건이 직교 축(similarity 1.0 / 0 / 0 / 0)이라 필터 후 1건만 남는다. 4건 모두 임계값 위(예: `mixedVector`로 0.95/0.9/0.85/0.8)로 배치해 "상위 3건 상한"의 의미를 유지하도록 재작성한다.
-  - [ ] 나머지 기존 테스트는 통과한다(AC 2 매칭 0.97/0.9, NFR-1 재실행 0.99/0.877, 빈 코퍼스) — 확인만 하고 손대지 말 것.
-  - [ ] 반환 타입 변경에 따라 기존 단언을 `result.matches` 기준으로 갱신.
-  - [ ] 신규 테스트: 임계값 미만 케이스만 있으면 `matches`가 빈 배열이고 `topSimilarity`는 실제 최고값을 담는다 / 경계값(정확히 `MIN_SIMILARITY`)은 **포함**된다(`>=`) / 임계값 이상·미만이 섞이면 이상만 남는다 / 코퍼스가 비면 `topSimilarity === null`.
-  - [ ] 신규 테스트: **`MIN_SIMILARITY`가 0.4~0.9 범위 안에 있다** — 0이나 1 같은 사고성 값으로 안전 게이트가 무력화/전면차단되는 것을 CI가 잡는다(값 자체를 고정하지는 않는다 — 재보정은 허용되어야 한다).
-- [ ] **Task 3: `/api/query` — 응답 형태 유지 + 무매칭 관측성 (AC: #3)**
-  - [ ] `app/api/query/route.ts`: 서비스 반환이 객체로 바뀌므로 `Response.json({ matches })`로 명시 구성. **`topSimilarity`를 응답 바디에 넣지 않는다**(클라이언트 계약 불변 — 3.3의 `QueryMatchDto` 그대로).
-  - [ ] `matches.length === 0`이면 AD-10 구조화 로그 1건: `console.info(JSON.stringify({ event: "query_no_match", topSimilarity }))`. **질의 텍스트는 절대 로그에 넣지 않는다**(NFR-5 — 질의에 상황 세부가 담긴다). 이 로그가 나중에 임계값을 실데이터로 재보정할 유일한 계측 근거다.
-  - [ ] 기존 401/400/502 경로와 `query_failed` 로그는 그대로 둔다.
-- [ ] **Task 4: 매칭 카드에 발생 홀 메타 태그 (AC: #1)**
-  - [ ] `query-panel.tsx` 매칭 카드 배지 줄 우측 끝(`margin-left: auto`)에 메타 텍스트 추가 — 프로토타입 `RunScreen.js` 130행 `{m.meta}`(12px, `#888`) 자리 그대로.
-  - [ ] 형식: `{M월 D일} · {hallName} · {stepName} 단계` (프로토타입 meta는 "6월 7일 · 주례사 단계"였고, AC 1이 요구하는 **발생 홀**을 그 사이에 넣는다).
-  - [ ] 날짜는 모듈 레벨 `Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "long", day: "numeric" })` — `checklist-instance-view.tsx` 16~21행과 동일 관례(weekday만 뺀다).
-  - [ ] `createdAt`이 파싱 불가한 값이면 날짜 조각을 생략하고 나머지(홀·단계)만 렌더링한다 — `Invalid Date` 문자열이 예식 중 화면에 노출되면 안 된다(Story 2.3 캐시 날짜 검증 교훈).
-  - [ ] `hallName`/`stepName`은 이미 3.3의 API 응답과 `QueryMatchDto`에 들어 있다 — **DTO·API·리포지토리 변경 불필요**.
-- [ ] **Task 5: "관련 사례 없음" 정식 카드 — 프로토타입 문자 그대로 (AC: #3)**
-  - [ ] `prototype/js/screens/RunScreen.js` 143~152행을 문자 그대로 이식해 3.3의 `.run-query__none` 플레인 텍스트를 대체한다:
+- [x] **Task 1: 유사도 임계값 — 이 스토리의 안전장치 (AC: #3)**
+  - [x] `lib/services/query.ts`에 `MIN_SIMILARITY` 모듈 상수 추가(**최종 0.42 — 실측 확정**). **환경변수로 덮어쓰지 않는다** — 이 값은 NFR-7/SM-2를 지키는 안전 게이트이며, 잘못된 설정 한 줄로 게이트가 꺼지는 경로를 만들지 않는다. NFR-1(결정성)도 상수여야 보장된다.
+  - [x] 근거를 상수 바로 위 주석으로 남긴다 — 최종적으로는 실측값(관련 0.500~0.674 / 무관 0.183~0.366)과 NFR-4 한계를 함께 기록했다.
+  - [x] 필터는 **서비스에서** `searchBySimilarity` 결과에 적용한다(정책은 서비스, SQL 아님). `similarity >= MIN_SIMILARITY`인 것만 남긴다.
+  - [x] **LIMIT 3 이후에 필터해도 정확하다** — 정렬이 distance 오름차순(= similarity 내림차순)이고 필터 술어가 distance에 단조이므로 `filter(top3) === top3(filter)`. 리포지토리를 over-fetch로 바꾸지 말 것(불필요한 변경).
+  - [x] `queryVariableCases` 반환 타입을 `Promise<QueryResult>`로 변경: `{ matches: QueryMatch[]; topSimilarity: number | null }`. `topSimilarity`는 **필터 이전** 최고 유사도(케이스가 0건이면 `null`) — Task 3 관측성에만 쓰이며 클라이언트로 내려보내지 않는다.
+- [x] **Task 2: 기존 서비스 테스트 회귀 수정 (AC: #2, #3)**
+  - [x] ⚠️ `tests/services/query.test.ts`의 **"유사도 상위 3건까지만 반환한다"는 임계값 도입으로 반드시 깨진다** — 케이스 4건이 직교 축(similarity 1.0 / 0 / 0 / 0)이라 필터 후 1건만 남는다. 4건 모두 임계값 위(예: `mixedVector`로 0.95/0.9/0.85/0.8)로 배치해 "상위 3건 상한"의 의미를 유지하도록 재작성한다.
+  - [x] 나머지 기존 테스트는 통과한다(AC 2 매칭 0.97/0.9, NFR-1 재실행 0.99/0.877, 빈 코퍼스) — 확인만 하고 손대지 말 것.
+  - [x] 반환 타입 변경에 따라 기존 단언을 `result.matches` 기준으로 갱신.
+  - [x] 신규 테스트: 임계값 미만 케이스만 있으면 `matches`가 빈 배열이고 `topSimilarity`는 실제 최고값을 담는다 / 경계는 ±0.02 straddle로 검증(정확히 같은 값은 pgvector 부동소수에서 갈려 flaky) / 임계값 이상·미만이 섞이면 이상만 남는다 / 코퍼스가 비면 `topSimilarity === null`.
+  - [x] 신규 테스트: **`MIN_SIMILARITY`가 실측 무관 최댓값(0.366)과 관련 최솟값(0.500) 사이에 있다** — 재보정은 허용하되 SM-2를 깨는 방향으로는 못 움직이게 고정(코덱스 2차 P2로 단순 범위 체크에서 교체).
+- [x] **Task 3: `/api/query` — 응답 형태 유지 + 무매칭 관측성 (AC: #3)**
+  - [x] `app/api/query/route.ts`: 서비스 반환이 객체로 바뀌므로 `Response.json({ matches })`로 명시 구성. **`topSimilarity`를 응답 바디에 넣지 않는다**(클라이언트 계약 불변 — 3.3의 `QueryMatchDto` 그대로).
+  - [x] `matches.length === 0`이면 AD-10 구조화 로그 1건: `console.info(JSON.stringify({ event: "query_no_match", topSimilarity }))`. **질의 텍스트는 절대 로그에 넣지 않는다**(NFR-5 — 질의에 상황 세부가 담긴다). 이 로그가 나중에 임계값을 실데이터로 재보정할 유일한 계측 근거다.
+  - [x] 기존 401/400/502 경로와 `query_failed` 로그는 그대로 둔다.
+- [x] **Task 4: 매칭 카드에 발생 홀 메타 태그 (AC: #1)**
+  - [x] `query-panel.tsx` 매칭 카드 배지 줄 우측 끝(`margin-left: auto`)에 메타 텍스트 추가 — 프로토타입 `RunScreen.js` 130행 `{m.meta}`(12px, `#888`) 자리 그대로.
+  - [x] 형식: `{M월 D일} · {hallName} · {stepName} 단계` (프로토타입 meta는 "6월 7일 · 주례사 단계"였고, AC 1이 요구하는 **발생 홀**을 그 사이에 넣는다).
+  - [x] 날짜는 모듈 레벨 `Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "long", day: "numeric" })` — `checklist-instance-view.tsx` 16~21행과 동일 관례(weekday만 뺀다).
+  - [x] `createdAt`이 파싱 불가한 값이면 날짜 조각을 생략하고 나머지(홀·단계)만 렌더링한다 — `Invalid Date` 문자열이 예식 중 화면에 노출되면 안 된다(Story 2.3 캐시 날짜 검증 교훈).
+  - [x] `hallName`/`stepName`은 이미 3.3의 API 응답과 `QueryMatchDto`에 들어 있다 — **DTO·API·리포지토리 변경 불필요**.
+- [x] **Task 5: "관련 사례 없음" 정식 카드 — 프로토타입 문자 그대로 (AC: #3)**
+  - [x] `prototype/js/screens/RunScreen.js` 143~152행을 문자 그대로 이식해 3.3의 `.run-query__none` 플레인 텍스트를 대체한다:
     - 카드: `margin-top: 20px`, `border: 1px solid var(--color-info)`, 배경 `color-mix(in srgb, var(--color-info) 10%, white)`(프로토타입 `#eef5fd`의 토큰 파생 — **임의 hex 금지**, PR #27에서 확립된 규칙), `border-radius: var(--radius-lg)`, `padding: 20px`, 등장 애니메이션은 `.run-query__match`와 동일(120ms `ease-enter`, `prefers-reduced-motion`에서 해제).
     - 배지: "관련 사례 없음" — `var(--color-info)` 배경, 흰 글자, `radius 4`, `padding 2px 8px`, 12px/600.
     - 제목: "관련 사례 없음 — 선임에게 연락하세요" — 18px/700, `margin-top: 10px`. **UX-DR15 고정 문구, 한 글자도 바꾸지 말 것.**
     - 본문: "비슷하지 않은 사례를 억지로 보여드리지 않습니다. 지금 바로 **담당 선임에게 연락**하세요. 이 상황은 예식 종료 후 피드백으로 남겨두면 다음부터 검색됩니다." — 14px, `var(--color-text-secondary)`, line-height 1.5, `margin-top: 6px`, "담당 선임에게 연락"만 `<strong>`.
-  - [ ] `role="status"`를 유지해 스크린리더에 응답 도착이 전달되게 한다(3.3 동일).
-  - [ ] 이 카드는 **에러가 아니다** — `var(--color-error)` 계열 색을 절대 섞지 않는다(DESIGN.md §2: 파랑 = 정직함의 신호).
-- [ ] **Task 6: 실패 종류별 오류 카드 + 재시도 (AC: #4)**
-  - [ ] `query-panel.tsx`의 `state: "error"` 플래그를 `error: QueryError | null`로 교체 — `{ kind: "offline" | "session" | "invalid" | "server"; title: string; description: string }`.
-  - [ ] 분기(계열 전수 — 실패 원인마다 "무엇이 실패했고 무엇을 하면 되는지"가 달라야 한다, DESIGN.md §14):
+  - [x] `role="status"`를 유지해 스크린리더에 응답 도착이 전달되게 한다(3.3 동일).
+  - [x] 이 카드는 **에러가 아니다** — `var(--color-error)` 계열 색을 절대 섞지 않는다(DESIGN.md §2: 파랑 = 정직함의 신호).
+- [x] **Task 6: 실패 종류별 오류 카드 + 재시도 (AC: #4)**
+  - [x] `query-panel.tsx`의 `state: "error"` 플래그를 `error: QueryError | null`로 교체 — `{ kind: "offline" | "session" | "invalid" | "server"; title: string; description: string }`.
+  - [x] 분기(계열 전수 — 실패 원인마다 "무엇이 실패했고 무엇을 하면 되는지"가 달라야 한다, DESIGN.md §14):
     - `fetch` throw 또는 `navigator.onLine === false` → `offline` / 제목 "네트워크 연결이 끊겼습니다" / 본문 "연결이 돌아오면 다시 시도해주세요. 체크리스트는 계속 볼 수 있습니다."(AD-5 — 예식 진행 자체는 막히지 않음을 안심시킨다)
     - `res.status === 401` → `session` / 제목 "로그인이 만료되었습니다" / 본문 "다시 로그인한 뒤 질의해주세요." — 액션은 `다시 시도`가 아니라 `/login` 링크. **패널이 자동 리다이렉트하지 않는다**: 예식 중 화면을 강제로 날리는 것은 위험하다(폴링 쪽 자동 리다이렉트는 `checklist-instance-view.tsx` 174행에 이미 있으므로 이중으로 만들지 않는다).
     - `res.status === 400` → `invalid` / 제목 "질의를 보낼 수 없습니다" / 본문 = 서버 봉투 `error.message`(예: "질의는 500자 이내로 입력하세요")
     - 그 외(502/500 등) → `server` / 제목 "질의에 실패했습니다" / 본문 = 서버 봉투 `error.message` ?? "잠시 후 다시 시도해주세요."
-  - [ ] 봉투 파싱은 방어적으로: `await res.json().catch(() => null)` 후 `typeof body?.error?.message === "string"`일 때만 사용.
-  - [ ] 오류 카드 시각: `border: 1px solid var(--color-error)` + 배경 `color-mix(in srgb, var(--color-error) 10%, white)` + `radius var(--radius-lg)` + `padding 20px` + `margin-top 20px`. 배지 "질의 실패"(`var(--color-error)` 배경/흰 글자, 12px/600), 제목 16px/700, 본문 14px `var(--color-text-secondary)`. 조용한 토스트 금지 — 인라인 카드로 상시 노출(UX-DR14).
-  - [ ] `다시 시도` 버튼(`session` 종류 제외)은 `.btn-secondary`를 재사용하고 **반드시 기존 `runQuery()`를 그대로 호출한다** — 새 제출 경로를 만들지 말 것(3.3의 `pendingRef` 이중 제출 가드를 그대로 상속해야 한다). 높이 ≥44px(DESIGN.md §7).
-  - [ ] **입력이 변경되면 오류 카드를 즉시 비운다**(`onChange`에서 `setError(null)`). 이유: 오류 카드에는 액션 버튼이 있어서, 문구가 가리키는 질의와 입력창 내용이 어긋나면 "다시 시도"가 무엇을 재시도하는지 모호해진다. **매칭 카드/없음 카드는 입력 변경으로 비우지 않는다** — 액션이 없어 모호함이 생기지 않고, 예식 중 후속 질문을 타이핑하면서 방금 받은 근거를 계속 읽을 수 있어야 한다(3.3에서 4차 리뷰까지 클린으로 확정된 동작을 유지).
-  - [ ] in-flight 동안 입력창을 잠그는 3.3의 설계(사용자 지침 2026-07-28)는 **그대로 유지한다** — 요청 순번 추적/응답 무효화 장치를 새로 도입하지 말 것.
-- [ ] **Task 7: 테스트 (AC: #1~4)**
-  - [ ] `tests/components/query-panel.test.tsx` (MODIFY):
+  - [x] 봉투 파싱은 방어적으로: `await res.json().catch(() => null)` 후 `typeof body?.error?.message === "string"`일 때만 사용.
+  - [x] 오류 카드 시각: `border: 1px solid var(--color-error)` + 배경 `color-mix(in srgb, var(--color-error) 10%, white)` + `radius var(--radius-lg)` + `padding 20px` + `margin-top 20px`. 배지 "질의 실패"(`var(--color-error)` 배경/흰 글자, 12px/600), 제목 16px/700, 본문 14px `var(--color-text-secondary)`. 조용한 토스트 금지 — 인라인 카드로 상시 노출(UX-DR14).
+  - [x] `다시 시도` 버튼(`session` 종류 제외)은 `.btn-secondary`를 재사용하고 **반드시 기존 `runQuery()`를 그대로 호출한다** — 새 제출 경로를 만들지 말 것(3.3의 `pendingRef` 이중 제출 가드를 그대로 상속해야 한다). 높이 ≥44px(DESIGN.md §7).
+  - [x] **입력이 변경되면 오류 카드를 즉시 비운다**(`onChange`에서 `setError(null)`). 이유: 오류 카드에는 액션 버튼이 있어서, 문구가 가리키는 질의와 입력창 내용이 어긋나면 "다시 시도"가 무엇을 재시도하는지 모호해진다. **매칭 카드/없음 카드는 입력 변경으로 비우지 않는다** — 액션이 없어 모호함이 생기지 않고, 예식 중 후속 질문을 타이핑하면서 방금 받은 근거를 계속 읽을 수 있어야 한다(3.3에서 4차 리뷰까지 클린으로 확정된 동작을 유지).
+  - [x] in-flight 동안 입력창을 잠그는 3.3의 설계(사용자 지침 2026-07-28)는 **그대로 유지한다** — 요청 순번 추적/응답 무효화 장치를 새로 도입하지 말 것.
+- [x] **Task 7: 테스트 (AC: #1~4)**
+  - [x] `tests/components/query-panel.test.tsx` (MODIFY):
     - AC 1 — 매칭 카드에 `M월 D일 · 홀이름 · 단계명 단계` 메타가 렌더링된다 / `createdAt`이 잘못된 값이면 날짜 없이 홀·단계만 렌더링되고 "Invalid"가 화면에 없다.
     - AC 3 — 빈 결과에서 `#2B82E0` 카드(배지 "관련 사례 없음" + 고정 제목 + 본문)가 뜨고, 매칭 카드가 하나도 렌더링되지 않는다.
     - AC 4 — 4종 실패(fetch throw / 401 / 400 봉투 메시지 / 502)가 각각 다른 제목을 낸다 / `다시 시도` 클릭이 `runQuery`를 재실행해 성공 시 오류 카드가 사라진다 / 401에서는 `다시 시도` 대신 `/login` 링크가 보인다 / 오류 후 입력을 바꾸면 오류 카드가 사라진다 / **매칭 카드는 입력을 바꿔도 남아 있다**(의도된 비대칭 고정).
     - 기존 3.3 테스트의 오류 문구 단언("질의에 실패했습니다 — 다시 시도해주세요.")은 새 카드 문구로 갱신 — 삭제하지 말고 이관할 것.
-  - [ ] `tests/services/query.test.ts` (MODIFY): Task 2 항목 전부.
-  - [ ] `tests/repositories/variable-case.test.ts`는 **수정 불필요**(임계값은 리포지토리에 없다).
-- [ ] **Task 8: `deferred-work.md` 갱신 (AC: #3 후속)**
-  - [ ] "실행 중 질의 유사도 임계값(`MIN_SIMILARITY = 0.5`)이 실데이터 없이 정해진 `[ASSUMPTION]` — OpenAI 키 투입 후 SM-2 검수 세트와 `query_no_match` 로그의 `topSimilarity` 분포로 재보정 필요" 를 기존 항목들과 같은 톤으로 1줄 추가.
-  - [ ] 3.3이 남긴 "embedding 텍스트가 stepName/outcome을 포함하지 않아 3.3/3.4 검색 품질에 영향 가능 — 3.3/3.4에서 재검토" 항목의 재검토 트리거를 "실데이터 검수 시"로 갱신한다(3.3에서 이미 "현행 유지"로 재검토했고 3.4도 임베딩 대상을 바꾸지 않는다 — 항목을 조용히 지우지 말 것).
+  - [x] `tests/services/query.test.ts` (MODIFY): Task 2 항목 전부.
+  - [x] `tests/repositories/variable-case.test.ts`는 **수정 불필요**(임계값은 리포지토리에 없다).
+- [x] **Task 8: `deferred-work.md` 갱신 (AC: #3 후속)**
+  - [x] "실행 중 질의 유사도 임계값(`MIN_SIMILARITY = 0.5`)이 실데이터 없이 정해진 `[ASSUMPTION]` — OpenAI 키 투입 후 SM-2 검수 세트와 `query_no_match` 로그의 `topSimilarity` 분포로 재보정 필요" 를 기존 항목들과 같은 톤으로 1줄 추가.
+  - [x] 3.3이 남긴 "embedding 텍스트가 stepName/outcome을 포함하지 않아 3.3/3.4 검색 품질에 영향 가능 — 3.3/3.4에서 재검토" 항목의 재검토 트리거를 "실데이터 검수 시"로 갱신한다(3.3에서 이미 "현행 유지"로 재검토했고 3.4도 임베딩 대상을 바꾸지 않는다 — 항목을 조용히 지우지 말 것).
 
 ## Dev Notes
 
-### 임계값 0.5의 근거 `[ASSUMPTION]` — 이 스토리의 유일한 임의 수치
+### 임계값 — 최종값 0.42 (실측 확정, 아래 "실측 결과" 참고)
+
+> 아래는 착수 시점의 `[ASSUMPTION]` 추론이다. 구현 중 사용자가 실 OpenAI 키를 제공해
+> **실제 임베딩으로 측정**했고, 그 결과 0.5는 너무 타이트한 것으로 확인돼 **0.42로
+> 확정**했다. 최종 근거는 이 절 뒤의 "실측 결과"를 따른다.
+
+### (착수 시 추론) 임계값 0.5의 근거 `[ASSUMPTION]`
 
 현재 임베딩 벤더는 **OpenAI `text-embedding-3-large`(1024차원 Matryoshka 축소)**다(2026-07-28 벤더 교체, `lib/ai/adapters/openai.ts`). 3.3 스토리가 쓰여진 시점의 Voyage가 아니므로 임계값은 **현 어댑터 기준**으로 정한다.
 
@@ -99,7 +105,34 @@ Story 3.3은 **질의 파이프라인**(질의창 → `/api/query` → 임베딩
 2. 그런데 우리 코퍼스는 **전부 웨딩홀 예식 운영 텍스트**로 도메인이 좁다 — 서로 무관한 두 변수 케이스라도 일반 코퍼스의 무관 쌍보다 유사도가 높게 나온다. 따라서 일반 기준선(0.45)보다 **보수적으로 올려 잡아야** SM-2(무관 사례 0%)를 지킬 수 있다.
 3. 두 실패 모드의 비용이 대칭이 아니다. **거짓 양성**(무관한 사례를 근거처럼 제시) = PRD §6 Safety가 지목한 실제 사고 경로. **거짓 음성**(관련 있는데 "없음") = 설계된 안전한 실패 모드로, 화면은 "선임에게 연락하세요"라는 유효한 다음 행동을 제시한다. 그러므로 **의심스러우면 높은 쪽**.
 
-→ **`MIN_SIMILARITY = 0.5`**로 출발한다. 실키가 아직 없어(`.env.local`에 `OPENAI_API_KEY` 미설정, 3.3과 동일 제약) 로컬 실증이 불가능하다 — 이 값은 **실데이터 확보 후 SM-2 검수 세트로 반드시 재보정**해야 하며, `query_no_match` 로그의 `topSimilarity` 분포가 그 근거가 된다(Task 8이 `deferred-work.md`에 기록).
+→ 착수 시점에는 **`MIN_SIMILARITY = 0.5`**로 출발했다.
+
+### 실측 결과 — 최종 확정값 `0.42`
+
+구현 중 사용자가 `.env.local`에 실 `OPENAI_API_KEY`를 투입해, **실제 `text-embedding-3-large`(1024차원) 호출로 측정**했다(웨딩홀 도메인 문서 3건 × 질의 8건, `inputType` document/query 비대칭 적용):
+
+| 구분 | 질의 | 최고 유사도 |
+|---|---|---|
+| 관련 | "주례자가 갑자기 순서를 바꿨어요" | 0.570 |
+| 관련 | "주례자가 즉흥으로 순서를 바꾸고 있어요" | 0.605 |
+| 관련 | "축가 반주가 안 나와요" | 0.501 |
+| 관련 | "화면에 영상이 안 떠요" | 0.502 |
+| 무관 | "주차장이 만차라서 하객이 못 들어와요" | 0.366 |
+| 무관 | "신부님 부케가 없어졌어요" | 0.234 |
+| 무관 | "하객이 예상보다 너무 많이 왔어요" | 0.270 |
+| 무관 | "점심으로 뭘 먹을까요" | 0.183 |
+
+**관련 0.500~0.674 / 무관 0.183~0.366** — 두 구간 사이가 비어 있고, 그 사이의 `0.42`를 취한다(무관 최댓값에서 +0.054, 관련 최솟값에서 -0.08). 거짓 양성 비용이 더 크므로 정중앙(0.43)보다 무관 쪽에서 조금 더 떨어뜨렸다.
+
+**0.5를 버린 이유:** 진짜 매칭 두 건이 0.5007 / 0.5023으로 **0.0005 차이**로 통과했다 — 표현이 조금만 달라져도 근거 있는 사례가 "관련 사례 없음"으로 뒤집히는 취약한 지점이었다.
+
+### ⚠️ 실측으로 드러난 한계 — NFR-4 예시는 임베딩 검색만으로 만족 불가
+
+PRD가 NFR-4의 대표 예시로 명시한 **"주례자가 순서를 바꿈" ≒ "목사님이 애드리브함"** 쌍은 실측 유사도 **0.277**로, 무관 질의인 "주차장이 만차" (0.366)**보다도 낮다**. 즉 이 쌍을 매칭시키는 임계값은 무관 사례도 함께 들인다 — **어떤 임계값으로도 NFR-4 예시와 SM-2(무관 0%)를 동시에 만족시킬 수 없다.**
+
+원인은 어휘가 완전히 어긋나는 동의 관계(목사님↔주례자, 애드리브↔성혼선언 순서변경)를 이 임베딩 모델이 충분히 가깝게 놓지 않는 것이다. 케이스 텍스트에 단계명·태그를 덧붙이면 관련 +0.01~0.02 / 무관 -0.03으로 분리폭이 소폭 개선되지만 이 쌍(0.285)은 여전히 구제되지 않는다.
+
+이 스토리는 **SM-2(무관 사례 0%)를 우선**해 0.42를 택했다 — PRD §6 Safety가 거짓 양성을 실제 사고 경로로 지목했고, 거짓 음성은 "선임에게 연락하세요"라는 유효한 다음 행동이 있는 설계된 안전한 실패이기 때문이다. 후속 후보(확정 시 LLM 동의어 확장 / 하이브리드 검색 / 질의 확장)는 `deferred-work.md`에 기록했다 — **대표 판단이 필요한 사항**이다.
 
 ### AC 3을 만족시키는 유일한 구조 — "필터 없으면 AC 3은 구현 불가"
 
@@ -170,12 +203,41 @@ pgvector 검색은 코퍼스에 행이 하나라도 있으면 **항상** 상위 
 
 ### Agent Model Used
 
+claude-opus-5
+
 ### Debug Log References
+
+- 이 worktree 전용 격리 DB 컨테이너(wedding-check-db-story34, 포트 5437, pgvector/pg16)에 0000~0023 전체 마이그레이션 적용 — 공유 5434(다른 세션 사용 중)는 건드리지 않음. 앱 포트도 3014로 분리.
+- **실제 OpenAI 임베딩으로 임계값 실측**(사용자가 구현 중 실 키 제공): 문서 3건 × 질의 8건으로 관련 0.500~0.674 / 무관 0.183~0.366 측정 → 착수 시 가정값 0.5가 위험(진짜 매칭이 0.0005 차이로 통과)함을 확인하고 0.42로 확정. 단계명·태그를 임베딩 텍스트에 포함하는 변형도 비교(관련 +0.01~0.02, 무관 -0.03 — NFR-4 한계는 해소 못 함).
+- 실서버(포트 3014) 종단 검증: 세션 없음 401 → 오퍼레이터 로그인 → 빈 질의 400 → 501자 400 → **실 임베딩 관련 질의 200/1건 매칭(sim 0.5717, 발생 홀·단계 포함)** → **무관 질의(주차장) 200/0건 → 관련 사례 없음 경로 + `{"event":"query_no_match","topSimilarity":0.3664}` 로그** → 실행 화면 SSR에 질의 패널 렌더링.
+- 검증 중 함정 2건: (1) Git Bash에서 curl `-d`에 한글을 직접 넣으면 인코딩이 깨져 임베딩이 엉뚱한 벡터가 된다(topSimilarity 0.11) — UTF-8 파일 + `--data-binary @file`로 해결. (2) `next dev` 재시작 시 포트 점유로 새 서버가 바인딩 실패해 낡은 서버가 응답 — PID 확인 후 taskkill.
+- 임시 시드/측정 스크립트는 검증 후 전부 삭제.
 
 ### Completion Notes List
 
+- Task 1~8 전부 구현. **스키마 변경·마이그레이션 없음**(3.2의 variable_cases, 3.3의 검색 리포지토리 재사용) — 마이그레이션 번호 충돌 여지 없음.
+- **임계값은 가정이 아니라 실측으로 확정**했다(0.42). 이 스토리의 유일한 임의 수치였는데, 사용자가 실 키를 제공해 실증 가능해졌고 그 결과 착수 시 값(0.5)이 취약함이 드러나 교체했다.
+- **실측으로 드러난 한계(대표 판단 필요):** PRD가 NFR-4 예시로 명시한 "주례자가 순서를 바꿈" ≒ "목사님이 애드리브함"은 실측 0.277로 무관 질의(주차 0.366)보다 낮다 — 어휘가 완전히 어긋나는 동의 관계는 어떤 임계값에서도 무관 사례를 함께 들이지 않고는 매칭되지 않는다. SM-2(무관 0%)를 우선해 0.42를 택했고, 하이브리드 검색/동의어 확장은 deferred-work.md에 후속 과제로 기록.
+- 필터는 서비스에 두고 LIMIT 3 이후 적용 — 정렬이 distance 단조라 filter(top3) === top3(filter)로 정확하다(리포지토리 무수정).
+- UI는 프로토타입 RunScreen.js 106~152행의 남은 자리를 채움: 매칭 카드 메타 태그(130행), #2B82E0 없음 카드(143~152행). 배경 틴트는 프로토타입 #eef5fd를 `color-mix`로 승인 토큰에서 파생(임의 hex 금지).
+- 오류는 4종으로 분리(연결 끊김/세션 만료/검증 실패/서버 오류). 세션 만료만 액션이 로그인 링크이고, 패널은 자동 리다이렉트하지 않는다(예식 중 화면을 강제로 날리지 않음 — 폴링 쪽에 이미 리다이렉트가 있다).
+- 입력 변경 시 오류 카드만 비우고 매칭/없음 카드는 유지 — 의도된 비대칭이며 이유를 코드 주석·테스트에 명시(오류 카드에만 액션이 있어 대상이 모호해진다).
+- 코덱스 리뷰 3라운드: 1차 P2(성공 응답 셰이프 미검증 — 2xx 비정상 JSON이 네트워크 오류로 오분류되거나 렌더링 크래시)를 지적 한 줄이 아닌 계열로 처리(checklist-cache.ts의 원소 단위 검증 방식 이식, 테스트 6건). 2차 P2(범위 테스트가 SM-2를 검증하지 못함)를 실측 구간 고정 테스트로 교체. 3차 클린(P1/P2 없음).
+- vitest 345건 전체 통과(신규 17건), tsc/lint/build 클린.
+
 ### File List
+
+- `apps/web/lib/services/query.ts` (MODIFY) — MIN_SIMILARITY 임계값 + QueryResult(topSimilarity) 확장
+- `apps/web/app/api/query/route.ts` (MODIFY) — { matches } 명시 구성 + query_no_match 로그
+- `apps/web/app/operator/ceremonies/[hallId]/[ceremonyId]/query-panel.tsx` (MODIFY) — 발생 홀 메타 태그, 없음 카드, 실패 종류별 오류 카드, 응답 셰이프 검증
+- `apps/web/app/operator/ceremonies/[hallId]/[ceremonyId]/checklist-instance-view.css` (MODIFY) — `.run-query__none-*`, `.run-query__error-*`, `.run-query__match-meta`
+- `apps/web/tests/services/query.test.ts` (MODIFY) — 임계값 필터/경계/topSimilarity/SM-2 가드
+- `apps/web/tests/components/query-panel.test.tsx` (MODIFY) — 메타 태그, 없음 카드, 오류 4종, 재시도, 셰이프 검증
+- `_bmad-output/implementation-artifacts/deferred-work.md` (MODIFY) — 임계값 재보정, NFR-4 한계, 임베딩 텍스트 구성
 
 ## Change Log
 
 - 2026-07-28: 스토리 최초 작성 (create-story, Epic 3 마지막 스토리 — 3.3 파이프라인 위에 안전장치 3종(유사도 임계값 / `#2B82E0` 없음 카드 + 발생 홀 태그 / 실패 종류별 오류 카드)을 얹는다. 스키마 변경 없음. 임계값 0.5는 현 벤더(OpenAI `text-embedding-3-large`) 기준 `[ASSUMPTION]`으로 실데이터 재보정 필요).
+- 2026-07-28: 구현 완료 (dev) — AC 1~4 전부 구현. 유사도 임계값 안전장치(서비스) + query_no_match 관측성, 발생 홀 메타 태그, #2B82E0 "관련 사례 없음" 정식 카드, 실패 4종 오류 카드 + 재시도. 스키마 변경 없음.
+- 2026-07-28: **임계값 실측 확정** — 사용자가 실 OPENAI_API_KEY 제공. 실제 text-embedding-3-large로 측정한 결과 착수 시 가정값 0.5가 취약(진짜 매칭이 0.0005 차이로 통과)해 0.42로 교체. NFR-4 예시 쌍이 임베딩 검색만으로는 만족 불가함을 실측으로 확인하고 한계·후속 후보를 기록.
+- 2026-07-28: 코덱스 리뷰 3라운드 — 1차 P2(성공 응답 셰이프 미검증)를 계열 전체로 수정(원소 단위 검증 + 테스트 6건), 2차 P2(임계값 테스트가 SM-2 미검증)를 실측 구간 고정으로 교체, 3차 클린. vitest 345건/tsc/lint/build 클린, 실서버 실키 종단 검증 완료. Status → review.

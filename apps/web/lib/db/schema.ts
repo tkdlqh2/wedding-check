@@ -342,9 +342,11 @@ export const feedback = pgTable(
 // 실체. feedbackId를 unique FK로 걸어 ERD의 "0..1" 관계(FEEDBACK -> VARIABLE_CASE)를
 // DB 레벨에서 강제한다(피드백 하나당 변수 케이스는 최대 1개). AD-6: hallId는 검색
 // 격리 조건이 아니라 표시용 태그일 뿐이다 — pgvector 유사도 검색(Story 3.3/3.4)은
-// 홀 필터 없이 사업체 전체를 대상으로 한다. embedding은 Voyage voyage-3.5의
-// output_dimension=1024로 고정(스파인 Stack 표) — 이 프로젝트 최초의 pgvector 컬럼이라
-// 마이그레이션이 CREATE EXTENSION vector를 함께 수행해야 한다.
+// 홀 필터 없이 사업체 전체를 대상으로 한다. embedding은 1024차원으로 고정
+// (2026-07-28 벤더 교체 후 OpenAI text-embedding-3-large의 dimensions=1024 — 차원이
+// 같아 스키마 무변경, lib/ai/adapters/embedding-response.ts의 EXPECTED_DIMENSIONS와
+// 일치해야 한다) — 이 프로젝트 최초의 pgvector 컬럼이라 마이그레이션이
+// CREATE EXTENSION vector를 함께 수행해야 한다.
 export const variableCases = pgTable("variable_cases", {
   id: uuid("id").primaryKey().defaultRandom(),
   hallId: uuid("hall_id")

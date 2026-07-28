@@ -49,7 +49,7 @@ export function StepFeedback({
   const [fieldsDirty, setFieldsDirty] = useState(false);
   // 코덱스 리뷰: disabled={confirmState==="confirming"}만으로는 클릭과 리렌더 사이의
   // 짧은 창에서 더블클릭이 fetch를 두 번 보낼 수 있다(DB는 원자적 CTE라 안전하지만
-  // Voyage 임베딩 API가 불필요하게 두 번 호출됨) — ref는 동기적으로 즉시 갱신되므로
+  // 임베딩 API가 불필요하게 두 번 호출됨) — ref는 동기적으로 즉시 갱신되므로
   // React 상태 업데이트를 기다리지 않고 재진입을 막는다.
   const confirmingRef = useRef(false);
 

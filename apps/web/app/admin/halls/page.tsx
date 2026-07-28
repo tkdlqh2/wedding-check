@@ -1,9 +1,13 @@
+import { requireAdminPage } from "@/lib/auth-guard";
 import { listActiveHalls } from "@/lib/services/hall";
 import { HallForm } from "./hall-form";
 import { HallRow } from "./hall-row";
 import "./halls.css";
 
 export default async function HallsPage() {
+  // 레이아웃 가드만으로는 soft navigation을 막지 못한다(lib/auth-guard.ts 주석, AD-3).
+  await requireAdminPage();
+
   const halls = await listActiveHalls();
 
   return (

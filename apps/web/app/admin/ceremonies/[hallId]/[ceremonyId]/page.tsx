@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { requireAdminPage } from "@/lib/auth-guard";
 import * as hallRepo from "@/lib/db/repositories/hall";
 import { getCeremonyDetail, ChecklistInstanceValidationError } from "@/lib/services/checklist-instance";
 import { listCeremonyAssignees } from "@/lib/services/ceremony";
@@ -38,6 +39,9 @@ export default async function CeremonyDetailPage({
 }: {
   params: Promise<{ hallId: string; ceremonyId: string }>;
 }) {
+  // 레이아웃 가드만으로는 soft navigation을 막지 못한다(lib/auth-guard.ts 주석, AD-3).
+  await requireAdminPage();
+
   const { hallId, ceremonyId } = await params;
   // hallId/ceremonyId는 uuid 컬럼과 직접 비교되므로, 형식이 아예 아니면 쿼리를 보내기
   // 전에 걸러야 한다(templates/[hallId]/page.tsx와 동일 패턴, Story 1.3 코덱스 6차 P2).

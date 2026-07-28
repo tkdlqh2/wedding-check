@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
+import { requireAdminPage } from "@/lib/auth-guard";
 import { listMembersPaginated } from "@/lib/services/member";
 import { MemberForm } from "./member-form";
 import { MemberRow } from "./member-row";
@@ -32,14 +31,19 @@ export default async function MembersPage({
   const showInactive = params.showInactive === "1";
   const search = (params.q ?? "").trim();
 
-  const [result, session] = await Promise.all([
-    listMembersPaginated({ page, pageSize: PAGE_SIZE, showInactive, search: search || undefined }),
-    auth.api.getSession({ headers: await headers() }),
-  ]);
+  // 가드가 먼저다 — 이전에는 세션 조회와 회원 목록 조회를 Promise.all로 함께 돌렸는데,
+  // 그러면 권한이 없는 요청에도 목록 쿼리가 이미 나간다. 확인한 뒤에 읽는다(AD-3).
+  const session = await requireAdminPage();
+  const result = await listMembersPaginated({
+    page,
+    pageSize: PAGE_SIZE,
+    showInactive,
+    search: search || undefined,
+  });
   // 코덱스 리뷰 P2: better-auth의 banUser는 호출자가 자기 자신을 비활성화하려 하면
   // YOU_CANNOT_BAN_YOURSELF로 거부한다 — 로그인 중인 관리자 자신의 행에는 비활성화
   // 버튼을 아예 숨겨서, 눌러도 실패하는 액션을 보여주지 않는다.
-  const currentUserId = session?.user.id;
+  const currentUserId = session.user.id;
 
   return (
     <section className="members-page">

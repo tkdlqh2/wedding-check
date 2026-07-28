@@ -7,12 +7,16 @@ import "./insights.css";
 // 관리자 전용 접근은 app/admin/layout.tsx가 이미 강제한다(AD-3) — Story 4.2가
 // 오퍼레이터 차단(FR-11)과 미집계 표시를 별도로 다룬다.
 
+// hour12를 명시적으로 끈다: 기본값(12시간제)은 런타임 ICU 빌드에 따라 "오후 3:29"가
+// 되기도 "PM 03:29"가 되기도 해서(로컬에서 후자 확인) 표기가 환경마다 갈린다.
+// 24시간제는 결정적이고, 운영 화면에 더 맞는 표기다.
 const UPDATED_AT_FORMAT = new Intl.DateTimeFormat("ko-KR", {
   timeZone: "Asia/Seoul",
   month: "long",
   day: "numeric",
   hour: "2-digit",
   minute: "2-digit",
+  hour12: false,
 });
 
 function formatLastCompletedAt(value: Date | null): string {

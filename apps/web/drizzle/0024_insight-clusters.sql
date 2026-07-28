@@ -13,6 +13,7 @@ CREATE TABLE "insight_recompute_state" (
 	"id" text PRIMARY KEY NOT NULL,
 	"running_since" timestamp,
 	"lock_expires_at" timestamp,
+	"run_token" text,
 	"last_completed_at" timestamp,
 	"last_error" text
 );

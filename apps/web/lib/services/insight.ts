@@ -189,10 +189,22 @@ async function generateLabel(
 const RELEASE_MAX_ATTEMPTS = 3;
 const RELEASE_RETRY_DELAY_MS = 200;
 
-async function releaseLockBestEffort(failure: string | null): Promise<void> {
+async function releaseLockBestEffort(token: string, failure: string | null): Promise<void> {
   for (let attempt = 1; attempt <= RELEASE_MAX_ATTEMPTS; attempt++) {
     try {
-      await insightRepo.releaseLock({ completed: failure === null, error: failure });
+      const released = await insightRepo.releaseLock({
+        token,
+        completed: failure === null,
+        error: failure,
+      });
+      if (!released) {
+        // 내 락이 아니다 — 앞선 시도가 DB에서는 성공했는데 응답만 유실됐거나, TTL이
+        // 만료돼 다른 실행이 가져간 경우다. **재시도하면 그 실행의 락을 지운다**(AC 3
+        // 위반). 실패가 아니라 정상 종료 상태이므로 조용히 멈춘다.
+        console.info(
+          JSON.stringify({ event: "insight_lock_release_superseded", attempts: attempt }),
+        );
+      }
       return;
     } catch (err) {
       if (attempt === RELEASE_MAX_ATTEMPTS) {
@@ -219,8 +231,8 @@ export async function recomputeInsights(): Promise<{
   clusterCount: number;
   caseCount: number;
 }> {
-  const acquired = await insightRepo.acquireLock(LOCK_TTL_MINUTES);
-  if (!acquired) {
+  const token = await insightRepo.acquireLock(LOCK_TTL_MINUTES);
+  if (token === null) {
     throw new InsightLockedError("인사이트 재계산이 이미 실행 중입니다");
   }
 
@@ -259,7 +271,7 @@ export async function recomputeInsights(): Promise<{
     failure = toSafeErrorLabel(err);
     throw err;
   } finally {
-    await releaseLockBestEffort(failure);
+    await releaseLockBestEffort(token, failure);
   }
 }
 

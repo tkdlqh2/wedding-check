@@ -1373,6 +1373,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "run_token": {
+          "name": "run_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "last_completed_at": {
           "name": "last_completed_at",
           "type": "timestamp",

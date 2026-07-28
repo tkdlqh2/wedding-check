@@ -202,6 +202,41 @@ describe("QueryPanel (AC 1, 3)", () => {
     await waitFor(() => expect(fetchMock).not.toHaveBeenCalled());
   });
 
+  // 코덱스 리뷰 P2: 새 질의를 기다리는 동안 이전 질의의 매칭 카드가 남아 있으면
+  // 다른 상황에 대한 낡은 판단이 새 질문의 근거처럼 보인다 — 질의 시작 시점에
+  // 즉시 비워져야 한다.
+  it("새 질의 대기 중에는 이전 질의의 매칭 카드가 보이지 않는다", async () => {
+    let resolveSecond: (value: unknown) => void = () => {};
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ matches: [makeMatch()] }) })
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveSecond = resolve;
+          }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<QueryPanel isOffline={false} />);
+    const input = screen.getByPlaceholderText("지금 상황을 그대로 적어보세요");
+    fireEvent.change(input, { target: { value: "첫 번째 상황" } });
+    fireEvent.click(screen.getByRole("button", { name: "질의하기" }));
+    await screen.findByText("주례자가 예고 없이 순서를 바꿈");
+
+    fireEvent.change(input, { target: { value: "전혀 다른 두 번째 상황" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "질의하기" }));
+    });
+
+    expect(screen.queryByText("주례자가 예고 없이 순서를 바꿈")).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveSecond({ ok: true, json: async () => ({ matches: [] }) });
+    });
+    expect(await screen.findByText("관련 사례 없음 — 선임에게 연락하세요")).toBeInTheDocument();
+  });
+
   it("오류 후 재질의에 성공하면 오류 문구가 사라지고 결과가 표시된다", async () => {
     const fetchMock = vi
       .fn()

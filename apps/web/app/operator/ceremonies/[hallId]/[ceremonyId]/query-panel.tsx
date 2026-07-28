@@ -38,6 +38,12 @@ export function QueryPanel({ isOffline }: { isOffline: boolean }) {
     if (text.trim().length === 0) return;
     pendingRef.current = true;
     setState("loading");
+    // 코덱스 리뷰 P2: 이전 질의의 매칭 카드를 지우지 않으면 새 질의를 기다리는 동안
+    // 다른 상황에 대한 낡은 판단이 새 질문의 근거처럼 계속 노출된다("근거는
+    // 신성하다" 위반 소지) — 질의 시작 시점에 즉시 비운다. 오류 후 재질의(오류
+    // 상태로 숨겨져 있던 이전 결과가 로딩 전환 순간 되살아나는 경로)도 같은
+    // 계열이라 함께 막힌다.
+    setMatches(null);
     try {
       const res = await fetch("/api/query", {
         method: "POST",

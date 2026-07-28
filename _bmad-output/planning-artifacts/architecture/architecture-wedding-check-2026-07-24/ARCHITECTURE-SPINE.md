@@ -109,7 +109,7 @@ graph TD
   - **마이그레이션:** `drizzle-kit generate`로 생성한 마이그레이션은 CI(빌드 단계)에서 배포 전에 적용한다. 마이그레이션 실패 시 배포를 차단한다(실패한 스키마로 배포되는 상태 금지).
   - **FR-10 배치 실행:** Vercel Cron Job이 공유 시크릿 헤더로 보호된 Route Handler(`/api/cron/insight-recompute`)를 호출하는 방식으로 구현한다(장기 실행 워커 금지 — 서버리스 배포 모델과 불일치).
   - **관측성:** AI 질의 실패(FR-6/7 타임아웃·오류)와 "관련 사례 없음" 저신뢰 응답은 구조화된 JSON 로그로 구분 가능한 이벤트 타입을 남긴다(알림 연동은 v1 범위 밖, Deferred).
-  - **시크릿:** `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`는 Vercel 환경별(Preview/Production) 별도 값으로 관리한다.
+  - **시크릿:** `OPENAI_API_KEY`는 Vercel 환경별(Preview/Production) 별도 값으로 관리한다. (2026-07-28 벤더 교체: `ANTHROPIC_API_KEY`+`VOYAGE_API_KEY` → `OPENAI_API_KEY` — AD-1 포트 경계 내 교체, 사용자 결정)
 
 ## Consistency Conventions
 
@@ -117,7 +117,7 @@ graph TD
 | --- | --- |
 | Naming (entities, files) | DB 테이블은 영문 snake_case, ERD 엔티티와 1:1(`halls`, `checklist_templates`, `checklist_template_items`, `demo_videos`, `ceremonies`, `checklist_instances`, `checklist_instance_items`, `feedback`, `variable_cases`, `insight_clusters`). `checklist_items`처럼 템플릿 항목과 인스턴스 항목을 뭉뚱그리는 이름은 금지(AD-2 참고). TS 타입/컴포넌트는 PascalCase; 파일명은 kebab-case. 도메인 용어는 PRD §3 용어집과 1:1 매칭(홀=`hall`, 변수 케이스=`variable_case`). |
 | Data & formats (ids, dates, error shapes) | PK는 UUID v4. 타임스탬프는 ISO 8601 UTC. API 오류 응답은 `{ error: { code: string, message: string } }` 단일 봉투 형식. |
-| State & cross-cutting (mutation, auth, config) | 관리자 CRUD(FR-1~5, FR-11)는 Server Actions. AI 질의(FR-6/7)·구조화(FR-9)는 지연시간·타임아웃 제어가 필요해 Route Handler(스트리밍 가능)로 분리. 인증은 better-auth 세션 쿠키, 미들웨어에서 role 체크. 환경변수는 Vercel 프로젝트 env로 관리(ANTHROPIC_API_KEY, VOYAGE_API_KEY, DATABASE_URL 등 시크릿은 코드에 하드코딩 금지). |
+| State & cross-cutting (mutation, auth, config) | 관리자 CRUD(FR-1~5, FR-11)는 Server Actions. AI 질의(FR-6/7)·구조화(FR-9)는 지연시간·타임아웃 제어가 필요해 Route Handler(스트리밍 가능)로 분리. 인증은 better-auth 세션 쿠키, 미들웨어에서 role 체크. 환경변수는 Vercel 프로젝트 env로 관리(OPENAI_API_KEY, DATABASE_URL 등 시크릿은 코드에 하드코딩 금지). |
 
 ## Stack
 

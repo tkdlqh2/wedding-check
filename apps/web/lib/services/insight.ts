@@ -263,7 +263,15 @@ export async function recomputeInsights(): Promise<{
       toStore.push({ ...cluster, label });
     }
 
-    await insightRepo.replaceAll(toStore);
+    const { owned } = await insightRepo.replaceAll(token, toStore);
+    if (!owned) {
+      // TTL이 만료돼 다른 실행이 락을 가져간 뒤 뒤늦게 도착했다. 쓰기는 이미 0건으로
+      // 막혔고(AD-7 소유권 가드), 이 실행의 결과는 버려야 한다 — 성공으로 보고하면
+      // 관리자가 "방금 갱신됨"으로 오해한다.
+      throw new InsightLockedError(
+        "재계산 유효시간이 지나 다른 실행이 인사이트를 갱신했습니다",
+      );
+    }
     return { clusterCount: toStore.length, caseCount: cases.length };
   } catch (err) {
     // 오류 **메시지**는 저장하지 않는다 — drizzle이 실패한 쿼리의 파라미터(상황 설명·

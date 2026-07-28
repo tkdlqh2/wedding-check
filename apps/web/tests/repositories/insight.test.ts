@@ -127,16 +127,27 @@ describe("insightRepo.replaceAll — AD-7 원자 교체", () => {
     await resetDb();
   });
 
+  // replaceAll은 소유권을 확인하므로 테스트도 실제 락을 잡아야 한다. 한 테스트에서
+  // 여러 번 호출할 때는 이미 잡힌 토큰을 이어서 쓴다.
+  async function acquireForWrite(): Promise<string> {
+    const token = await insightRepo.acquireLock(10);
+    if (token !== null) return token;
+    const rows = await db.execute<{ run_token: string }>(
+      sql`select run_token from insight_recompute_state where id = 'singleton'`,
+    );
+    return rows.rows[0].run_token;
+  }
+
   it("신규 클러스터를 삽입한다", async () => {
     const hall = await createTestHall();
     const a = await createConfirmedVariableCase(hall.id, unitVector(0));
     const b = await createConfirmedVariableCase(hall.id, unitVector(1));
 
-    const result = await insightRepo.replaceAll([
+    const result = await insightRepo.replaceAll(await acquireForWrite(), [
       await makeCluster(a.id, [a.id, b.id], "축가 반주 큐 지연"),
     ]);
 
-    expect(result).toEqual({ upserted: 1, deleted: 0 });
+    expect(result).toEqual({ owned: true, upserted: 1, deleted: 0 });
     const stored = await insightRepo.listClusters();
     expect(stored).toHaveLength(1);
     expect(stored[0].label).toBe("축가 반주 큐 지연");
@@ -150,14 +161,14 @@ describe("insightRepo.replaceAll — AD-7 원자 교체", () => {
     const b = await createConfirmedVariableCase(hall.id, unitVector(1));
     const c = await createConfirmedVariableCase(hall.id, unitVector(2));
 
-    await insightRepo.replaceAll([await makeCluster(a.id, [a.id, b.id], "예전 라벨")]);
+    await insightRepo.replaceAll(await acquireForWrite(), [await makeCluster(a.id, [a.id, b.id], "예전 라벨")]);
     const before = await insightRepo.listClusters();
 
-    const result = await insightRepo.replaceAll([
+    const result = await insightRepo.replaceAll(await acquireForWrite(), [
       await makeCluster(a.id, [a.id, b.id, c.id], "새 라벨"),
     ]);
 
-    expect(result).toEqual({ upserted: 1, deleted: 0 });
+    expect(result).toEqual({ owned: true, upserted: 1, deleted: 0 });
     const after = await insightRepo.listClusters();
     // 행 id가 유지된다 = 삭제 후 재삽입이 아니다.
     expect(after[0].id).toBe(before[0].id);
@@ -172,16 +183,16 @@ describe("insightRepo.replaceAll — AD-7 원자 교체", () => {
     const c = await createConfirmedVariableCase(hall.id, unitVector(2));
     const d = await createConfirmedVariableCase(hall.id, unitVector(3));
 
-    await insightRepo.replaceAll([
+    await insightRepo.replaceAll(await acquireForWrite(), [
       await makeCluster(a.id, [a.id, b.id], "유지될 클러스터"),
       await makeCluster(c.id, [c.id, d.id], "사라질 클러스터"),
     ]);
 
-    const result = await insightRepo.replaceAll([
+    const result = await insightRepo.replaceAll(await acquireForWrite(), [
       await makeCluster(a.id, [a.id, b.id], "유지될 클러스터"),
     ]);
 
-    expect(result).toEqual({ upserted: 1, deleted: 1 });
+    expect(result).toEqual({ owned: true, upserted: 1, deleted: 1 });
     const stored = await insightRepo.listClusters();
     expect(stored.map((s) => s.rootCaseId)).toEqual([a.id]);
   });
@@ -191,11 +202,11 @@ describe("insightRepo.replaceAll — AD-7 원자 교체", () => {
     const hall = await createTestHall();
     const a = await createConfirmedVariableCase(hall.id, unitVector(0));
     const b = await createConfirmedVariableCase(hall.id, unitVector(1));
-    await insightRepo.replaceAll([await makeCluster(a.id, [a.id, b.id], "라벨")]);
+    await insightRepo.replaceAll(await acquireForWrite(), [await makeCluster(a.id, [a.id, b.id], "라벨")]);
 
-    const result = await insightRepo.replaceAll([]);
+    const result = await insightRepo.replaceAll(await acquireForWrite(), []);
 
-    expect(result).toEqual({ upserted: 0, deleted: 1 });
+    expect(result).toEqual({ owned: true, upserted: 0, deleted: 1 });
     expect(await insightRepo.listClusters()).toEqual([]);
   });
 
@@ -207,7 +218,7 @@ describe("insightRepo.replaceAll — AD-7 원자 교체", () => {
     }
     const [big1, big2, big3, small1, small2] = cases;
 
-    await insightRepo.replaceAll([
+    await insightRepo.replaceAll(await acquireForWrite(), [
       await makeCluster(small1.id, [small1.id, small2.id], "2건"),
       await makeCluster(big1.id, [big1.id, big2.id, big3.id], "3건"),
     ]);
@@ -222,7 +233,56 @@ describe("insightRepo.replaceAll — AD-7 원자 교체", () => {
     const b = await createConfirmedVariableCase(hall.id, unitVector(1));
 
     expect(await insightRepo.countClusters()).toBe(0);
-    await insightRepo.replaceAll([await makeCluster(a.id, [a.id, b.id], "라벨")]);
+    await insightRepo.replaceAll(await acquireForWrite(), [await makeCluster(a.id, [a.id, b.id], "라벨")]);
     expect(await insightRepo.countClusters()).toBe(1);
+  });
+
+  // 코덱스 3차 P1: 해제만 토큰으로 막아서는 부족했다. TTL이 만료돼 다음 실행이 락을
+  // 가져간 뒤에도 뒤늦게 끝난 실행이 여기로 들어와 새 실행의 결과를 덮어쓸 수 있었다.
+  it("소유권을 잃은 실행은 아무것도 쓰지 못한다 (owned: false)", async () => {
+    const hall = await createTestHall();
+    const a = await createConfirmedVariableCase(hall.id, unitVector(0));
+    const b = await createConfirmedVariableCase(hall.id, unitVector(1));
+
+    const stale = await acquireForWrite();
+    // TTL 만료 → 다음 실행이 락을 빼앗는다.
+    await db.execute(
+      sql`update insight_recompute_state set lock_expires_at = now() - interval '1 minute'`,
+    );
+    const fresh = await insightRepo.acquireLock(10);
+    expect(fresh).toEqual(expect.any(String));
+    await insightRepo.replaceAll(fresh!, [
+      await makeCluster(a.id, [a.id, b.id], "새 실행이 쓴 라벨"),
+    ]);
+
+    // 뒤늦게 끝난 옛 실행이 도착한다.
+    const result = await insightRepo.replaceAll(stale, [
+      await makeCluster(b.id, [b.id, a.id], "덮어쓰면 안 되는 라벨"),
+    ]);
+
+    expect(result).toEqual({ owned: false, upserted: 0, deleted: 0 });
+    const stored = await insightRepo.listClusters();
+    expect(stored).toHaveLength(1);
+    expect(stored[0].label).toBe("새 실행이 쓴 라벨");
+  });
+
+  // 소유권 가드가 delete에도 걸려 있어야 한다 — input이 소유권 없음으로 비는 것과
+  // "결과가 0건"인 것을 구분하지 못하면 남의 인사이트를 통째로 지운다.
+  it("소유권을 잃은 실행의 빈 입력이 기존 클러스터를 지우지 않는다", async () => {
+    const hall = await createTestHall();
+    const a = await createConfirmedVariableCase(hall.id, unitVector(0));
+    const b = await createConfirmedVariableCase(hall.id, unitVector(1));
+
+    const stale = await acquireForWrite();
+    await db.execute(
+      sql`update insight_recompute_state set lock_expires_at = now() - interval '1 minute'`,
+    );
+    const fresh = await insightRepo.acquireLock(10);
+    await insightRepo.replaceAll(fresh!, [await makeCluster(a.id, [a.id, b.id], "유지되어야 함")]);
+
+    const result = await insightRepo.replaceAll(stale, []);
+
+    expect(result).toEqual({ owned: false, upserted: 0, deleted: 0 });
+    expect(await insightRepo.listClusters()).toHaveLength(1);
   });
 });

@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: "07-26-2026 16:19"
-last_updated: "07-28-2026 23:10"
+last_updated: "07-29-2026 01:05"
 project: wedding-check
 project_key: WEDCHK
 tracking_system: file-system
@@ -68,8 +68,8 @@ development_status:
   3-4-evidence-based-response: done
   epic-3-retrospective: optional
 
-  epic-4: backlog
-  4-1-pattern-clustering: backlog
+  epic-4: in-progress
+  4-1-pattern-clustering: done
   4-2-insight-admin-only: backlog
   epic-4-retrospective: optional
 
@@ -87,6 +87,14 @@ development_status:
 # Per-story git pipeline substage (see GIT PIPELINE STAGE legend above).
 # 번호가 매겨진 스토리가 아닌 개별 수정(fix/*)도 동일한 파이프라인으로 추적한다.
 git_pipeline:
+  4-1-pattern-clustering:
+    stage: merged
+    branch: story/4-1-pattern-clustering
+    pr_url: "https://github.com/tkdlqh2/wedding-check/pull/32"
+    merge_commit: "a14357e"
+    notes: "git worktree(.claude/worktrees/story-4-1-pattern-clustering)로 착수, main(df64d6c) 기준 분기. Epic 4 첫 스토리(FR-10) — Epic 3이 만든 variable_cases(확정 피드백 → 임베딩)를 지금까지 '한 건을 찾는' 용도로만 썼는데(3.3/3.4 질의), 여기서는 같은 벡터를 서로 비교해 '같은 원인'끼리 묶는다. 새 AI 능력 추가가 아니라 이미 있는 임베딩의 사용 방향을 뒤집는 스토리. 마이그레이션 0024(insight_clusters + insight_recompute_state). **설계 결정**: (1) 클러스터링은 임계값 기반 연결 성분(union-find) — k-means는 k를 요구하고 초기화에 흔들리며 LLM 그룹핑은 재실행마다 답이 달라진다. 연결 성분은 입력 순서와 무관하게 결정적이라 순수 함수(insight-clustering.ts, import가 node:crypto 하나뿐)로 분리해 DB/벤더키 없이 테스트. 단일 연결이라 체이닝 한계 있음(주석 명시). (2) 엣지 계산은 SQL에서(a.id < b.id + pgvector <=>) — 1024차원 벡터 N개를 앱으로 실어오지 않고 임계값을 넘는 희소한 쌍만 받는다. (3) LLM은 클러스터 라벨 한 줄만(gpt-4.1-mini/temperature 0/strict schema, 3.2 경로 그대로) — 반복 횟수·홀 분포·단계·근거는 전부 파생값. 라벨 실패는 배치를 중단시키지 않고 대표 케이스 situation으로 폴백, members_hash가 같으면 재생성 안 함. (4) 클러스터 자연키 = root_case_id(가장 오래된 멤버) — 클러스터가 자라기만 하는 통상 경로에서 upsert 키가 유지된다. (5) 멤버십은 member_case_ids jsonb 단일 테이블 — db.transaction()이 neon-http에서 throw하므로 AD-7의 원자 교체를 지키려면 한 문장이어야 하고, 그러려면 한 테이블이어야 한다(upsert + 사라진 클러스터 DELETE를 한 문장의 두 CTE로). 반복 횟수/홀 분포는 저장하지 않고 읽기 시점 파생(저장 카운트와 실제 멤버가 어긋날 경로 제거). (6) 락은 advisory lock이 아닌 상태 행 — pg_advisory_lock은 세션 스코프인데 neon-http는 문장마다 별개 HTTP 요청이라 유지되지 않는다. 마이그레이션이 singleton 행을 시드(행이 없으면 조건부 UPDATE가 영원히 0행이라 배치가 절대 실행 안 됨) + CHECK 제약. (7) MIN_CLUSTER_SIZE=2 — 1건은 반복이 아니고, 패턴 아닌 것에 라벨 비용을 쓰지 않는다. **임계값은 실측 확정(0.58)이며 3.4와 성격이 달랐다**: query.ts의 MIN_SIMILARITY(0.42)는 질의↔문서(비대칭)로 '관련 있는가?'를, 여기는 문서↔문서(대칭)로 '같은 원인인가?'를 판정해 공유 불가. 실측(같은 원인 8쌍/다른 원인 37쌍, scripts/measure-cluster-threshold.ts): 같은 원인 0.2353~0.6722 / 다른 원인 0.1693~0.5328 — 3.4 때는 두 구간이 깔끔히 갈렸지만 여기서는 0.2353~0.5328이 통째로 겹쳐 '같은 원인을 전부 묶으면서 다른 원인을 하나도 안 묶는' 값이 존재하지 않는다. 0.5328 위로는 다른 원인 쌍이 없어 과병합 0을 보장하는 구간이 있고 그 안에서 0.58 채택(정중앙보다 위 — 과병합은 잘못된 근거 제시이고, 단일 연결이라 거짓 엣지 하나가 두 클러스터 전체를 합쳐 피해가 증폭된다). **대가: 같은 원인 8쌍 중 3쌍만 생존(정밀도 우선).** PRD가 NFR-4 예시로 든 '주례자가 순서를 바꿈' ≒ '목사님이 애드리브함'은 doc-doc 0.2353으로 여기서도 안 묶임 — 3.4의 query-doc 0.277과 같은 한계의 재확인이며, 재현율은 임계값을 낮춰서 올릴 수 없고(다른 원인이 반드시 함께 들어옴) 하이브리드 검색/동의어 확장으로 가야 한다(3.4가 남긴 후보와 같은 처방이라 착수 시 한 스토리로 묶을 것). **프로토타입 이탈 2건**: 3번째 통계 카드 '이번 달 신입 동반 예식'은 AD-3(신입/선임 구분 없음)과 충돌해 데이터 소스가 없어 '최근 30일 신규 피드백'으로 대체; 근거 메타의 작성자 이름은 feedback에 작성자 식별자 컬럼이 의도적으로 없어(NFR-5) 발생 홀로 대체(3.4 매칭 카드 메타와 형식 통일). **코덱스 리뷰 5라운드, P1 4건 + P2 3건 전부 실결함 — 매 라운드가 직전 수정의 빈틈을 잡은 연쇄였다**: (1차 P1) 오류 메시지가 NFR-5 유출 통로 — drizzle은 실패한 쿼리의 파라미터를, openai 어댑터는 벤더 응답 본문을 메시지에 싣는다. 지적은 insight.ts 한 곳이었지만 raw err를 로깅하던 4곳 전수 점검(메모리 fix-defect-class-not-instance), 그중 3곳이 기존 코드였고 confirm/structure는 실제로 situation을 SQL 파라미터로 넘기는 같은 결함 → lib/safe-error.ts::toSafeErrorLabel 신설. (1차 P2) 클러스터링 입력과 유사도 쌍이 Promise.all로 서로 다른 DB 스냅샷을 봄 → 순차 실행 + listSimilarPairs에 candidateIds 필수 인자. (1차 P2) 락 해제 실패 시 락이 안 풀리고 finally의 throw가 성공한 replaceAll 결과까지 실패로 뒤집음 → 3회 재시도 후 삼킴. (2차 P1) **1차가 넣은 재시도가 남의 락을 풀 수 있었다** — 해제가 DB에서 커밋됐는데 응답만 유실되면 재시도 사이 다음 실행이 락을 가져갔을 수 있고, 소유권 확인 없이 해제하면 그 락까지 지워 동시 실행이 열린다 → run_token 펜싱 토큰(acquireLock이 토큰 반환, releaseLock은 일치 시에만, 0행은 실패가 아니라 정상 종료라 재시도 중단). 0024가 미병합이라 새 마이그레이션 대신 컬럼을 0024에 추가하고 격리 DB 재생성 후 전체 체인 재검증. (2차 P2) toSafeErrorLabel의 name/code 미검증 → 형태 정규식으로 고정. (3차 P1) **2차 펜싱 토큰이 해제만 지키고 쓰기는 안 지켰다** — TTL 만료로 B가 락을 가져간 뒤에도 뒤늦게 끝난 A가 replaceAll로 들어와 B의 결과를 덮어씀 → 소유권 확인을 같은 문장 안의 owner CTE로(별도 문장이면 확인과 쓰기 사이 TOCTOU 재발), delete에도 가드(input이 소유권 없음으로 비는 것과 결과 0건을 구분 못 하면 남의 인사이트를 통째로 삭제). (4차 P1) **3차 owner가 순수 SELECT라 직렬화가 안 됐다** — READ COMMITTED에서 SELECT는 문장 시작 스냅샷을 보므로 그 이후 커밋된 락 인수를 감지 못한 채 소유권을 참으로 판정 → 조건부 no-op UPDATE로 바꿔 상태 행에 행 잠금(member.ts::demoteIfNotLastActiveAdmin이 FOR UPDATE로 얻는 것과 같은 성질). 이 경합은 '문장 실행 도중 커밋'을 요구해 결정적 재현이 불가능(드라이버가 문장마다 다른 커넥션)하므로 테스트 대신 메커니즘으로 닫고 스토리 파일에 공백 명시. 5차 클린(P1/P2 없음, 코덱스가 PostgreSQL 격리수준·CTE 문서까지 확인). 검증: 격리 DB(포트 5438, pgvector) 0000~0024 전체 체인 + 앱 포트 3015, vitest 435건(신규 90건), tsc/lint/build 클린, **실키 종단으로 AC 1의 핵심을 확인** — 확정 케이스 5건을 실제 임베딩으로 시드해 배치 실행 시 클러스터 2개 생성(HDMI 셀렉터 입력/케이블 2건, 입장 조명 타이밍 2건), 표현이 다른 피드백이 실제로 한 원인으로 묶이고 서로 다른 원인은 안 합쳐지고 짝 없는 1건은 제외됨. cron 인가 4종(시크릿 없음 401/틀린 시크릿 401/길이만 같은 시크릿 401/올바른 시크릿 200, 미설정 시 503 fail closed), 동시 4회 호출에 200 1건·409 3건(AC 3 실검증), 오퍼레이터 세션 → /admin/insights 307. 검증 중 함정: PowerShell 5.1의 Set-Content -Encoding utf8이 BOM을 붙여 .env.local 첫 키가 깨짐(임베딩만 쓰는 스크립트는 첫 줄이 아니라 멀쩡히 돌아 원인이 늦게 드러남) — 워크트리에 env 복사 시 반복 가능."
+    last_updated: "07-29-2026 01:05"
+
   3-4-evidence-based-response:
     stage: merged
     branch: story/3-4-evidence-based-response

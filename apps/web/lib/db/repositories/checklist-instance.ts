@@ -471,6 +471,61 @@ export async function swapStepGroups(
   });
 }
 
+// 대표 지시(2026-07-28): 단계 순서뿐 아니라 단계 안 항목 순서도 화살표로 바꾼다 —
+// checklist-item.ts::moveAdjacent(템플릿 편집기)와 동일한 CTE 스왑이되, 탐색 범위를
+// "같은 인스턴스 안, 같은 단계(templateItemId 또는 adHocGroupRootId) 안"으로 좁히고
+// title IS NULL인 단계 마커 행은 이웃 후보에서 제외한다(마커는 화면에 노출되지 않는
+// 자리표시일 뿐 옮길 항목이 아니다). orphan 항목(둘 다 null, 그룹에 단 하나뿐)은
+// 애초에 같은 조건을 만족하는 이웃이 없어 자연히 no-op으로 수렴한다.
+export async function moveItemAdjacent(
+  hallId: string,
+  instanceId: string,
+  itemId: string,
+  direction: "up" | "down",
+): Promise<number> {
+  const comparator = direction === "up" ? sql`<` : sql`>`;
+  const neighborOrder = direction === "up" ? sql`desc` : sql`asc`;
+
+  return withConcurrencyRetry(async () => {
+    const result = await db.execute(sql`
+      with target as (
+        select id, template_item_id, ad_hoc_group_root_id, sort_order
+        from ${checklistInstanceItems}
+        where id = ${itemId} and instance_id = ${instanceId} and hall_id = ${hallId}
+      ),
+      neighbor as (
+        select id, sort_order from ${checklistInstanceItems}
+        where instance_id = ${instanceId} and hall_id = ${hallId}
+          and title is not null
+          and sort_order ${comparator} (select sort_order from target)
+          and (
+            (
+              (select template_item_id from target) is not null
+              and template_item_id = (select template_item_id from target)
+            )
+            or (
+              (select template_item_id from target) is null
+              and (select ad_hoc_group_root_id from target) is not null
+              and ad_hoc_group_root_id = (select ad_hoc_group_root_id from target)
+            )
+          )
+        order by sort_order ${neighborOrder}
+        limit 1
+      )
+      update ${checklistInstanceItems} t
+      set sort_order = case
+        when t.id = (select id from target) then (select sort_order from neighbor)
+        when t.id = (select id from neighbor) then (select sort_order from target)
+      end
+      where exists (select 1 from neighbor)
+        and t.id in (select id from target union select id from neighbor)
+        and ${ceremonyUpcomingGuard(instanceId)}
+      returning t.id
+    `);
+    return result.rows.length;
+  });
+}
+
 function stepGroupSql(key: StepGroupKey) {
   if ("templateItemId" in key) {
     return sql`template_item_id = ${key.templateItemId}`;

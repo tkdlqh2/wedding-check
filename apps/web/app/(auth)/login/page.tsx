@@ -37,7 +37,7 @@ export default function LoginPage() {
   return (
     <main className="login-page">
       <div className="login-card">
-        <div className="login-card__brand">웨딩체크</div>
+        <h1 className="login-card__brand">웨딩체크</h1>
         <p className="login-card__subtitle">전화번호로 로그인하세요</p>
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="login-form__field">

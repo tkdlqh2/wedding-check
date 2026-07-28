@@ -21,6 +21,7 @@
 }
 
 .login-card__brand {
+  margin: 0;
   font-size: 24px;
   font-weight: 700;
   color: var(--color-brand);

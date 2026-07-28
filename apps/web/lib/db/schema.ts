@@ -372,6 +372,57 @@ export const variableCases = pgTable("variable_cases", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// FR-10/AD-7: 반복 패턴 클러스터 — `variable_cases`의 임베딩을 서로 비교해 "같은 원인"
+// 끼리 묶은 결과. **이 테이블에 쓰는 것은 lib/services/insight.ts::recomputeInsights()
+// 하나뿐이다**(AD-7: 다른 서비스·라우트에서 INSERT/UPDATE/DELETE 금지).
+//
+// 멤버십을 조인 테이블이 아니라 jsonb 배열로 드는 이유: AD-7이 요구하는 "커밋 시점
+// 원자적 교체"를 지키려면 재계산이 한 문장이어야 하는데, db.transaction()은 프로덕션
+// 드라이버(neon-http)에서 throw한다(Story 1.3/2.1/3.2에서 반복 확인된 이 프로젝트의
+// 확정 제약). 한 문장이려면 한 테이블이어야 한다. variable_cases는 v1에서 삭제 경로가
+// 없는 append-only 테이블이라 FK 무결성 부재의 실질 위험이 없고, 읽기 시 조회되지 않는
+// id는 조용히 건너뛴다.
+//
+// 반복 횟수·홀 분포는 **저장하지 않는다** — 읽기 시점에 멤버에서 파생한다. 저장된
+// 카운트와 실제 멤버가 어긋날 경로 자체를 만들지 않기 위함.
+export const insightClusters = pgTable("insight_clusters", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  // 클러스터의 자연키 = 가장 오래된 멤버(created_at ASC, id ASC 첫 행). AD-7이
+  // cluster_id의 실행 간 안정성을 보장하지 않지만, 이 키를 쓰면 클러스터가 자라기만
+  // 하는 통상 경로에서 행이 그대로 유지된다(새 케이스가 합류해도 최고참은 그대로).
+  // upsert의 ON CONFLICT 대상이라 unique여야 한다.
+  rootCaseId: uuid("root_case_id")
+    .notNull()
+    .unique()
+    .references(() => variableCases.id),
+  // LLM이 만든 원인 이름 한 줄(gpt-4.1-mini, temperature 0). 생성 실패 시 대표 케이스
+  // situation 앞부분으로 폴백한다 — AI 한 건 실패가 집계 전체를 날리면 안 된다.
+  label: text("label").notNull(),
+  // 대표 단계(최빈값) 스냅샷 — 화면 부제("{단계} 단계 · ...")용.
+  stepName: text("step_name").notNull(),
+  memberCaseIds: jsonb("member_case_ids").$type<string[]>().notNull().default([]),
+  // 멤버 id 집합의 해시. 멤버가 그대로면 라벨을 다시 만들지 않는다 — 비용 절감이자,
+  // 아무것도 안 바뀐 날 라벨 문구만 흔들리는 것을 막는다.
+  membersHash: text("members_hash").notNull(),
+  computedAt: timestamp("computed_at").defaultNow().notNull(),
+});
+
+// AD-7의 동시 실행 차단(AC 3) + 프로토타입의 "마지막 갱신" 표시.
+//
+// advisory lock을 쓰지 않는 이유: pg_advisory_lock은 **세션 스코프**인데 neon-http는
+// 문장마다 별개의 HTTP 요청이라 세션이 유지되지 않는다. AD-7이 허용한 다른 선택지인
+// 상태 행을 쓴다 — 조건부 UPDATE 한 문장이 곧 원자적 획득이고, 0행이면 이미 실행 중이다.
+export const insightRecomputeState = pgTable("insight_recompute_state", {
+  // 항상 'singleton'. 마이그레이션이 이 행을 시드하고, CHECK 제약이 두 번째 행을 막는다
+  // (행이 없으면 조건부 UPDATE가 영원히 0행이라 배치가 절대 실행되지 않는다).
+  id: text("id").primaryKey(),
+  // null이면 idle. 배치가 중간에 죽어도 lockExpiresAt이 지나면 다음 실행이 획득한다.
+  runningSince: timestamp("running_since"),
+  lockExpiresAt: timestamp("lock_expires_at"),
+  lastCompletedAt: timestamp("last_completed_at"),
+  lastError: text("last_error"),
+});
+
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),

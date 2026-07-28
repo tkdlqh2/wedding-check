@@ -37,7 +37,8 @@
   min-width: 0;
 }
 
-.hall-form__row .btn-primary {
+.hall-form__row .btn-primary,
+.hall-form__row .btn-secondary {
   flex: none;
   white-space: nowrap;
 }

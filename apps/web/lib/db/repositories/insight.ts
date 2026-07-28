@@ -129,10 +129,18 @@ export interface ClusterToStore extends BuiltCluster {
  *
  * 입력이 비면(확정 케이스 0건 또는 전부 1건짜리) 전체 삭제가 맞다 — `not exists`가
  * 빈 input에 대해 항상 참이므로 자연히 그렇게 동작한다.
+ *
+ * **`token`으로 소유권을 확인한다**(코덱스 3차 P1). 락 해제만 토큰으로 막는 것으로는
+ * 부족했다: TTL이 만료돼 다음 실행이 락을 가져간 뒤에도 뒤늦게 끝난 실행이 여기로
+ * 들어와 새 실행의 결과를 덮어쓸 수 있었다(AC 3의 동시 실행 격리가 깨진다). 소유권
+ * 확인을 별도 문장으로 두면 확인과 쓰기 사이에 또 TOCTOU가 생기므로, **같은 문장 안의
+ * `owner` CTE**로 두고 upsert와 delete가 모두 이를 참조하게 한다. 소유권이 없으면
+ * 0건을 쓰고 `owned: false`를 돌려준다.
  */
 export async function replaceAll(
+  token: string,
   clusters: ClusterToStore[],
-): Promise<{ upserted: number; deleted: number }> {
+): Promise<{ owned: boolean; upserted: number; deleted: number }> {
   const payload = JSON.stringify(
     clusters.map((c) => ({
       root_case_id: c.rootCaseId,
@@ -143,8 +151,12 @@ export async function replaceAll(
     })),
   );
 
-  const result = await db.execute<{ upserted: number; deleted: number }>(sql`
-    with input as (
+  const result = await db.execute<{ owned: number; upserted: number; deleted: number }>(sql`
+    with owner as (
+      select 1 from ${insightRecomputeState}
+      where id = ${SINGLETON_ID} and run_token = ${token}
+    ),
+    input as (
       select * from json_to_recordset(${payload}::json) as x(
         root_case_id uuid,
         label text,
@@ -152,6 +164,7 @@ export async function replaceAll(
         member_case_ids jsonb,
         members_hash text
       )
+      where exists (select 1 from owner)
     ),
     upserted as (
       insert into ${insightClusters}
@@ -167,18 +180,26 @@ export async function replaceAll(
     ),
     deleted as (
       delete from ${insightClusters}
-      where not exists (
-        select 1 from input i where i.root_case_id = insight_clusters.root_case_id
-      )
+      -- 소유권 가드가 여기에도 있어야 한다: input이 소유권 없음으로 비면
+      -- "결과가 0건" 과 구분되지 않아 전체 삭제로 이어진다.
+      where exists (select 1 from owner)
+        and not exists (
+          select 1 from input i where i.root_case_id = insight_clusters.root_case_id
+        )
       returning id
     )
     select
+      (select count(*) from owner)::int as owned,
       (select count(*) from upserted)::int as upserted,
       (select count(*) from deleted)::int as deleted
   `);
 
   const row = result.rows[0];
-  return { upserted: row?.upserted ?? 0, deleted: row?.deleted ?? 0 };
+  return {
+    owned: (row?.owned ?? 0) > 0,
+    upserted: row?.upserted ?? 0,
+    deleted: row?.deleted ?? 0,
+  };
 }
 
 export async function listClusters(): Promise<StoredCluster[]> {

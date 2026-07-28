@@ -191,6 +191,27 @@ describe("recomputeInsights — 동시 실행 차단 (AC 3)", () => {
     expect(await insightRepo.acquireLock(10)).toEqual(expect.any(String));
   });
 
+  // 코덱스 3차 P1: 락 해제만 토큰으로 막는 것으로는 부족했다 — TTL 만료로 소유권을
+  // 잃은 실행이 뒤늦게 도착해 새 실행의 결과를 덮어쓸 수 있었다.
+  it("실행 중 TTL이 만료돼 소유권을 잃으면 결과를 쓰지 않고 실패로 끝난다", async () => {
+    await seedOneCluster();
+    // 라벨 생성 시점(케이스 조회와 replaceAll 사이)에 락을 빼앗기는 상황을 만든다.
+    generateMock.mockImplementation(async () => {
+      await db.execute(
+        sql`update insight_recompute_state set lock_expires_at = now() - interval '1 minute'`,
+      );
+      await insightRepo.acquireLock(10);
+      return labelResponse("뒤늦은 라벨");
+    });
+
+    await expect(recomputeInsights()).rejects.toBeInstanceOf(InsightLockedError);
+
+    // 이 실행의 결과는 하나도 저장되지 않아야 한다.
+    expect(await insightRepo.listClusters()).toEqual([]);
+    // 새 실행의 락도 그대로 살아 있어야 한다.
+    expect(await insightRepo.acquireLock(10)).toBeNull();
+  });
+
   // 코덱스 1차 P1: drizzle은 실패한 쿼리의 파라미터를 오류 메시지에 싣는다. 그 메시지를
   // 그대로 저장하면 상황 설명 원문이 상태 행에 남아 NFR-5를 깬다.
   it("실패를 기록할 때 상황 설명 원문이 last_error에 남지 않는다 (NFR-5)", async () => {

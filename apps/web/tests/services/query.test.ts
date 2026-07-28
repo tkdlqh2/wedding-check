@@ -188,11 +188,22 @@ describe("queryVariableCases (FR-6)", () => {
     expect(matches.map((m) => m.situation)).toEqual(["바로 위"]);
   });
 
-  // 안전 게이트가 0(전부 통과)이나 1(전부 차단) 같은 사고성 값으로 무력화되는 것을
-  // CI가 잡는다. 값 자체는 고정하지 않는다 — 실데이터 재보정은 허용되어야 한다.
-  it("MIN_SIMILARITY가 안전한 범위(0.4~0.9) 안에 있다", () => {
-    expect(MIN_SIMILARITY).toBeGreaterThanOrEqual(0.4);
-    expect(MIN_SIMILARITY).toBeLessThanOrEqual(0.9);
+  // 2026-07-28 실제 OpenAI text-embedding-3-large(1024차원) 호출로 측정한 값
+  // (웨딩홀 도메인 문서 3건 × 질의 8건). 이 두 수치가 임계값 재보정의 가드레일이다.
+  const MEASURED_UNRELATED_MAX = 0.366; // "주차장이 만차라서 하객이 못 들어와요"
+  const MEASURED_RELATED_MIN = 0.5; // "축가 반주가 안 나와요"(0.5007)
+
+  // 단순 범위 체크는 무관 사례를 통과시키는 값으로 바뀌어도 성공한다(코덱스 2차 P2) —
+  // 실측한 두 구간 사이에 있는지를 직접 고정한다. 재보정 자체는 허용하되, 측정된
+  // 무관 사례를 근거로 들이거나(SM-2 위반) 측정된 관련 사례를 버리는 방향으로는
+  // 못 움직인다.
+  //
+  // [한계] 이건 소규모 표본에 대한 회귀 가드이지 SM-2의 증명이 아니다. PRD가 요구하는
+  // "검수용 변수 상황 세트에서 무관 사례 0%"는 실제 피드백이 쌓인 뒤 검수 세트로
+  // 확인해야 한다(deferred-work.md).
+  it("MIN_SIMILARITY가 실측 무관 최댓값과 관련 최솟값 사이에 있다 (SM-2 가드)", () => {
+    expect(MIN_SIMILARITY).toBeGreaterThan(MEASURED_UNRELATED_MAX);
+    expect(MIN_SIMILARITY).toBeLessThan(MEASURED_RELATED_MIN);
   });
 
   it("빈 질의는 임베딩 호출 없이 거부한다", async () => {

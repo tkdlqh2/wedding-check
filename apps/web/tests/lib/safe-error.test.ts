@@ -53,4 +53,50 @@ describe("toSafeErrorLabel", () => {
     err.name = "";
     expect(toSafeErrorLabel(err)).toBe("Error");
   });
+
+  // 코덱스 2차 P2: name과 code는 오류를 만든 쪽이 자유롭게 지정할 수 있는 값이다.
+  // 벤더 SDK나 미래의 코드가 여기에 원문을 담아버리면 "메시지만 막으면 된다"는 전제가
+  // 무너지므로, 통과 조건을 형태로 못 박는다.
+  it.each([
+    ["공백 포함", "Error: 주례자가 순서를 바꿈"],
+    ["한글", "오류주례자가순서를바꿈"],
+    ["기호 포함", "Error(축가-MR)"],
+    ["숫자로 시작", "1Error"],
+    ["64자 초과", "E".repeat(65)],
+  ])("name이 안전한 형태가 아니면(%s) Error로 떨어뜨린다", (_case, name) => {
+    const err = new Error("메시지");
+    err.name = name;
+
+    const label = toSafeErrorLabel(err);
+
+    expect(label).toBe("Error");
+    expect(label).not.toContain("주례자");
+  });
+
+  it.each([
+    ["5자리가 아님", "235"],
+    ["소문자", "23a05"],
+    ["문장", "duplicate key (주례자가 순서를 바꿈)"],
+  ])("code가 SQLSTATE 형태가 아니면(%s) 생략한다", (_case, code) => {
+    const err = Object.assign(new Error("메시지"), { code });
+
+    const label = toSafeErrorLabel(err);
+
+    expect(label).toBe("Error");
+    expect(label).not.toContain("주례자");
+  });
+
+  // 출력 형태 자체를 고정해 둔다 — 이 계약이 깨지면 유출 가능성이 다시 열린다.
+  it("출력은 항상 Name 또는 Name(SQLSTATE) 형태다", () => {
+    const cases: unknown[] = [
+      new Error("메시지"),
+      Object.assign(new Error("메시지"), { code: "23505" }),
+      Object.assign(new Error("메시지"), { name: "한글이름", code: "!!!" }),
+      "문자열",
+      null,
+    ];
+    for (const err of cases) {
+      expect(toSafeErrorLabel(err)).toMatch(/^[A-Za-z][A-Za-z0-9_]*(\([0-9A-Z]{5}\))?$/);
+    }
+  });
 });

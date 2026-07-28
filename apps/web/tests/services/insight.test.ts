@@ -188,7 +188,7 @@ describe("recomputeInsights — 동시 실행 차단 (AC 3)", () => {
     expect(state.lastError).not.toBeNull();
     expect(state.lastCompletedAt).toBeNull();
     // 실패했으면 다음 배치가 곧바로 다시 시도할 수 있어야 한다.
-    expect(await insightRepo.acquireLock(10)).toBe(true);
+    expect(await insightRepo.acquireLock(10)).toEqual(expect.any(String));
   });
 
   // 코덱스 1차 P1: drizzle은 실패한 쿼리의 파라미터를 오류 메시지에 싣는다. 그 메시지를

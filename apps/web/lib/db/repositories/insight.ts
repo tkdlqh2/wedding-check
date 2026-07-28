@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { db } from "../index";
 import { insightClusters, insightRecomputeState } from "../schema";
@@ -39,40 +40,56 @@ export interface StoredCluster {
  * `lock_expires_at`이 지난 락은 빼앗는다 — 배치가 중간에 죽어도 다음 실행이 영구히
  * 막히지 않아야 한다.
  *
- * @returns 획득했으면 true, 이미 실행 중이면 false.
+ * @returns 획득했으면 이 실행의 **펜싱 토큰**, 이미 실행 중이면 null.
+ *   토큰은 `releaseLock`에 그대로 넘겨야 한다(소유권 확인용, 코덱스 2차 P1).
  */
-export async function acquireLock(ttlMinutes: number): Promise<boolean> {
+export async function acquireLock(ttlMinutes: number): Promise<string | null> {
+  const token = randomUUID();
   const result = await db.execute<{ id: string }>(sql`
     update ${insightRecomputeState}
     set running_since = now(),
         lock_expires_at = now() + make_interval(mins => ${ttlMinutes}),
+        run_token = ${token},
         last_error = null
     where id = ${SINGLETON_ID}
       and (running_since is null or lock_expires_at < now())
     returning id
   `);
-  return result.rows.length > 0;
+  return result.rows.length > 0 ? token : null;
 }
 
 /**
  * 락 해제. `recomputeInsights()`의 finally에서 호출되며, **어떤 경로로 실패해도 반드시
  * 실행되어야 한다** — 그러지 않으면 TTL이 만료될 때까지(최대 ttlMinutes) 다음 배치가 막힌다.
  *
+ * **`token`이 일치할 때만 해제한다**(코덱스 2차 P1). 해제 문장이 DB에서 커밋됐는데
+ * 응답만 유실되면 호출부가 재시도하는데, 그 사이 다음 실행이 락을 가져갔을 수 있다.
+ * 소유권 확인 없이 해제하면 그 새 실행의 락까지 지워 동시 실행이 열린다(AC 3 위반).
+ * TTL 만료로 락을 빼앗긴 뒤 뒤늦게 끝난 실행도 같은 이유로 여기서 걸러진다.
+ *
  * `error`에는 오류 **메시지가 아니라** `toSafeErrorLabel()`이 만든 라벨만 넣는다
  * (NFR-5 — lib/safe-error.ts 주석 참고).
+ *
+ * @returns 이 실행이 소유한 락을 실제로 해제했으면 true. false는 실패가 아니라
+ *   "이미 내 락이 아니다"라는 뜻이므로 재시도해서는 안 된다.
  */
 export async function releaseLock(outcome: {
+  token: string;
   completed: boolean;
   error?: string | null;
-}): Promise<void> {
-  await db.execute(sql`
+}): Promise<boolean> {
+  const result = await db.execute<{ id: string }>(sql`
     update ${insightRecomputeState}
     set running_since = null,
         lock_expires_at = null,
+        run_token = null,
         last_completed_at = case when ${outcome.completed} then now() else last_completed_at end,
         last_error = ${outcome.error ?? null}
     where id = ${SINGLETON_ID}
+      and run_token = ${outcome.token}
+    returning id
   `);
+  return result.rows.length > 0;
 }
 
 export async function readState(): Promise<RecomputeState> {

@@ -26,30 +26,65 @@ describe("insightRepo — 동시 실행 락 (AC 3)", () => {
     await resetDb();
   });
 
-  it("첫 획득은 성공하고, 이미 실행 중이면 두 번째는 실패한다", async () => {
-    expect(await insightRepo.acquireLock(10)).toBe(true);
-    expect(await insightRepo.acquireLock(10)).toBe(false);
+  async function acquire(ttl = 10): Promise<string> {
+    const token = await insightRepo.acquireLock(ttl);
+    if (token === null) throw new Error("테스트 셋업 실패: 락 획득 실패");
+    return token;
+  }
+
+  it("첫 획득은 토큰을 주고, 이미 실행 중이면 두 번째는 null이다", async () => {
+    expect(await insightRepo.acquireLock(10)).toEqual(expect.any(String));
+    expect(await insightRepo.acquireLock(10)).toBeNull();
   });
 
   it("해제하면 다시 획득할 수 있다", async () => {
-    await insightRepo.acquireLock(10);
-    await insightRepo.releaseLock({ completed: true });
-    expect(await insightRepo.acquireLock(10)).toBe(true);
+    const token = await acquire();
+    expect(await insightRepo.releaseLock({ token, completed: true })).toBe(true);
+    expect(await insightRepo.acquireLock(10)).toEqual(expect.any(String));
   });
 
   // 배치가 중간에 죽어도 다음 실행이 영구히 막히면 안 된다.
   it("만료된 락은 빼앗는다", async () => {
-    await insightRepo.acquireLock(10);
+    await acquire();
     // 락을 과거 시점으로 만료시킨다.
     await db.execute(
       sql`update insight_recompute_state set lock_expires_at = now() - interval '1 minute'`,
     );
-    expect(await insightRepo.acquireLock(10)).toBe(true);
+    expect(await insightRepo.acquireLock(10)).toEqual(expect.any(String));
+  });
+
+  // 코덱스 2차 P1: 해제 문장이 DB에서는 커밋됐는데 응답만 유실되면 호출부가 재시도하는데,
+  // 그 사이 다음 실행이 락을 가져갔을 수 있다. 소유권 확인이 없으면 그 락까지 지워
+  // 동시 실행이 열린다.
+  it("남의 토큰으로는 해제되지 않는다 (펜싱 토큰)", async () => {
+    const first = await acquire();
+    await insightRepo.releaseLock({ token: first, completed: true });
+    const second = await acquire();
+
+    // 첫 실행이 "응답 유실"로 착각하고 재시도하는 상황.
+    const released = await insightRepo.releaseLock({ token: first, completed: true });
+
+    expect(released).toBe(false);
+    // 두 번째 실행의 락은 그대로 살아 있어야 한다 — 아니면 세 번째가 끼어든다.
+    expect(await insightRepo.acquireLock(10)).toBeNull();
+    expect(await insightRepo.releaseLock({ token: second, completed: true })).toBe(true);
+  });
+
+  // TTL 만료로 락을 빼앗긴 뒤 뒤늦게 끝난 실행도 같은 경로로 걸러져야 한다.
+  it("TTL 만료로 빼앗긴 뒤 뒤늦게 해제해도 새 실행의 락을 지우지 않는다", async () => {
+    const stale = await acquire();
+    await db.execute(
+      sql`update insight_recompute_state set lock_expires_at = now() - interval '1 minute'`,
+    );
+    await acquire(); // 새 실행이 빼앗음
+
+    expect(await insightRepo.releaseLock({ token: stale, completed: true })).toBe(false);
+    expect(await insightRepo.acquireLock(10)).toBeNull();
   });
 
   it("성공 해제는 last_completed_at을 기록하고 오류를 비운다", async () => {
-    await insightRepo.acquireLock(10);
-    await insightRepo.releaseLock({ completed: true, error: null });
+    const token = await acquire();
+    await insightRepo.releaseLock({ token, completed: true, error: null });
 
     const state = await insightRepo.readState();
     expect(state.runningSince).toBeNull();
@@ -60,24 +95,28 @@ describe("insightRepo — 동시 실행 락 (AC 3)", () => {
 
   // 실패한 배치가 "방금 갱신됨"으로 보이면 안 된다.
   it("실패 해제는 last_completed_at을 건드리지 않고 오류만 남긴다", async () => {
-    await insightRepo.acquireLock(10);
-    await insightRepo.releaseLock({ completed: true });
+    const first = await acquire();
+    await insightRepo.releaseLock({ token: first, completed: true });
     const afterSuccess = await insightRepo.readState();
 
-    await insightRepo.acquireLock(10);
-    await insightRepo.releaseLock({ completed: false, error: "임베딩 API 오류" });
+    const second = await acquire();
+    await insightRepo.releaseLock({
+      token: second,
+      completed: false,
+      error: "EmbeddingError",
+    });
     const afterFailure = await insightRepo.readState();
 
     expect(afterFailure.lastCompletedAt?.getTime()).toBe(
       afterSuccess.lastCompletedAt?.getTime(),
     );
-    expect(afterFailure.lastError).toBe("임베딩 API 오류");
+    expect(afterFailure.lastError).toBe("EmbeddingError");
   });
 
   it("획득 시 직전 오류를 비운다", async () => {
-    await insightRepo.acquireLock(10);
-    await insightRepo.releaseLock({ completed: false, error: "이전 실패" });
-    await insightRepo.acquireLock(10);
+    const token = await acquire();
+    await insightRepo.releaseLock({ token, completed: false, error: "PreviousError" });
+    await acquire();
 
     expect((await insightRepo.readState()).lastError).toBeNull();
   });

@@ -419,6 +419,11 @@ export const insightRecomputeState = pgTable("insight_recompute_state", {
   // null이면 idle. 배치가 중간에 죽어도 lockExpiresAt이 지나면 다음 실행이 획득한다.
   runningSince: timestamp("running_since"),
   lockExpiresAt: timestamp("lock_expires_at"),
+  // 펜싱 토큰(코덱스 2차 P1). 락 해제는 **소유권을 확인하고** 해야 한다: 해제 문장이
+  // DB에서는 커밋됐는데 응답만 유실되면, 재시도하는 사이 다음 실행이 락을 가져갈 수
+  // 있다. 소유권 확인 없이 해제하면 그 새 실행의 락까지 지워 동시 실행이 열린다.
+  // TTL 만료로 락을 빼앗긴 경우에도 같은 이유로 필요하다.
+  runToken: text("run_token"),
   lastCompletedAt: timestamp("last_completed_at"),
   lastError: text("last_error"),
 });

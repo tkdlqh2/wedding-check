@@ -116,6 +116,30 @@ export async function findById(hallId: string, id: string): Promise<Ceremony | u
   });
 }
 
+// 예식 진행 상태 변경 — 서비스가 전환 규칙(upcoming→ongoing→done)을 검증한 뒤
+// 기대하는 현재 상태(expectedCurrent)와 함께 호출한다. WHERE에 현재 상태를 포함해
+// 두 오퍼레이터가 동시에 같은 전환을 눌러도 한 번만 적용된다(TOCTOU 방지 — 갱신된
+// 행 수를 반환해 서비스가 경합 패배를 감지할 수 있게 한다). AD-2 hallId 스코프.
+export async function updateStatus(
+  hallId: string,
+  id: string,
+  expectedCurrent: string,
+  nextStatus: string,
+): Promise<number> {
+  const rows = await db
+    .update(ceremonies)
+    .set({ status: nextStatus })
+    .where(
+      and(
+        eq(ceremonies.id, id),
+        eq(ceremonies.hallId, hallId),
+        eq(ceremonies.status, expectedCurrent),
+      ),
+    )
+    .returning();
+  return rows.length;
+}
+
 // FR-18 다중 배정(2026-07-27): ceremony_assignees 조인 테이블 기반. AD-2 — 모든
 // 쿼리에 hall_id 스코프.
 
@@ -144,16 +168,24 @@ export async function findAssigneesByCeremony(
 }
 
 // 동시 클릭으로 같은 배정이 두 번 들어와도 PK(ceremony_id, operator_id) 충돌을
-// onConflictDoNothing으로 흡수해 멱등하게 처리한다.
+// onConflictDoNothing으로 흡수해 멱등하게 처리한다. 코덱스 리뷰 P2(TOCTOU): 서비스의
+// 상태 확인과 이 INSERT 사이에 예식이 시작될 수 있다 — "예정(upcoming) 예식만 배정
+// 변경 가능" 조건을 INSERT ... SELECT의 WHERE로 원자화한다(차단 시 0행, 조용한 no-op —
+// revalidate가 실제 상태를 다시 그린다).
 export async function addAssignee(
   hallId: string,
   ceremonyId: string,
   operatorId: string,
 ): Promise<void> {
-  await db
-    .insert(ceremonyAssignees)
-    .values({ hallId, ceremonyId, operatorId })
-    .onConflictDoNothing();
+  await db.execute(sql`
+    insert into ${ceremonyAssignees} (ceremony_id, operator_id, hall_id)
+    select ${ceremonyId}, ${operatorId}, ${hallId}
+    where exists (
+      select 1 from ${ceremonies}
+      where id = ${ceremonyId} and hall_id = ${hallId} and status = 'upcoming'
+    )
+    on conflict (ceremony_id, operator_id) do nothing
+  `);
 }
 
 export async function removeAssignee(
@@ -168,6 +200,13 @@ export async function removeAssignee(
         eq(ceremonyAssignees.ceremonyId, ceremonyId),
         eq(ceremonyAssignees.operatorId, operatorId),
         eq(ceremonyAssignees.hallId, hallId),
+        // addAssignee와 동일한 TOCTOU 가드 — "예정이 아닌 예식은 수정 불가"가 상위
+        // 불변조건이라 해제도 예식 시작 이후에는 커밋되지 않아야 한다(배정 기록 보존).
+        // stale 담당자 정리도 예정 상태에서만 가능하다(서비스 사전 확인과 동일 규칙).
+        sql`exists (
+          select 1 from ${ceremonies}
+          where id = ${ceremonyId} and hall_id = ${hallId} and status = 'upcoming'
+        )`,
       ),
     );
 }

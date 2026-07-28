@@ -3,18 +3,21 @@ import Link from "next/link";
 import * as hallRepo from "@/lib/db/repositories/hall";
 import { getCeremonyDetail, ChecklistInstanceValidationError } from "@/lib/services/checklist-instance";
 import { listCeremonyAssignees } from "@/lib/services/ceremony";
+import { listMembers } from "@/lib/services/member";
 import { isValidUuid } from "@/lib/uuid";
 import { InstanceItemRow } from "./instance-item-row";
 import { InstanceItemForm } from "./instance-item-form";
 import { InstanceStepHeader } from "./instance-step-header";
+import { AssigneePicker } from "./assignee-picker";
 import { groupItemsByStep } from "./group-by-step";
-import { isCeremonyDone } from "@/lib/ceremony-status";
+import { asCeremonyStatus, CEREMONY_STATUS_LABELS } from "@/lib/ceremony-status";
 import "./ceremony-detail.css";
 
 // prototype/js/screens/WeddingDetailScreen.js와 동일한 위계 — 시간+신랑신부가
-// 제목(28px/700), 그 옆에 상태 배지, 그 아래 날짜·홀·담당 메타 줄, 그 아래
-// "이 예식 전용" 안내 박스, 단계 카드 목록(템플릿 편집기와 동일 시각 언어),
-// 맨 아래 새 단계 추가 점선 카드.
+// 제목(28px/700), 그 옆에 상태 배지, 그 아래 날짜·홀 메타 줄과 담당자 섹션(배정은
+// 검색+체크박스 대화상자), 그 아래 "이 예식 전용" 안내 박스, 단계 카드 목록(템플릿
+// 편집기와 동일 시각 언어), 맨 아래 새 단계 추가 점선 카드. 종료된 예식은 전체가
+// 읽기 전용이다(editable = status !== 'done' 원칙, 서비스 레이어도 동일 가드).
 const timeFormatter = new Intl.DateTimeFormat("ko-KR", {
   timeZone: "Asia/Seoul",
   hour: "2-digit",
@@ -48,10 +51,12 @@ export default async function CeremonyDetailPage({
 
   let detail;
   let assignees;
+  let allMembers;
   try {
-    [detail, assignees] = await Promise.all([
+    [detail, assignees, allMembers] = await Promise.all([
       getCeremonyDetail(hallId, ceremonyId),
       listCeremonyAssignees(hallId, ceremonyId),
+      listMembers(),
     ]);
   } catch (err) {
     if (err instanceof ChecklistInstanceValidationError) {
@@ -61,8 +66,13 @@ export default async function CeremonyDetailPage({
   }
 
   const { ceremony, items } = detail;
+  const activeOperators = allMembers
+    .filter((m) => m.role === "operator" && !m.banned)
+    .map((m) => ({ id: m.id, name: m.name }));
   const stepGroups = groupItemsByStep(items);
-  const isDone = isCeremonyDone(ceremony.ceremonyAt);
+  const status = asCeremonyStatus(ceremony.status);
+  // 대표 지시(2026-07-27): 예정이 아닌 예식(진행중·종료)은 전체 읽기 전용.
+  const readOnly = status !== "upcoming";
 
   return (
     <section className="ceremony-detail-page">
@@ -81,28 +91,36 @@ export default async function CeremonyDetailPage({
         </h1>
         <span
           className={
-            "ceremony-detail-page__status-badge" + (isDone ? " ceremony-detail-page__status-badge--done" : "")
+            "ceremony-detail-page__status-badge ceremony-detail-page__status-badge--" + status
           }
         >
-          {isDone ? "완료" : "예정"}
+          {CEREMONY_STATUS_LABELS[status]}
         </span>
       </div>
-      {/* 프로토타입 22행 — 담당은 상세에서 읽기 전용, 배정 조작은 예식 목록 카드의 pill. */}
       <p className="ceremony-detail-page__meta">
-        {dateFormatter.format(ceremony.ceremonyAt)} · {hall.name} · 담당{" "}
-        {assignees.length > 0 ? (
-          assignees.map((a) => a.name).join(", ")
-        ) : (
-          <span className="ceremony-detail-page__meta-unassigned">미배정</span>
-        )}
+        {dateFormatter.format(ceremony.ceremonyAt)} · {hall.name}
       </p>
 
-      {/* 프로토타입 25행의 경고 톤 안내 박스 — 이 화면의 수정이 템플릿에 영향을 주지
-          않는다는 핵심 안내. */}
-      <p className="ceremony-detail-page__notice">
-        이 예식 전용 체크리스트입니다 — 여기서의 수정은 <strong>이 예식에만</strong> 반영되고
-        홀의 체크리스트 템플릿은 바뀌지 않습니다.
-      </p>
+      <AssigneePicker
+        hallId={hallId}
+        ceremonyId={ceremonyId}
+        activeOperators={activeOperators}
+        assignees={assignees}
+        readOnly={readOnly}
+      />
+
+      {/* 프로토타입 24~28행 — 진행 전에는 warning 톤 "이 예식에만 반영" 안내, 진행중/종료
+          후에는 중립 톤 읽기 전용 안내. */}
+      {readOnly ? (
+        <p className="ceremony-detail-page__notice ceremony-detail-page__notice--readonly">
+          진행 중이거나 종료된 예식은 체크리스트를 수정할 수 없습니다 — 읽기 전용.
+        </p>
+      ) : (
+        <p className="ceremony-detail-page__notice">
+          이 예식 전용 체크리스트입니다 — 여기서의 수정은 <strong>이 예식에만</strong> 반영되고
+          홀의 체크리스트 템플릿은 바뀌지 않습니다.
+        </p>
+      )}
 
       {items.length === 0 ? (
         <p className="ceremony-detail-page__empty">등록된 체크리스트 항목이 없습니다.</p>
@@ -124,16 +142,23 @@ export default async function CeremonyDetailPage({
                   stepName={first.stepName}
                   itemCount={stepItems.length}
                   stepKey={stepKey}
+                  readOnly={readOnly}
                 />
                 <ul className="instance-item-list">
                   {stepItems.map((item) => (
-                    <InstanceItemRow key={item.id} hallId={hallId} ceremonyId={ceremonyId} item={item} />
+                    <InstanceItemRow
+                      key={item.id}
+                      hallId={hallId}
+                      ceremonyId={ceremonyId}
+                      item={item}
+                      readOnly={readOnly}
+                    />
                   ))}
                 </ul>
                 {/* 원본 템플릿 단계가 삭제된 orphan 항목(templateItemId/adHocGroupRootId
                     둘 다 null)은 "같은 단계에 추가"할 그룹 키가 없다 — 빠른 추가 폼을
                     숨긴다(항상 실패하는 폼을 노출하지 않음, Story 5.8 코덱스 리뷰 P2). */}
-                {(first.templateItemId || first.adHocGroupRootId) && (
+                {!readOnly && (first.templateItemId || first.adHocGroupRootId) && (
                   <div className="instance-step-card__quick-add">
                     <InstanceItemForm
                       hallId={hallId}
@@ -151,9 +176,11 @@ export default async function CeremonyDetailPage({
         </div>
       )}
 
-      <div className="ceremony-detail-page__new-step">
-        <InstanceItemForm hallId={hallId} ceremonyId={ceremonyId} isNewStep />
-      </div>
+      {!readOnly && (
+        <div className="ceremony-detail-page__new-step">
+          <InstanceItemForm hallId={hallId} ceremonyId={ceremonyId} isNewStep />
+        </div>
+      )}
     </section>
   );
 }

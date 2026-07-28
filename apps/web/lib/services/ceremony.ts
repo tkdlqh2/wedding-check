@@ -1,6 +1,8 @@
 import * as ceremonyRepo from "../db/repositories/ceremony";
 import * as hallRepo from "../db/repositories/hall";
 import * as memberRepo from "../db/repositories/member";
+import { isEditableStatus, asCeremonyStatus, nextCeremonyStatus } from "../ceremony-status";
+import type { CeremonyStatus } from "../ceremony-status";
 import type { Ceremony, CeremonyWithItemCount } from "../db/repositories/ceremony";
 
 export type { Ceremony, CeremonyWithItemCount };
@@ -106,6 +108,11 @@ export async function toggleAssignee(
   if (!ceremony) {
     throw new CeremonyValidationError("존재하지 않는 예식입니다");
   }
+  // 대표 지시(2026-07-27): 예정이 아닌 예식(진행중·종료)은 수정 불가 — 담당 배정도
+  // 그 예식의 기록이므로 잠근다(UI도 읽기 전용 표시).
+  if (!isEditableStatus(ceremony.status)) {
+    throw new CeremonyValidationError("진행 중이거나 종료된 예식은 수정할 수 없습니다");
+  }
   const current = await ceremonyRepo.findAssigneesByCeremony(hallId, ceremonyId);
   if (current.some((a) => a.operatorId === operatorId)) {
     await ceremonyRepo.removeAssignee(hallId, ceremonyId, operatorId);
@@ -116,6 +123,39 @@ export async function toggleAssignee(
     throw new CeremonyValidationError("배정할 수 없는 담당자입니다");
   }
   await ceremonyRepo.addAssignee(hallId, ceremonyId, operatorId);
+}
+
+// 예식 진행 상태 전환(오퍼레이터 실행 화면의 예식 시작/종료 버튼) — upcoming→ongoing→done
+// 한 방향만 허용한다(라이브 예식은 되돌릴 수 없다). 리포지토리 UPDATE의 WHERE에 현재
+// 상태를 포함해, 두 오퍼레이터가 동시에 눌러도 전환은 한 번만 적용된다(경합 패배는
+// 이미 원하는 상태로 넘어간 것이므로 오류로 취급하지 않는다 — 멱등).
+export async function setCeremonyStatus(
+  hallId: string,
+  ceremonyId: string,
+  next: CeremonyStatus,
+): Promise<void> {
+  const ceremony = await ceremonyRepo.findById(hallId, ceremonyId);
+  if (!ceremony) {
+    throw new CeremonyValidationError("존재하지 않는 예식입니다");
+  }
+  const current = asCeremonyStatus(ceremony.status);
+  if (current === next) return;
+  if (nextCeremonyStatus(current) !== next) {
+    throw new CeremonyValidationError("허용되지 않는 상태 변경입니다");
+  }
+  const updated = await ceremonyRepo.updateStatus(hallId, ceremonyId, current, next);
+  // 코덱스 리뷰 P2: WHERE 현재 상태 조건 때문에 경합에서 진 요청은 0행을 갱신한다 —
+  // 이를 무시하고 성공으로 응답하면 클라이언트가 실제 DB 상태(예: 이미 done)와 다른
+  // 상태(ongoing)를 성공으로 믿고 표시한다. 0행이면 실제 상태를 다시 읽어, 요청한
+  // 상태에 이미 도달했을 때만 멱등 성공으로 처리하고 아니면 명시적으로 거부한다.
+  if (updated === 0) {
+    const latest = await ceremonyRepo.findById(hallId, ceremonyId);
+    if (!latest || asCeremonyStatus(latest.status) !== next) {
+      throw new CeremonyValidationError(
+        "예식 상태가 이미 변경되었습니다 — 화면을 새로고침해주세요",
+      );
+    }
+  }
 }
 
 export type CeremonyAssigneeInfo = { id: string; name: string };

@@ -16,6 +16,7 @@ const initialCeremony = {
   contractConditions: {},
   groomName: "김신랑",
   brideName: "이신부",
+  status: "upcoming",
 };
 
 const initialItems = [

@@ -282,6 +282,42 @@ export async function addAdHocItem(
   });
 }
 
+// 대표 지시(2026-07-28): 예식 상세의 "단계 추가"는 템플릿 편집기처럼 단계명만으로 —
+// 항목이 없는 새 ad-hoc 단계를 title IS NULL 자리표시 행(단계 마커)으로 만든다.
+// 이후 그 단계에 항목을 추가하면 addAdHocItem(groupRootId)이 마커 바로 뒤에 붙는다.
+// 0행 = upcoming 가드 차단(서비스가 상태를 재확인해 사용자 오류로 번역).
+export async function addAdHocStep(
+  hallId: string,
+  instanceId: string,
+  stepName: string,
+): Promise<ChecklistInstanceItem | undefined> {
+  const groupRootId = randomUUID();
+  return withConcurrencyRetry(async () => {
+    const result = await db.execute<ChecklistInstanceItem>(sql`
+      insert into checklist_instance_items
+        (hall_id, instance_id, template_item_id, template_item_check_id, ad_hoc_group_root_id, step_name, title, description, sort_order)
+      select
+        ${hallId}, ${instanceId}, null, null, ${groupRootId}, ${stepName}, null, null,
+        coalesce((select max(sort_order) from ${checklistInstanceItems}
+          where instance_id = ${instanceId} and hall_id = ${hallId}), -1) + 1
+      where ${ceremonyUpcomingGuard(instanceId)}
+      returning
+        id,
+        hall_id as "hallId",
+        instance_id as "instanceId",
+        template_item_id as "templateItemId",
+        template_item_check_id as "templateItemCheckId",
+        ad_hoc_group_root_id as "adHocGroupRootId",
+        step_name as "stepName",
+        title,
+        description,
+        sort_order as "sortOrder",
+        created_at as "createdAt"
+    `);
+    return result.rows[0];
+  });
+}
+
 // Story 5.8: 인스턴스 항목의 제목/설명 수정(기존에는 추가/제외만 가능했다). 존재하지
 // 않으면 undefined를 반환해 서비스가 사용자 오류로 번역할 수 있게 한다.
 export async function updateItem(

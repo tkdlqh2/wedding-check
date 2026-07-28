@@ -80,7 +80,10 @@ async function throwLockedOrMissing(
   throw new ChecklistInstanceValidationError(missingMessage);
 }
 
-export type OperatorInstanceItem = ChecklistInstanceItemWithVideo;
+// 오퍼레이터 화면 항목은 실제 체크 대상만 담는다 — 항목 없는 단계의 자리표시 행
+// (title IS NULL, 0022)은 체크할 것이 없으므로 여기서 걸러지고 title은 string으로
+// 좁혀진다(체크 진행 N/M 집계·캐시 셰이프도 그대로 유지).
+export type OperatorInstanceItem = ChecklistInstanceItemWithVideo & { title: string };
 
 export type OperatorInstanceView = {
   ceremony: Ceremony;
@@ -100,7 +103,13 @@ export async function getOperatorInstanceView(
   }
   const instance = await requireInstance(hallId, ceremonyId);
   const items = await instanceRepo.listItems(hallId, instance.id);
-  return { ceremony, items: await withVideoUrls(hallId, items) };
+  const withVideos = await withVideoUrls(hallId, items);
+  return {
+    ceremony,
+    items: withVideos.filter(
+      (item): item is OperatorInstanceItem => item.title !== null,
+    ),
+  };
 }
 
 export async function getCeremonyDetail(hallId: string, ceremonyId: string): Promise<CeremonyDetail> {
@@ -232,6 +241,26 @@ export async function addAdHocInstanceItem(
   });
   if (!added) {
     return throwLockedOrMissing(hallId, ceremonyId, "체크 항목을 추가하지 못했습니다");
+  }
+  return added;
+}
+
+// 대표 지시(2026-07-28): 템플릿 편집기의 "단계 추가"와 동일하게 단계명만으로 이 예식
+// 전용 새 단계를 만든다 — 항목은 만들어진 단계 카드의 빠른 추가로 이어서 등록한다.
+export async function addAdHocInstanceStep(
+  hallId: string,
+  ceremonyId: string,
+  stepName: string,
+): Promise<ChecklistInstanceItem> {
+  const trimmed = stepName.trim();
+  if (!trimmed) {
+    throw new ChecklistInstanceValidationError("단계 이름을 입력해주세요");
+  }
+  await requireEditableCeremony(hallId, ceremonyId);
+  const instance = await requireInstance(hallId, ceremonyId);
+  const added = await instanceRepo.addAdHocStep(hallId, instance.id, trimmed);
+  if (!added) {
+    return throwLockedOrMissing(hallId, ceremonyId, "단계를 추가하지 못했습니다");
   }
   return added;
 }

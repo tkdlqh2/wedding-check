@@ -255,7 +255,10 @@ export const checklistInstanceItems = pgTable(
     // 생성될 때 새 uuid를 발급해 이후 항목들이 같은 값을 그대로 복사해 쓴다).
     adHocGroupRootId: uuid("ad_hoc_group_root_id"),
     stepName: text("step_name").notNull(),
-    title: text("title").notNull(),
+    // 대표 지시(2026-07-28): 예식 상세의 "단계 추가"는 템플릿처럼 단계명만으로 한다 —
+    // 항목이 없는 새 단계는 title IS NULL인 자리표시 행(단계 마커)으로 표현한다(0022).
+    // 오퍼레이터 화면/체크 집계에는 노출되지 않는다(서비스 레이어 필터).
+    title: text("title"),
     description: text("description"),
     sortOrder: integer("sort_order").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),

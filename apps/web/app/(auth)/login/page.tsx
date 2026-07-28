@@ -36,35 +36,44 @@ export default function LoginPage() {
 
   return (
     <main className="login-page">
-      <form className="login-form" onSubmit={handleSubmit}>
-        <h1>웨딩체크 로그인</h1>
-        <label htmlFor="phoneNumber">전화번호</label>
-        <input
-          id="phoneNumber"
-          type="tel"
-          inputMode="numeric"
-          placeholder="01012345678"
-          value={phoneNumber}
-          onChange={(e) => setPhoneNumber(normalizePhoneNumber(e.target.value))}
-          required
-        />
-        <label htmlFor="password">비밀번호</label>
-        <input
-          id="password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-        {error && (
-          <p className="field-error" role="alert">
-            {error}
-          </p>
-        )}
-        <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "로그인 중..." : "로그인"}
-        </button>
-      </form>
+      <div className="login-card">
+        <h1 className="login-card__brand">웨딩체크</h1>
+        <p className="login-card__subtitle">전화번호로 로그인하세요</p>
+        <form className="login-form" onSubmit={handleSubmit}>
+          <div className="login-form__field">
+            <label htmlFor="phoneNumber">전화번호</label>
+            <input
+              id="phoneNumber"
+              className="input"
+              type="tel"
+              inputMode="numeric"
+              placeholder="01012345678"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(normalizePhoneNumber(e.target.value))}
+              required
+            />
+          </div>
+          <div className="login-form__field">
+            <label htmlFor="password">비밀번호</label>
+            <input
+              id="password"
+              className={error ? "input input--error" : "input"}
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+          {error && (
+            <p className="field-error" role="alert">
+              {error}
+            </p>
+          )}
+          <button type="submit" className="btn-primary login-form__submit" disabled={isSubmitting}>
+            {isSubmitting ? "로그인 중..." : "로그인"}
+          </button>
+        </form>
+      </div>
     </main>
   );
 }

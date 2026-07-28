@@ -505,3 +505,195 @@
     max-width: none;
   }
 }
+
+/* ============================================================
+   Story 3.3(FR-6): 자연어 상황 질의 패널 — RunScreen.js 106~154행.
+   실행 중 조회 화면 하단 카드. 발생 홀 태그/관련 사례 없음 정식 카드는 3.4 범위.
+   ============================================================ */
+
+.run-query {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 20px var(--space-lg);
+  margin-top: 28px;
+}
+
+.run-query__title {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.run-query__helper {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: 4px 0 0;
+}
+
+.run-query__form {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  align-items: stretch;
+}
+
+.run-query__input {
+  flex: 1;
+  width: auto;
+}
+
+/* AC 3(UX-DR13/18): 버튼은 로딩 중에도 너비 120px을 유지한다 — 스피너로 바뀌어도
+   레이아웃이 흔들리지 않는다(프로토타입 width:120 고정과 동일). */
+.run-query__submit {
+  flex: none;
+  width: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-brand);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.run-query__submit:hover:not(:disabled) {
+  background: var(--color-brand-hover);
+}
+
+/* DESIGN.md §14 Disabled: 흐린 채움, 기하학적 크기 유지(오프라인/빈 입력). */
+.run-query__submit:disabled {
+  background: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
+/* 로딩 중에는 disabled여도 브랜드 색을 유지한다(프로토타입 — 스피너가 진행 신호). */
+.run-query__submit--loading:disabled {
+  background: var(--color-brand);
+}
+
+.run-query__spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #ffffff;
+  border-radius: var(--radius-full);
+  animation: run-query-spin 0.8s linear infinite;
+}
+
+@keyframes run-query-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.run-query__error {
+  color: var(--color-error);
+  font-size: 13px;
+  font-weight: 600;
+  margin: var(--space-md) 0 0;
+}
+
+.run-query__results {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* DESIGN.md §15 signature motion 2: 응답 카드는 motion-fast(120ms)/ease-enter로
+   슬라이드인, 유사도 순위는 즉시 표시(카운트업 없음). */
+.run-query__match {
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  animation: run-query-enter 120ms cubic-bezier(0, 0, 0.2, 1) both;
+}
+
+@keyframes run-query-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.run-query__match-badges {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.run-query__match-rank {
+  background: var(--color-brand-tint);
+  color: var(--color-brand);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.run-query__match-outcome {
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.run-query__match-outcome--well {
+  background: var(--color-success);
+}
+
+.run-query__match-outcome--mis {
+  background: var(--color-error);
+}
+
+.run-query__match-situation {
+  font-size: 15px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 10px 0 0;
+}
+
+.run-query__match-judgment {
+  border-top: 1px solid var(--color-border-light);
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+}
+
+.run-query__match-judgment-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  letter-spacing: 0.4px;
+}
+
+.run-query__match-judgment-text {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+  margin-top: 4px;
+}
+
+/* 빈 결과 임시 표시(뮤트 톤 플레인 텍스트) — 3.4가 #2B82E0 정식 카드로 교체. */
+.run-query__none {
+  margin-top: 20px;
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+
+/* DESIGN.md §15 Reduce motion: 전환은 즉시로 축소. 스피너는 운영적 피드백(진행 중
+   신호 그 자체)이라 유지한다. */
+@media (prefers-reduced-motion: reduce) {
+  .run-query__match {
+    animation: none;
+  }
+}

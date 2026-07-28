@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { readCache, writeCache } from "@/lib/operator/checklist-cache";
 import { StepFeedback } from "./step-feedback";
+import { QueryPanel } from "./query-panel";
 import { isValidUuid } from "@/lib/uuid";
 import { isCeremonyDone } from "@/lib/ceremony-status";
 
@@ -226,7 +227,8 @@ export function ChecklistInstanceView({
           <span className="run-screen__offline-dot" aria-hidden />
           <span>
             <strong>오프라인 상태입니다.</strong> 체크리스트는 저장된 데이터로 계속 볼 수
-            있어요. 연결되면 자동으로 최신 상태를 불러옵니다.
+            있어요. 연결되면 자동으로 최신 상태를 불러옵니다. AI 질의만 잠시 사용할 수
+            없습니다.
           </span>
         </p>
       ) : null}
@@ -394,6 +396,10 @@ export function ChecklistInstanceView({
           })}
         </div>
       )}
+
+      {/* Story 3.3(FR-6): 실행 중 조회 화면 하단 질의창 — 프로토타입 순서(체크리스트
+          다음 카드). AD-5: AI 질의는 온라인 전용이라 오프라인 상태를 내려준다. */}
+      <QueryPanel isOffline={isOffline} />
     </div>
   );
 }

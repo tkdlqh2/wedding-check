@@ -8,6 +8,7 @@ import {
   listCeremonyDatesForMonth,
   toggleAssignee,
   listCeremonyAssignees,
+  setCeremonyStatus,
   CeremonyValidationError,
 } from "@/lib/services/ceremony";
 import { createMember } from "@/lib/services/member";
@@ -481,5 +482,86 @@ describe("toggleAssignee — 담당 오퍼레이터 다중 배정 (FR-18)", () =
     const unassignedRow = result.ceremonies.find((c) => c.id !== assigned.id);
     expect(assignedRow?.assignees.map((a) => a.name)).toEqual(["오퍼레이터F"]);
     expect(unassignedRow?.assignees).toEqual([]);
+  });
+});
+
+describe("setCeremonyStatus — 오퍼레이터의 예식 시작/종료 (2026-07-27 대표 지시)", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("upcoming → ongoing → done 순방향 전환만 허용된다", async () => {
+    const hall = await createTestHall();
+    const ceremony = await createCeremony({
+      hallId: hall.id,
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+    expect(ceremony.status).toBe("upcoming");
+
+    // 예정 상태에서 곧바로 done으로 건너뛸 수 없다.
+    await expect(setCeremonyStatus(hall.id, ceremony.id, "done")).rejects.toThrow(
+      CeremonyValidationError,
+    );
+
+    await setCeremonyStatus(hall.id, ceremony.id, "ongoing");
+    await setCeremonyStatus(hall.id, ceremony.id, "done");
+
+    const updated = await (await import("@/lib/db/repositories/ceremony")).findById(
+      hall.id,
+      ceremony.id,
+    );
+    expect(updated?.status).toBe("done");
+
+    // 종료된 예식은 되돌릴 수 없다.
+    await expect(setCeremonyStatus(hall.id, ceremony.id, "ongoing")).rejects.toThrow(
+      CeremonyValidationError,
+    );
+  });
+
+  it("경합에서 진 전환(0행 갱신)은 실제 상태가 요청과 다르면 성공으로 응답하지 않는다 (코덱스 리뷰 P2)", async () => {
+    const hall = await createTestHall();
+    const ceremony = await createCeremony({
+      hallId: hall.id,
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+    const ceremonyRepo = await import("@/lib/db/repositories/ceremony");
+    const { vi } = await import("vitest");
+    // 이 요청이 upcoming을 읽은 직후, 다른 요청들이 ongoing→done까지 전환한 경합을
+    // 결정적으로 재현 — findById는 처음엔 upcoming을 주지만 UPDATE 시점엔 DB가 이미
+    // done이라 0행 갱신이 된다.
+    const findByIdSpy = vi.spyOn(ceremonyRepo, "findById");
+    const original = await ceremonyRepo.findById(hall.id, ceremony.id);
+    findByIdSpy.mockResolvedValueOnce(original); // 서비스의 첫 조회: upcoming으로 보임
+    await ceremonyRepo.updateStatus(hall.id, ceremony.id, "upcoming", "ongoing");
+    await ceremonyRepo.updateStatus(hall.id, ceremony.id, "ongoing", "done");
+
+    await expect(setCeremonyStatus(hall.id, ceremony.id, "ongoing")).rejects.toThrow(
+      CeremonyValidationError,
+    );
+    findByIdSpy.mockRestore();
+
+    const latest = await ceremonyRepo.findById(hall.id, ceremony.id);
+    expect(latest?.status).toBe("done");
+  });
+
+  it("진행중/종료 상태의 예식에는 담당자를 배정/해제할 수 없다", async () => {
+    const hall = await createTestHall();
+    const operator = await createMember({
+      name: "오퍼레이터H",
+      phoneNumber: "01098880008",
+      password: "pw-91234",
+    });
+    const ceremony = await createCeremony({
+      hallId: hall.id,
+      ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
+      contractConditions: {},
+    });
+    await setCeremonyStatus(hall.id, ceremony.id, "ongoing");
+
+    await expect(toggleAssignee(hall.id, ceremony.id, operator.id)).rejects.toThrow(
+      "진행 중이거나 종료된 예식은 수정할 수 없습니다",
+    );
   });
 });

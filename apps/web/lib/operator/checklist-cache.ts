@@ -16,6 +16,8 @@ export type CachedOperatorCeremony = {
   contractConditions: Record<string, boolean>;
   groomName: string | null;
   brideName: string | null;
+  // 예식 진행 상태(오퍼레이터가 직접 변경, ceremonies.status 저장 필드).
+  status: string;
 };
 
 export type CachedOperatorInstanceView = {
@@ -64,6 +66,7 @@ function isValidCachedShape(value: unknown): value is CachedOperatorInstanceView
   if (Number.isNaN(new Date(ceremony.ceremonyAt).getTime())) return false;
   if (ceremony.groomName !== null && typeof ceremony.groomName !== "string") return false;
   if (ceremony.brideName !== null && typeof ceremony.brideName !== "string") return false;
+  if (typeof ceremony.status !== "string") return false;
   return Array.isArray(v.items) && v.items.every(isValidCachedItem);
 }
 

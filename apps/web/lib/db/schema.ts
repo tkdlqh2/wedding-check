@@ -164,6 +164,11 @@ export const ceremonies = pgTable("ceremonies", {
     .$type<Record<string, boolean>>()
     .notNull()
     .default({}),
+  // 예식 진행 상태 'upcoming' | 'ongoing' | 'done' — 오퍼레이터가 실행 화면의 예식
+  // 시작/종료 버튼으로 직접 변경한다(2026-07-27 대표 지시, prototype RunScreen.js).
+  // 시간 기반 추정이 아니다. user.role과 동일하게 pgEnum 대신 plain text + 앱 레이어
+  // 검증(기존 컨벤션). 예정이 아닌 상태에서는 관리자 단 수정이 잠긴다.
+  status: text("status").notNull().default("upcoming"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()

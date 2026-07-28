@@ -6,6 +6,8 @@ import { queryVariableCases, QueryValidationError } from "@/lib/services/query";
 // 실행 화면은 admin도 열 수 있으므로 feedback 라우트와 동일하게 로그인만 확인한다.
 // AD-6: 검색이 사업체 전체 범위라 hallId/ceremonyId 파라미터를 받지 않는다.
 // AD-5: AI 질의는 온라인 전용 — 실패는 조용한 재시도 없이 즉시 오류로 드러낸다.
+// Story 3.4(FR-7): 유사도 임계값 미달로 매칭이 하나도 없으면 빈 배열을 그대로
+// 내려보낸다(클라이언트가 "관련 사례 없음" 카드로 표시) — 억지 매칭 금지.
 
 export async function POST(request: Request) {
   const unauthorized = await requireSessionOr401();
@@ -21,7 +23,15 @@ export async function POST(request: Request) {
   }
 
   try {
-    const matches = await queryVariableCases(text);
+    const { matches, topSimilarity } = await queryVariableCases(text);
+    if (matches.length === 0) {
+      // AD-10 관측성(Story 3.4): 안전장치("관련 사례 없음")가 얼마나 자주, 어느
+      // 유사도에서 발동하는지가 임계값(MIN_SIMILARITY) 재보정의 유일한 근거다.
+      // 질의 텍스트는 상황 세부를 담으므로 로그에 넣지 않는다(NFR-5).
+      console.info(JSON.stringify({ event: "query_no_match", topSimilarity }));
+    }
+    // topSimilarity는 관측성 전용 — 응답 바디에 넣지 않는다(3.3이 확정한 클라이언트
+    // 계약 { matches } 유지).
     return Response.json({ matches });
   } catch (err) {
     if (err instanceof QueryValidationError) {

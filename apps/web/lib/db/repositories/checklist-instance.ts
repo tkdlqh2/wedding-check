@@ -189,6 +189,7 @@ export async function addItem(
         step_name as "stepName",
         title,
         description,
+        video_url as "videoUrl",
         sort_order as "sortOrder",
         created_at as "createdAt"
     `),
@@ -274,6 +275,7 @@ export async function addAdHocItem(
         step_name as "stepName",
         title,
         description,
+        video_url as "videoUrl",
         sort_order as "sortOrder",
         created_at as "createdAt"
     `);
@@ -311,6 +313,7 @@ export async function addAdHocStep(
         step_name as "stepName",
         title,
         description,
+        video_url as "videoUrl",
         sort_order as "sortOrder",
         created_at as "createdAt"
     `);
@@ -329,6 +332,30 @@ export async function updateItem(
   const [updated] = await db
     .update(checklistInstanceItems)
     .set({ title: input.title, description: input.description })
+    .where(
+      and(
+        eq(checklistInstanceItems.id, itemId),
+        eq(checklistInstanceItems.instanceId, instanceId),
+        eq(checklistInstanceItems.hallId, hallId),
+        ceremonyUpcomingGuard(instanceId),
+      ),
+    )
+    .returning();
+  return updated;
+}
+
+// 대표 지시(2026-07-28): 예식 상세에서 올린 시연 영상은 이 예식에만 반영된다 —
+// 인스턴스 행의 video_url만 갱신하고 홀 공용 demo_videos는 건드리지 않는다.
+// undefined = 항목 없음 또는 upcoming 가드 차단(서비스가 재확인해 번역).
+export async function updateItemVideo(
+  hallId: string,
+  instanceId: string,
+  itemId: string,
+  videoUrl: string,
+): Promise<ChecklistInstanceItem | undefined> {
+  const [updated] = await db
+    .update(checklistInstanceItems)
+    .set({ videoUrl })
     .where(
       and(
         eq(checklistInstanceItems.id, itemId),
@@ -381,6 +408,77 @@ export async function renameStepGroup(
     )
     .returning();
   return rows.length;
+}
+
+// 대표 지시(2026-07-28): 예식 상세에서도 화살표로 단계 순서를 바꾼다 — 두 인접 단계
+// 그룹(연속된 항목 블록)의 순서를 통째로 스왑한다. template-item.ts::moveAdjacent와
+// 같은 원칙으로 "조회→계산→저장"을 나누지 않고 UPDATE 문 하나로 원자 실행한다:
+// 두 그룹의 합집합 블록을 [블록 최솟값]부터 row_number로 다시 매기되, 뒤 그룹이 앞에
+// 오도록 정렬 키를 뒤집는다. sort_order에 구멍이 있어도 안전하다(개수 기준 재번호).
+// 두 그룹 사이에 제3 그룹의 행이 끼어 있으면(내가 보던 순서가 이미 낡음) 0행으로
+// 끝나고 서비스가 사용자 오류로 번역한다. upcoming 가드 동일 내장.
+export async function swapStepGroups(
+  hallId: string,
+  instanceId: string,
+  keyA: StepGroupKey,
+  keyB: StepGroupKey,
+): Promise<number> {
+  const condA = stepGroupSql(keyA);
+  const condB = stepGroupSql(keyB);
+  return withConcurrencyRetry(async () => {
+    const result = await db.execute(sql`
+      with block as (
+        select id, sort_order, (${condA}) as in_a
+        from ${checklistInstanceItems}
+        where instance_id = ${instanceId} and hall_id = ${hallId}
+          and ((${condA}) or (${condB}))
+      ),
+      bounds as (
+        select min(sort_order) as mn, max(sort_order) as mx,
+          bool_or(in_a) as has_a, bool_or(not in_a) as has_b,
+          -- a가 앞 그룹이면 스왑 후 b가 먼저 온다.
+          min(sort_order) filter (where in_a) < min(sort_order) filter (where not in_a) as a_first
+        from block
+      ),
+      renumbered as (
+        select id,
+          (select mn from bounds) - 1 + row_number() over (
+            order by
+              case
+                when in_a = (select a_first from bounds) then 1
+                else 0
+              end,
+              sort_order
+          ) as new_order
+        from block
+      )
+      update ${checklistInstanceItems} t
+      set sort_order = r.new_order
+      from renumbered r
+      where t.id = r.id
+        and (select has_a from bounds) and (select has_b from bounds)
+        -- 두 그룹 사이/범위 안에 제3의 행이 있으면 순서 전제가 낡은 것 — 스왑 거부.
+        and not exists (
+          select 1 from ${checklistInstanceItems} x
+          where x.instance_id = ${instanceId} and x.hall_id = ${hallId}
+            and x.sort_order between (select mn from bounds) and (select mx from bounds)
+            and x.id not in (select id from block)
+        )
+        and ${ceremonyUpcomingGuard(instanceId)}
+      returning t.id
+    `);
+    return result.rows.length;
+  });
+}
+
+function stepGroupSql(key: StepGroupKey) {
+  if ("templateItemId" in key) {
+    return sql`template_item_id = ${key.templateItemId}`;
+  }
+  if ("groupRootId" in key) {
+    return sql`ad_hoc_group_root_id = ${key.groupRootId}`;
+  }
+  return sql`id = ${key.itemId}`;
 }
 
 // 프로토타입의 "단계 삭제" — 그 단계에 속한 이 예식의 항목 전체를 하드 삭제한다

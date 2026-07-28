@@ -20,17 +20,16 @@ const STATUS_POLL_MAX_ATTEMPTS = 15; // 약 15초까지 대기
 // 낡은 상태로 남는다). 반영을 확인한 시점에만 새로고침하고, 시간 내 확인되지
 // 않으면 성공을 가장하지 않고 솔직하게 안내한다(DESIGN.md §4 "관련 사례 없음"과
 // 같은 원칙 — 확인 안 된 것을 확인된 것처럼 보여주지 않는다).
+// endpointBase는 /blob·/local·/status를 붙일 업로드 API 접두사 — 템플릿 공용 영상과
+// 예식 전용 영상(대표 지시 2026-07-28)이 같은 컴포넌트를 서로 다른 저장처로 쓴다.
 export async function waitForVideoUpdate(
-  hallId: string,
-  checklistItemId: string,
+  endpointBase: string,
   previousVideoUrl: string | undefined,
 ): Promise<boolean> {
   for (let attempt = 0; attempt < STATUS_POLL_MAX_ATTEMPTS; attempt++) {
     await sleep(STATUS_POLL_INTERVAL_MS);
     try {
-      const res = await fetch(
-        `/api/templates/${hallId}/items/${checklistItemId}/video/status`,
-      );
+      const res = await fetch(`${endpointBase}/status`);
       if (res.ok) {
         const body = (await res.json()) as { videoUrl: string | null };
         if (body.videoUrl && body.videoUrl !== previousVideoUrl) {
@@ -47,14 +46,19 @@ export async function waitForVideoUpdate(
 export function VideoUpload({
   hallId,
   checklistItemId,
+  endpointBase,
   blobEnabled,
   currentVideoUrl,
 }: {
   hallId: string;
   checklistItemId: string;
+  // 미지정 시 템플릿 공용 영상 경로(/api/templates/...)를 쓴다.
+  endpointBase?: string;
   blobEnabled: boolean;
   currentVideoUrl?: string;
 }) {
+  const apiBase =
+    endpointBase ?? `/api/templates/${hallId}/items/${checklistItemId}/video`;
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -90,7 +94,7 @@ export function VideoUpload({
       if (blobEnabled) {
         await upload(file.name, file, {
           access: "public",
-          handleUploadUrl: `/api/templates/${hallId}/items/${checklistItemId}/video/blob`,
+          handleUploadUrl: `${apiBase}/blob`,
           clientPayload: JSON.stringify({ fileSize: file.size }),
         });
         if (inputRef.current) inputRef.current.value = "";
@@ -99,7 +103,7 @@ export function VideoUpload({
         // 실제로 반영될 때까지 상태 확인 API를 폴링한다(로컬은 웹훅 자체가 오지
         // 않아 항상 타임아웃함, Dev Notes 참고 — 이 경우 안내 문구로 솔직하게 알림).
         setNotice("업로드 완료, 목록에 반영 중...");
-        const confirmed = await waitForVideoUpdate(hallId, checklistItemId, currentVideoUrl);
+        const confirmed = await waitForVideoUpdate(apiBase, currentVideoUrl);
         if (confirmed) {
           router.refresh();
           setNotice(null);
@@ -109,10 +113,7 @@ export function VideoUpload({
       } else {
         const formData = new FormData();
         formData.set("file", file);
-        const res = await fetch(
-          `/api/templates/${hallId}/items/${checklistItemId}/video/local`,
-          { method: "POST", body: formData },
-        );
+        const res = await fetch(`${apiBase}/local`, { method: "POST", body: formData });
         if (!res.ok) {
           const body = (await res.json()) as { error?: { message?: string } };
           throw new Error(body.error?.message ?? "업로드에 실패했습니다");

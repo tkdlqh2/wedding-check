@@ -145,8 +145,15 @@
     {
       "idx": 20,
       "version": "7",
-      "when": 1785225602000,
-      "tag": "0020_ceremony-status",
+      "when": 1785297000000,
+      "tag": "0020_variable-cases",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1785297001000,
+      "tag": "0021_ceremony-status",
       "breakpoints": true
     }
   ]

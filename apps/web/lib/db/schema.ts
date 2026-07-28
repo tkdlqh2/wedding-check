@@ -9,6 +9,7 @@ import {
   integer,
   jsonb,
   unique,
+  vector,
   primaryKey,
 } from "drizzle-orm/pg-core";
 
@@ -311,6 +312,14 @@ export const feedback = pgTable(
     // 'draft' | 'confirmed' — user.role과 동일하게 pgEnum 대신 plain text + 앱 레이어
     // 검증(이 프로젝트 기존 컨벤션). confirmed로의 전환은 Story 3.2 범위.
     status: text("status").notNull().default("draft"),
+    // Story 3.2(FR-9): 자동 구조화 초안 4필드. 구조화 실행 전에는 null/빈 배열이며,
+    // content(원본 자연어)는 그대로 보존한다 — 구조화는 파생 데이터를 추가하는 것이지
+    // 원본을 대체하지 않는다. outcome은 'well_handled' | 'mishandled'만 허용하되
+    // status와 동일한 컨벤션으로 plain text + 서비스 레이어 검증.
+    situation: text("situation"),
+    outcome: text("outcome"),
+    rationale: text("rationale"),
+    tags: jsonb("tags").$type<string[]>().notNull().default([]),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -328,6 +337,31 @@ export const feedback = pgTable(
     ),
   ],
 );
+
+// FR-9/AD-8: 확정(confirmed)된 피드백에서만 생성되는 변수 케이스 — 검색 인덱스의
+// 실체. feedbackId를 unique FK로 걸어 ERD의 "0..1" 관계(FEEDBACK -> VARIABLE_CASE)를
+// DB 레벨에서 강제한다(피드백 하나당 변수 케이스는 최대 1개). AD-6: hallId는 검색
+// 격리 조건이 아니라 표시용 태그일 뿐이다 — pgvector 유사도 검색(Story 3.3/3.4)은
+// 홀 필터 없이 사업체 전체를 대상으로 한다. embedding은 Voyage voyage-3.5의
+// output_dimension=1024로 고정(스파인 Stack 표) — 이 프로젝트 최초의 pgvector 컬럼이라
+// 마이그레이션이 CREATE EXTENSION vector를 함께 수행해야 한다.
+export const variableCases = pgTable("variable_cases", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  hallId: uuid("hall_id")
+    .notNull()
+    .references(() => halls.id),
+  feedbackId: uuid("feedback_id")
+    .notNull()
+    .unique()
+    .references(() => feedback.id),
+  stepName: text("step_name").notNull(),
+  situation: text("situation").notNull(),
+  outcome: text("outcome").notNull(),
+  rationale: text("rationale").notNull(),
+  tags: jsonb("tags").$type<string[]>().notNull().default([]),
+  embedding: vector("embedding", { dimensions: 1024 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),

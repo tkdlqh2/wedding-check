@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { StepFeedback } from "@/app/operator/ceremonies/[hallId]/[ceremonyId]/step-feedback";
 
 const props = {
@@ -111,5 +111,261 @@ describe("StepFeedback (AC 1, 2, 3)", () => {
     await screen.findByPlaceholderText("있었던 일을 그대로 적으세요");
 
     expect(screen.getByRole("button", { name: "저장" })).toBeDisabled();
+  });
+});
+
+// Story 3.2(FR-9, AD-8): 구조화하기 -> 필드 확인/수정 -> 확정.
+describe("StepFeedback — 구조화/확정 (Story 3.2 AC 1, 2, 3, 4)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("draft 저장 후에만 '구조화하기' 버튼이 나타나고, 성공하면 4개 필드가 채워진다", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ feedback: null }) }) // GET (펼침)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ feedback: { content: "내용", status: "draft" } }),
+      }) // POST 저장
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          feedback: {
+            content: "내용",
+            status: "draft",
+            situation: "구조화된 상황 설명",
+            outcome: "well_handled",
+            rationale: "구조화된 사후 판단",
+            tags: ["태그1", "태그2"],
+          },
+        }),
+      }); // POST /structure
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<StepFeedback {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "피드백 남기기" }));
+    const textarea = await screen.findByPlaceholderText("있었던 일을 그대로 적으세요");
+    fireEvent.change(textarea, { target: { value: "내용" } });
+
+    expect(screen.queryByRole("button", { name: "구조화하기" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+    await screen.findByRole("button", { name: "구조화하기" });
+
+    fireEvent.click(screen.getByRole("button", { name: "구조화하기" }));
+
+    expect(await screen.findByDisplayValue("구조화된 상황 설명")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("구조화된 사후 판단")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("태그1, 태그2")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      `/api/feedback/${props.hallId}/${props.ceremonyId}/structure`,
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ templateItemId: props.templateItemId }),
+      }),
+    );
+  });
+
+  it("필드를 수정하면 확정 버튼이 비활성화되고, '필드 저장' 후 다시 활성화된다", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          feedback: {
+            content: "내용",
+            status: "draft",
+            situation: "상황",
+            outcome: "well_handled",
+            rationale: "판단",
+            tags: ["태그"],
+          },
+        }),
+      }) // GET (펼침 — 이미 구조화된 draft)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          feedback: {
+            content: "내용",
+            status: "draft",
+            situation: "수정된 상황",
+            outcome: "well_handled",
+            rationale: "판단",
+            tags: ["태그"],
+          },
+        }),
+      }); // PATCH
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<StepFeedback {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "피드백 남기기" }));
+    const situationInput = await screen.findByDisplayValue("상황");
+
+    const confirmBtn = screen.getByRole("button", { name: "확정" });
+    expect(confirmBtn).not.toBeDisabled();
+
+    fireEvent.change(situationInput, { target: { value: "수정된 상황" } });
+    expect(confirmBtn).toBeDisabled();
+    // 코덱스 리뷰: 저장 안 된 수정 중에 재구조화를 누르면 그 수정이 조용히
+    // 덮어써진다 — 필드 저장 전까지는 "구조화하기"도 비활성화돼야 한다.
+    expect(screen.getByRole("button", { name: "구조화하기" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "필드 저장" }));
+    await screen.findByText("임시저장됨");
+    expect(confirmBtn).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "구조화하기" })).not.toBeDisabled();
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      `/api/feedback/${props.hallId}/${props.ceremonyId}`,
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          templateItemId: props.templateItemId,
+          situation: "수정된 상황",
+          outcome: "well_handled",
+          rationale: "판단",
+          tags: ["태그"],
+        }),
+      }),
+    );
+  });
+
+  it("확정에 성공하면 초록 '확정됨' 배지가 나타나고 필드가 읽기 전용으로 바뀐다(축하 연출 없음)", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          feedback: {
+            content: "내용",
+            status: "draft",
+            situation: "상황",
+            outcome: "well_handled",
+            rationale: "판단",
+            tags: ["태그"],
+          },
+        }),
+      }) // GET
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          feedback: {
+            content: "내용",
+            status: "confirmed",
+            situation: "상황",
+            outcome: "well_handled",
+            rationale: "판단",
+            tags: ["태그"],
+          },
+        }),
+      }); // POST /confirm
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<StepFeedback {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "피드백 남기기" }));
+    await screen.findByRole("button", { name: "확정" });
+
+    fireEvent.click(screen.getByRole("button", { name: "확정" }));
+
+    expect(await screen.findByText("확정됨")).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("상황")).not.toBeInTheDocument();
+    expect(screen.getByText("잘 대처됨")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      `/api/feedback/${props.hallId}/${props.ceremonyId}/confirm`,
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ templateItemId: props.templateItemId }),
+      }),
+    );
+  });
+
+  it("확정 실패 시 즉시 오류 문구를 표시한다(조용한 실패 금지)", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          feedback: {
+            content: "내용",
+            status: "draft",
+            situation: "상황",
+            outcome: "well_handled",
+            rationale: "판단",
+            tags: ["태그"],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({ ok: false, status: 502 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<StepFeedback {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "피드백 남기기" }));
+    await screen.findByRole("button", { name: "확정" });
+    fireEvent.click(screen.getByRole("button", { name: "확정" }));
+
+    expect(await screen.findByText(/확정하지 못했습니다/)).toBeInTheDocument();
+  });
+
+  // 코덱스 리뷰 2라운드: disabled={confirmState==="confirming"}만으로는 클릭과 리렌더
+  // 사이의 짧은 창에서 더블클릭이 fetch를 두 번 보낼 수 있다 — ref 기반 가드가
+  // 실제로 두 번째 호출을 막는지 확인한다.
+  it("확정 버튼을 연속으로 두 번 눌러도 확정 요청은 한 번만 보낸다", async () => {
+    let resolveConfirm!: (value: { ok: boolean; json: () => Promise<unknown> }) => void;
+    const confirmPromise = new Promise<{ ok: boolean; json: () => Promise<unknown> }>((resolve) => {
+      resolveConfirm = resolve;
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          feedback: {
+            content: "내용",
+            status: "draft",
+            situation: "상황",
+            outcome: "well_handled",
+            rationale: "판단",
+            tags: ["태그"],
+          },
+        }),
+      })
+      .mockReturnValueOnce(confirmPromise);
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<StepFeedback {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "피드백 남기기" }));
+    const confirmBtn = await screen.findByRole("button", { name: "확정" });
+
+    // 코덱스 리뷰 3라운드: 두 fireEvent.click을 각각 따로 호출하면 RTL이 클릭마다
+    // act()로 감싸 그 사이에 리렌더가 끝나버려, disabled 속성이 이미 갱신된 뒤에
+    // 두 번째 클릭이 발생한다 — 이러면 ref 가드가 아니라 "비활성화된 버튼은
+    // 클릭 이벤트를 못 받는다"는 jsdom의 기본 동작만으로도 테스트가 통과해,
+    // ref 가드 자체를 검증하지 못하는 위양성 테스트가 된다. 하나의 act() 안에
+    // 두 클릭을 함께 넣어 그 사이에 리렌더/커밋이 끼어들지 못하게 하면(React가
+    // act 콜백이 끝날 때까지 커밋을 미룸) 두 클릭 모두 "아직 비활성화되지 않은"
+    // 버튼에 도달한 상태로 handleConfirm이 호출돼, 실제로 confirmingRef가
+    // 두 번째 호출을 막는지를 검증한다.
+    act(() => {
+      fireEvent.click(confirmBtn);
+      fireEvent.click(confirmBtn);
+    });
+
+    resolveConfirm({
+      ok: true,
+      json: async () => ({
+        feedback: {
+          content: "내용",
+          status: "confirmed",
+          situation: "상황",
+          outcome: "well_handled",
+          rationale: "판단",
+          tags: ["태그"],
+        },
+      }),
+    });
+    await screen.findByText("확정됨");
+
+    const confirmCalls = fetchMock.mock.calls.filter(([url]) => url.endsWith("/confirm"));
+    expect(confirmCalls).toHaveLength(1);
   });
 });

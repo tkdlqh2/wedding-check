@@ -295,6 +295,57 @@ describe("getInsights — 표시값은 저장값이 아니라 파생값이다", 
   });
 });
 
+// Story 4.2 AC 3 — 화면이 `0`과 `—`를 가르는 근거가 되는 파생값.
+describe("getInsights.hasAggregated — 미집계와 0건의 구분 (Story 4.2 AC 3)", () => {
+  it("배치가 한 번도 돌지 않았으면 false다", async () => {
+    expect((await getInsights()).hasAggregated).toBe(false);
+  });
+
+  it("배치가 끝나면 결과가 0개여도 true다 — 세어봤다는 사실 자체가 다르다", async () => {
+    // 짝이 없어 클러스터가 만들어지지 않는 케이스 1건(MIN_CLUSTER_SIZE 미달).
+    const hall = await createTestHall({ name: "그랜드홀" });
+    await createConfirmedVariableCase(hall.id, unitVector(0), { stepName: "축가" });
+
+    const result = await recomputeInsights();
+    expect(result.clusterCount).toBe(0);
+
+    const view = await getInsights();
+    expect(view.items).toEqual([]);
+    expect(view.hasAggregated).toBe(true);
+  });
+
+  it("배치가 정상 완료되면 true다", async () => {
+    await seedOneCluster();
+    generateMock.mockResolvedValue(labelResponse("라벨"));
+    await recomputeInsights();
+
+    expect((await getInsights()).hasAggregated).toBe(true);
+  });
+
+  // 쓰기는 성공했는데 락 해제만 실패하면(releaseLockBestEffort가 삼키는 경로)
+  // lastCompletedAt이 비어 있는 채로 클러스터가 남는다. 그때 `—`를 띄우면 클러스터
+  // 목록이 깔린 화면에서 카운트만 `—`인 자기모순이 된다.
+  it("lastCompletedAt이 비어 있어도 클러스터가 있으면 true다", async () => {
+    await seedOneCluster();
+    generateMock.mockResolvedValue(labelResponse("라벨"));
+    await recomputeInsights();
+    await db.execute(sql`update insight_recompute_state set last_completed_at = null`);
+
+    const view = await getInsights();
+    expect(view.lastCompletedAt).toBeNull();
+    expect(view.items).toHaveLength(1);
+    expect(view.hasAggregated).toBe(true);
+  });
+
+  it("첫 배치가 실행 중인 동안에는 아직 false다", async () => {
+    await insightRepo.acquireLock(10);
+
+    const view = await getInsights();
+    expect(view.isRecomputing).toBe(true);
+    expect(view.hasAggregated).toBe(false);
+  });
+});
+
 describe("클러스터 임계값 상수", () => {
   // 2026-07-28 실측(scripts/measure-cluster-threshold.ts, 같은 원인 8쌍 / 다른 원인 37쌍).
   // 두 분포가 겹치므로 "완벽한" 값은 없지만, 다른 원인 최댓값 위여야 과병합이 0이 된다.

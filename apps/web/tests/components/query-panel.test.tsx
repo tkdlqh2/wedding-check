@@ -237,6 +237,54 @@ describe("QueryPanel (AC 1, 3)", () => {
     expect(await screen.findByText("관련 사례 없음 — 선임에게 연락하세요")).toBeInTheDocument();
   });
 
+  // 코덱스 리뷰 2차 P2: 대기 중 입력을 다른 상황으로 바꾸면 늦게 도착한 응답이
+  // 새 입력의 결과처럼 노출됐다 — 결과는 제출된 질의 텍스트와 입력이 일치할 때만
+  // 렌더링된다(입력을 되돌리면 정확한 짝으로 다시 보인다).
+  it("대기 중 입력을 바꾸면 도착한 응답이 새 입력의 결과처럼 노출되지 않는다", async () => {
+    let resolveFetch: (value: unknown) => void = () => {};
+    const fetchMock = vi.fn().mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveFetch = resolve;
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<QueryPanel isOffline={false} />);
+    const input = screen.getByPlaceholderText("지금 상황을 그대로 적어보세요");
+    fireEvent.change(input, { target: { value: "질의 A" } });
+    fireEvent.click(screen.getByRole("button", { name: "질의하기" }));
+
+    fireEvent.change(input, { target: { value: "전혀 다른 질의 B" } });
+    await act(async () => {
+      resolveFetch({ ok: true, json: async () => ({ matches: [makeMatch()] }) });
+    });
+
+    // 입력 B 아래에 A의 매칭 카드가 보이면 안 된다.
+    expect(screen.queryByText("주례자가 예고 없이 순서를 바꿈")).not.toBeInTheDocument();
+
+    // 입력을 제출했던 A로 되돌리면 정확한 짝으로 다시 보인다(응답 폐기가 아님).
+    fireEvent.change(input, { target: { value: "질의 A" } });
+    expect(screen.getByText("주례자가 예고 없이 순서를 바꿈")).toBeInTheDocument();
+  });
+
+  it("결과 표시 후 입력을 바꾸면 매칭 카드가 사라진다 (질의-결과 짝 유지)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ matches: [makeMatch()] }) }),
+    );
+
+    render(<QueryPanel isOffline={false} />);
+    const input = screen.getByPlaceholderText("지금 상황을 그대로 적어보세요");
+    fireEvent.change(input, { target: { value: "질의 A" } });
+    fireEvent.click(screen.getByRole("button", { name: "질의하기" }));
+    await screen.findByText("주례자가 예고 없이 순서를 바꿈");
+
+    fireEvent.change(input, { target: { value: "질의 A 수정" } });
+
+    expect(screen.queryByText("주례자가 예고 없이 순서를 바꿈")).not.toBeInTheDocument();
+  });
+
   it("오류 후 재질의에 성공하면 오류 문구가 사라지고 결과가 표시된다", async () => {
     const fetchMock = vi
       .fn()

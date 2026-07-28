@@ -26,6 +26,12 @@ export function QueryPanel({ isOffline }: { isOffline: boolean }) {
   const [text, setText] = useState("");
   const [state, setState] = useState<QueryState>("idle");
   const [matches, setMatches] = useState<QueryMatchDto[] | null>(null);
+  // 코덱스 리뷰 2차 P2: 결과는 "그 결과를 만든 질의 텍스트"에 묶여야 한다 — 대기 중
+  // 또는 도착 후에 입력을 다른 상황으로 바꾸면, 화면의 입력과 매칭 카드가 서로 다른
+  // 질의를 가리키게 되어 잘못된 근거 연결이 생긴다("근거는 신성하다"). 제출 시점의
+  // 텍스트를 보존하고, 현재 입력이 그것과 일치할 때만 결과를 렌더링한다(입력을
+  // 되돌리면 다시 보인다 — 응답 자체는 폐기하지 않음).
+  const [submittedText, setSubmittedText] = useState<string | null>(null);
   // AC 3: disabled 리렌더 전의 더블클릭/Enter 재진입을 동기적으로 차단한다
   // (step-feedback.tsx의 confirmingRef와 동일한 이유 — 임베딩 API 중복 호출 방지).
   const pendingRef = useRef(false);
@@ -44,6 +50,7 @@ export function QueryPanel({ isOffline }: { isOffline: boolean }) {
     // 상태로 숨겨져 있던 이전 결과가 로딩 전환 순간 되살아나는 경로)도 같은
     // 계열이라 함께 막힌다.
     setMatches(null);
+    setSubmittedText(text);
     try {
       const res = await fetch("/api/query", {
         method: "POST",
@@ -103,7 +110,7 @@ export function QueryPanel({ isOffline }: { isOffline: boolean }) {
         </p>
       ) : null}
 
-      {matches !== null && state !== "error" ? (
+      {matches !== null && state !== "error" && text === submittedText ? (
         matches.length > 0 ? (
           <div className="run-query__results">
             {matches.map((match, index) => {

@@ -57,6 +57,9 @@ export async function acquireLock(ttlMinutes: number): Promise<boolean> {
 /**
  * 락 해제. `recomputeInsights()`의 finally에서 호출되며, **어떤 경로로 실패해도 반드시
  * 실행되어야 한다** — 그러지 않으면 TTL이 만료될 때까지(최대 ttlMinutes) 다음 배치가 막힌다.
+ *
+ * `error`에는 오류 **메시지가 아니라** `toSafeErrorLabel()`이 만든 라벨만 넣는다
+ * (NFR-5 — lib/safe-error.ts 주석 참고).
  */
 export async function releaseLock(outcome: {
   completed: boolean;

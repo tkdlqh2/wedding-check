@@ -275,6 +275,14 @@ FR-10의 산출물은 "이 원인이 **N번째 반복**되고 있다"이다. 멤
 - cron 인가 4종: 시크릿 없음 401 / 틀린 시크릿 401 / **길이만 같은 시크릿** 401(timingSafeEqual) / 올바른 시크릿 200. `CRON_SECRET` 미설정 시 503은 코드 경로로 보장(fail closed).
 - 오퍼레이터 세션으로 `/admin/insights` 접근 → 307 `/login`(4.2 범위지만 회귀 확인).
 
+**코덱스 리뷰**
+
+1차에서 P1 1건 + P2 2건, 전부 실결함이라 수정했다.
+
+- **(P1) 오류 메시지가 NFR-5의 유출 통로였다.** drizzle은 실패한 쿼리의 **파라미터**를 오류 메시지에 싣고, openai 어댑터는 벤더 응답 본문을 메시지에 붙인다. `err.message`를 `last_error`에 저장하고 raw `err`를 `console.error`에 넘기면 상황 원문이 로그와 상태 행에 남는다. 지적은 `insight.ts` 한 곳이었지만 **계열 전체를 전수 점검**해(메모리 `fix-defect-class-not-instance`) raw `err`를 로깅하던 4곳을 모두 고쳤다 — 그중 3곳이 기존 코드였고, `confirm`/`structure`는 실제로 `situation`·`rationale`을 SQL 파라미터로 넘기는 경로라 같은 결함이었다. `lib/safe-error.ts::toSafeErrorLabel()`이 메시지 대신 오류 종류 + SQLSTATE만 남긴다.
+- **(P2) 클러스터링 입력과 유사도 쌍이 서로 다른 DB 스냅샷을 봤다.** 두 조회가 `Promise.all`의 별개 HTTP 문장이라 그 사이 확정된 케이스가 한쪽에만 나타날 수 있었다. 순차 실행 + `listSimilarPairs(minSimilarity, candidateIds)`로 쌍 조회를 확정된 대상 집합 안에 못 박아, 타이밍과 무관하게 같은 그래프가 나오게 했다.
+- **(P2) 락 해제 문장 자체가 실패하면 `finally`여도 락이 안 풀렸다.** 더구나 `finally`에서 throw가 나면 이미 성공한 `replaceAll`의 결과까지 실패로 보고된다. 3회 재시도 후 삼키고 구조화 로그만 남기도록 바꿨다(데이터는 이미 쓰였고 남은 락은 TTL이 회수한다).
+
 **검증 중 만난 함정**
 
 - PowerShell 5.1의 `Set-Content -Encoding utf8`이 **BOM을 붙여** `.env.local` 첫 키가 `﻿DATABASE_URL`이 됐고, `DATABASE_URL is not set`으로 실패했다. 임베딩만 쓰는 스크립트는 첫 줄이 아니라 멀쩡히 돌아 원인이 늦게 드러났다. 워크트리에 env 파일을 복사할 때 반복될 수 있다.

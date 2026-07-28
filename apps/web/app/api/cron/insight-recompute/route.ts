@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import { toSafeErrorLabel } from "@/lib/safe-error";
 import { InsightLockedError, recomputeInsights } from "@/lib/services/insight";
 
 // Story 4.1(FR-10, AD-10): 인사이트 재계산 배치의 실행 진입점.
@@ -75,7 +76,11 @@ export async function GET(request: Request) {
         { status: 409 },
       );
     }
-    console.error(JSON.stringify({ event: "insight_recompute_failed" }), err);
+    // raw err를 넘기지 않는다 — drizzle 오류 메시지에 실패한 쿼리의 파라미터(상황
+    // 설명·라벨)가 실려 있어 NFR-5를 깬다(lib/safe-error.ts).
+    console.error(
+      JSON.stringify({ event: "insight_recompute_failed", error: toSafeErrorLabel(err) }),
+    );
     return Response.json(
       { error: { code: "recompute_failed", message: "인사이트 재계산에 실패했습니다" } },
       { status: 500 },

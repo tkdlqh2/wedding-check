@@ -2,6 +2,7 @@ import * as insightRepo from "../db/repositories/insight";
 import * as variableCaseRepo from "../db/repositories/variable-case";
 import type { ClusteringCase } from "../db/repositories/variable-case";
 import { getLLMPort } from "../ai";
+import { toSafeErrorLabel } from "../safe-error";
 import { buildClusters, type BuiltCluster } from "./insight-clustering";
 
 // Story 4.1(FR-10, AD-7): 반복 패턴 인사이트. **`insight_clusters`에 쓰는 것은 이 파일의
@@ -180,8 +181,33 @@ async function generateLabel(
   }
 }
 
-function toErrorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
+// 락 해제 문장 자체가 일시적으로 실패할 수 있다(네트워크/DB). 재시도 없이 포기하면
+// 상태 행이 "실행 중"으로 남아 TTL(10분)까지 다음 배치가 막히고, 더 나쁘게는 finally에서
+// throw가 나면서 **이미 성공한 replaceAll의 결과까지 실패로 보고된다**(코덱스 1차 P2).
+// 제한된 재시도 후에도 실패하면 삼키고 구조화 로그만 남긴다 — 데이터는 이미 쓰였고,
+// 남은 락은 TTL이 회수한다.
+const RELEASE_MAX_ATTEMPTS = 3;
+const RELEASE_RETRY_DELAY_MS = 200;
+
+async function releaseLockBestEffort(failure: string | null): Promise<void> {
+  for (let attempt = 1; attempt <= RELEASE_MAX_ATTEMPTS; attempt++) {
+    try {
+      await insightRepo.releaseLock({ completed: failure === null, error: failure });
+      return;
+    } catch (err) {
+      if (attempt === RELEASE_MAX_ATTEMPTS) {
+        console.error(
+          JSON.stringify({
+            event: "insight_lock_release_failed",
+            attempts: attempt,
+            error: toSafeErrorLabel(err),
+          }),
+        );
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, RELEASE_RETRY_DELAY_MS * attempt));
+    }
+  }
 }
 
 /**
@@ -201,10 +227,14 @@ export async function recomputeInsights(): Promise<{
   // 락은 어떤 경로로 실패해도 반드시 풀려야 한다 — finally에서 정확히 한 번 해제한다.
   let failure: string | null = null;
   try {
-    const [cases, pairs] = await Promise.all([
-      variableCaseRepo.listAllForClustering(),
-      variableCaseRepo.listSimilarPairs(MIN_CLUSTER_SIMILARITY),
-    ]);
+    // 두 조회를 병렬로 돌리면 서로 다른 DB 스냅샷을 보게 되고, 그 사이에 확정된 새
+    // 케이스가 한쪽에만 나타난다(코덱스 1차 P2). 대상 목록을 먼저 확정한 뒤 **그 id
+    // 집합 안에서만** 쌍을 조회해, 타이밍과 무관하게 항상 같은 그래프가 나오게 한다.
+    const cases = await variableCaseRepo.listAllForClustering();
+    const pairs = await variableCaseRepo.listSimilarPairs(
+      MIN_CLUSTER_SIMILARITY,
+      cases.map((c) => c.id),
+    );
     const built = buildClusters(cases, pairs, MIN_CLUSTER_SIZE);
 
     // 멤버가 그대로인 클러스터는 라벨을 다시 만들지 않는다 — 비용 절감이자, 아무것도
@@ -224,10 +254,12 @@ export async function recomputeInsights(): Promise<{
     await insightRepo.replaceAll(toStore);
     return { clusterCount: toStore.length, caseCount: cases.length };
   } catch (err) {
-    failure = toErrorMessage(err);
+    // 오류 **메시지**는 저장하지 않는다 — drizzle이 실패한 쿼리의 파라미터(상황 설명·
+    // 라벨)를 메시지에 싣기 때문에 그대로 넣으면 NFR-5를 깬다(lib/safe-error.ts).
+    failure = toSafeErrorLabel(err);
     throw err;
   } finally {
-    await insightRepo.releaseLock({ completed: failure === null, error: failure });
+    await releaseLockBestEffort(failure);
   }
 }
 

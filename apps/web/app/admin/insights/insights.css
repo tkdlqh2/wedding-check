@@ -54,6 +54,13 @@
   margin-top: var(--space-xs);
 }
 
+/* Story 4.2 AC 3 / §14: 아직 집계되지 않은 값의 `—`. 크기·굵기는 그대로 두고 색만
+   플레이스홀더 톤으로 — 첫 집계 후 숫자가 들어와도 카드 높이가 흔들리지 않는다
+   (§14 Disabled의 "기하학적 크기 유지"와 같은 이유). */
+.insights-stat__value--placeholder {
+  color: var(--color-text-disabled);
+}
+
 /* ── 갱신 중 스켈레톤 (AC 2) ───────────────────────────────────────────── */
 
 .insights-recompute {

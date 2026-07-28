@@ -1,7 +1,6 @@
 import Link from "next/link";
 import type { CeremonyWithHallName } from "@/lib/services/ceremony";
-import { isCeremonyDone } from "@/lib/ceremony-status";
-import { AssigneePills } from "./assignee-pills";
+import { asCeremonyStatus, CEREMONY_STATUS_LABELS } from "@/lib/ceremony-status";
 
 // KST 고정 표시 — 이 제품은 국내 단일 웨딩홀 대상이라 서버/브라우저 로컬 타임존과
 // 무관하게 항상 한국 표준시로 표시한다(actions.ts의 입력 파싱과 대칭).
@@ -33,17 +32,11 @@ function contractLabel(conditions: Record<string, boolean>): string {
   return labels.length > 0 ? labels.join(" · ") : "기본 계약";
 }
 
-export function CeremonyRow({
-  ceremony,
-  activeOperators,
-}: {
-  ceremony: CeremonyWithHallName;
-  activeOperators: { id: string; name: string }[];
-}) {
-  const isDone = isCeremonyDone(ceremony.ceremonyAt);
+export function CeremonyRow({ ceremony }: { ceremony: CeremonyWithHallName }) {
+  const status = asCeremonyStatus(ceremony.status);
 
   return (
-    <li className={"ceremony-card" + (isDone ? " ceremony-card--done" : "")}>
+    <li className={"ceremony-card ceremony-card--" + status}>
       <div className="ceremony-card__body">
         <div className="ceremony-card__title">
           <span className="ceremony-card__time">{timeFormatter.format(ceremony.ceremonyAt)}</span>
@@ -57,13 +50,16 @@ export function CeremonyRow({
           {dateFormatter.format(ceremony.ceremonyAt)} · {ceremony.hallName} ·{" "}
           {contractLabel(ceremony.contractConditions)}
         </div>
-        {/* FR-18 다중 배정(프로토타입 WeddingScreen.js): 카드에서 바로 pill 토글로 배정. */}
-        <AssigneePills
-          hallId={ceremony.hallId}
-          ceremonyId={ceremony.id}
-          activeOperators={activeOperators}
-          assignees={ceremony.assignees}
-        />
+        {/* 대표 피드백(2026-07-27): 목록에서는 담당 오퍼레이터 이름만 읽기 전용으로 —
+            배정/해제는 상세 화면의 담당자 지정 대화상자(검색+체크박스)에서만 한다. */}
+        <div className="ceremony-card__assignee-line">
+          담당{" "}
+          {ceremony.assignees.length > 0 ? (
+            ceremony.assignees.map((a) => a.name).join(", ")
+          ) : (
+            <span className="ceremony-card__assignee-line--unassigned">미배정</span>
+          )}
+        </div>
       </div>
 
       <div className="ceremony-card__side">
@@ -71,10 +67,8 @@ export function CeremonyRow({
           <span className="ceremony-card__checklist-label">체크리스트</span>
           <span className="ceremony-card__checklist-count">{ceremony.itemCount}개</span>
         </div>
-        <span
-          className={"ceremony-card__status-badge" + (isDone ? " ceremony-card__status-badge--done" : "")}
-        >
-          {isDone ? "완료" : "예정"}
+        <span className={"ceremony-card__status-badge ceremony-card__status-badge--" + status}>
+          {CEREMONY_STATUS_LABELS[status]}
         </span>
         <Link href={`/admin/ceremonies/${ceremony.hallId}/${ceremony.id}`} className="btn-secondary">
           상세

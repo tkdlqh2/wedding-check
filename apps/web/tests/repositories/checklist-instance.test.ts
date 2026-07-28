@@ -16,6 +16,14 @@ async function createCeremonyWithNoItems(hallId: string) {
   return { ceremonyId, instanceId };
 }
 
+
+// 리포지토리 add* 함수는 upcoming 가드 차단 시 undefined를 반환한다 — 이 테스트들의
+// 예식은 전부 예정 상태라 항상 값이 있어야 한다(없으면 그 자체가 실패).
+function must<T>(value: T | undefined): T {
+  if (value === undefined) throw new Error("expected a row but got undefined");
+  return value;
+}
+
 describe("checklistInstanceRepo — addItem/removeItem", () => {
   beforeEach(async () => {
     await resetDb();
@@ -29,13 +37,13 @@ describe("checklistInstanceRepo — addItem/removeItem", () => {
     const step = await createTestTemplateItem(hall.id, { stepName: "신랑입장", sortOrder: 1 });
     const checklistItem = await createTestChecklistItem(hall.id, step.id, { title: "조명 전환" });
 
-    const added = await instanceRepo.addItem(hall.id, instanceId, {
+    const added = must(await instanceRepo.addItem(hall.id, instanceId, {
       id: checklistItem.id,
       title: checklistItem.title,
       description: checklistItem.description,
       stepId: step.id,
       stepName: step.stepName,
-    });
+    }));
 
     expect(added.stepName).toBe("신랑입장");
     expect(added.title).toBe("조명 전환");
@@ -57,8 +65,8 @@ describe("checklistInstanceRepo — addItem/removeItem", () => {
       stepName: step.stepName,
     };
 
-    const first = await instanceRepo.addItem(hall.id, instanceId, input);
-    const second = await instanceRepo.addItem(hall.id, instanceId, input);
+    const first = must(await instanceRepo.addItem(hall.id, instanceId, input));
+    const second = must(await instanceRepo.addItem(hall.id, instanceId, input));
 
     expect(second.id).toBe(first.id);
     const items = await instanceRepo.listItems(hall.id, instanceId);
@@ -70,13 +78,13 @@ describe("checklistInstanceRepo — addItem/removeItem", () => {
     const { instanceId } = await createCeremonyWithNoItems(hall.id);
     const step = await createTestTemplateItem(hall.id, { stepName: "축가" });
     const checklistItem = await createTestChecklistItem(hall.id, step.id);
-    const added = await instanceRepo.addItem(hall.id, instanceId, {
+    const added = must(await instanceRepo.addItem(hall.id, instanceId, {
       id: checklistItem.id,
       title: checklistItem.title,
       description: checklistItem.description,
       stepId: step.id,
       stepName: step.stepName,
-    });
+    }));
 
     await instanceRepo.removeItem(hall.id, instanceId, added.id);
 
@@ -97,20 +105,20 @@ describe("checklistInstanceRepo — addItem/removeItem", () => {
     const itemA1 = await createTestChecklistItem(hall.id, stepA.id, { title: "A-1", sortOrder: 0 });
     const itemB1 = await createTestChecklistItem(hall.id, stepB.id, { title: "B-1", sortOrder: 0 });
 
-    const addedA = await instanceRepo.addItem(hall.id, instanceId, {
+    const addedA = must(await instanceRepo.addItem(hall.id, instanceId, {
       id: itemA1.id,
       title: itemA1.title,
       description: itemA1.description,
       stepId: stepA.id,
       stepName: stepA.stepName,
-    });
-    const addedB = await instanceRepo.addItem(hall.id, instanceId, {
+    }));
+    const addedB = must(await instanceRepo.addItem(hall.id, instanceId, {
       id: itemB1.id,
       title: itemB1.title,
       description: itemB1.description,
       stepId: stepB.id,
       stepName: stepB.stepName,
-    });
+    }));
 
     expect(addedB.sortOrder).toBeGreaterThan(addedA.sortOrder);
     const items = await instanceRepo.listItems(hall.id, instanceId);
@@ -213,13 +221,13 @@ describe("checklistInstanceRepo — addItem/removeItem", () => {
     const { instanceId } = await createCeremonyWithNoItems(hallA.id);
     const step = await createTestTemplateItem(hallA.id, { stepName: "A홀 항목" });
     const checklistItem = await createTestChecklistItem(hallA.id, step.id);
-    const added = await instanceRepo.addItem(hallA.id, instanceId, {
+    const added = must(await instanceRepo.addItem(hallA.id, instanceId, {
       id: checklistItem.id,
       title: checklistItem.title,
       description: checklistItem.description,
       stepId: step.id,
       stepName: step.stepName,
-    });
+    }));
 
     // hallB로 hallA의 instance/item을 지우려는 시도 — 조용히 0행 삭제로 끝나야 한다.
     await instanceRepo.removeItem(hallB.id, instanceId, added.id);
@@ -247,13 +255,13 @@ describe("checklistInstanceRepo.addAdHocItem (Story 5.8)", () => {
       stepName: step.stepName,
     });
 
-    const adHoc = await instanceRepo.addAdHocItem(hall.id, instanceId, {
+    const adHoc = must(await instanceRepo.addAdHocItem(hall.id, instanceId, {
       stepName: "이 예식만의 단계",
       title: "이 예식만의 항목",
       description: null,
       stepId: null,
       groupRootId: null,
-    });
+    }));
 
     expect(adHoc.templateItemId).toBeNull();
     expect(adHoc.templateItemCheckId).toBeNull();
@@ -309,21 +317,21 @@ describe("checklistInstanceRepo.addAdHocItem (Story 5.8)", () => {
       stepId: step.id,
       stepName: step.stepName,
     });
-    const firstAdHoc = await instanceRepo.addAdHocItem(hall.id, instanceId, {
+    const firstAdHoc = must(await instanceRepo.addAdHocItem(hall.id, instanceId, {
       stepName: "새 단계",
       title: "새 단계 첫 항목",
       description: null,
       stepId: null,
       groupRootId: null,
-    });
+    }));
 
-    const secondAdHoc = await instanceRepo.addAdHocItem(hall.id, instanceId, {
+    const secondAdHoc = must(await instanceRepo.addAdHocItem(hall.id, instanceId, {
       stepName: "새 단계",
       title: "새 단계 두 번째 항목",
       description: null,
       stepId: null,
       groupRootId: firstAdHoc.adHocGroupRootId,
-    });
+    }));
 
     expect(secondAdHoc.adHocGroupRootId).toBe(firstAdHoc.adHocGroupRootId);
     const items = await instanceRepo.listItems(hall.id, instanceId);
@@ -345,13 +353,13 @@ describe("checklistInstanceRepo.updateItem (Story 5.8)", () => {
     const { instanceId } = await createCeremonyWithNoItems(hall.id);
     const step = await createTestTemplateItem(hall.id, { stepName: "단계" });
     const checklistItem = await createTestChecklistItem(hall.id, step.id, { title: "원본 제목" });
-    const added = await instanceRepo.addItem(hall.id, instanceId, {
+    const added = must(await instanceRepo.addItem(hall.id, instanceId, {
       id: checklistItem.id,
       title: checklistItem.title,
       description: checklistItem.description,
       stepId: step.id,
       stepName: step.stepName,
-    });
+    }));
 
     const updated = await instanceRepo.updateItem(hall.id, instanceId, added.id, {
       title: "수정된 제목",
@@ -368,13 +376,13 @@ describe("checklistInstanceRepo.updateItem (Story 5.8)", () => {
     const { instanceId } = await createCeremonyWithNoItems(hallA.id);
     const step = await createTestTemplateItem(hallA.id, { stepName: "단계" });
     const checklistItem = await createTestChecklistItem(hallA.id, step.id, { title: "원본" });
-    const added = await instanceRepo.addItem(hallA.id, instanceId, {
+    const added = must(await instanceRepo.addItem(hallA.id, instanceId, {
       id: checklistItem.id,
       title: checklistItem.title,
       description: checklistItem.description,
       stepId: step.id,
       stepName: step.stepName,
-    });
+    }));
 
     const result = await instanceRepo.updateItem(hallB.id, instanceId, added.id, {
       title: "해킹 시도",
@@ -476,5 +484,71 @@ describe("checklistInstanceRepo.existsForTemplateItem", () => {
     await expect(
       instanceRepo.existsForTemplateItem(instanceId, excludedStep.id),
     ).resolves.toBe(false);
+  });
+});
+
+// 코덱스 리뷰 P1(TOCTOU): 서비스 사전 확인을 우회해 리포지토리를 직접 호출해도(상태
+// 확인과 변경 사이에 예식이 시작된 경합의 재현) 변경 쿼리 자체의 upcoming 가드가 막는다.
+describe("upcoming 가드 — 예정이 아닌 예식의 변경 쿼리는 원자적으로 차단된다", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("진행중 예식에는 updateItem/addAdHocItem이 커밋되지 않는다", async () => {
+    const hall = await createTestHall();
+    const step = await createTestTemplateItem(hall.id, { stepName: "개식사" });
+    await createTestChecklistItem(hall.id, step.id, { title: "조명" });
+    const { ceremonyId, instanceId } = await createCeremonyWithNoItems(hall.id);
+    const [item] = await instanceRepo.listItems(hall.id, instanceId);
+
+    await ceremonyRepo.updateStatus(hall.id, ceremonyId, "upcoming", "ongoing");
+
+    const updated = await instanceRepo.updateItem(hall.id, instanceId, item.id, {
+      title: "변경 시도",
+      description: null,
+    });
+    expect(updated).toBeUndefined();
+
+    const added = await instanceRepo.addAdHocItem(hall.id, instanceId, {
+      stepName: "새 단계",
+      title: "추가 시도",
+      description: null,
+      stepId: null,
+      groupRootId: null,
+    });
+    expect(added).toBeUndefined();
+
+    const items = await instanceRepo.listItems(hall.id, instanceId);
+    expect(items).toHaveLength(1);
+    expect(items[0].title).toBe("조명");
+  });
+
+  it("진행중 예식에는 담당 배정 추가/해제가 커밋되지 않는다 (코덱스 리뷰 P2)", async () => {
+    const hall = await createTestHall();
+    const { ceremonyId } = await createCeremonyWithNoItems(hall.id);
+    const { createMember } = await import("@/lib/services/member");
+    const operator = await createMember({
+      name: "가드테스트오퍼",
+      phoneNumber: "01097770001",
+      password: "pw-91234",
+    });
+    await ceremonyRepo.addAssignee(hall.id, ceremonyId, operator.id);
+
+    await ceremonyRepo.updateStatus(hall.id, ceremonyId, "upcoming", "ongoing");
+
+    // 시작 이후에는 해제도 커밋되지 않는다(배정 기록 보존).
+    await ceremonyRepo.removeAssignee(hall.id, ceremonyId, operator.id);
+    let assignees = await ceremonyRepo.findAssigneesByCeremony(hall.id, ceremonyId);
+    expect(assignees).toHaveLength(1);
+
+    // 시작 이후 새 배정도 커밋되지 않는다.
+    const operator2 = await createMember({
+      name: "가드테스트오퍼2",
+      phoneNumber: "01097770002",
+      password: "pw-91234",
+    });
+    await ceremonyRepo.addAssignee(hall.id, ceremonyId, operator2.id);
+    assignees = await ceremonyRepo.findAssigneesByCeremony(hall.id, ceremonyId);
+    expect(assignees.map((a) => a.operatorId)).toEqual([operator.id]);
   });
 });

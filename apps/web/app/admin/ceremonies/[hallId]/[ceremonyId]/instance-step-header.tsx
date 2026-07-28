@@ -20,6 +20,7 @@ export function InstanceStepHeader({
   stepName,
   itemCount,
   stepKey,
+  readOnly,
 }: {
   hallId: string;
   ceremonyId: string;
@@ -27,6 +28,8 @@ export function InstanceStepHeader({
   stepName: string;
   itemCount: number;
   stepKey: { templateItemId?: string | null; groupRootId?: string | null; itemId?: string | null };
+  // 종료된 예식(2026-07-27 대표 지시) — 수정/단계 삭제 버튼을 숨긴다(서비스도 거부).
+  readOnly?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [state, formAction, isPending] = useActionState(renameInstanceStepAction, initialState);
@@ -84,6 +87,7 @@ export function InstanceStepHeader({
       <span className="instance-step-card__index">{index + 1}</span>
       <span className="instance-step-card__name">{stepName}</span>
       <span className="instance-step-card__item-count">항목 {itemCount}개</span>
+      {readOnly ? null : (
       <div className="instance-step-card__actions">
         <button type="button" className="btn-secondary" onClick={() => setEditing(true)}>
           수정
@@ -106,6 +110,7 @@ export function InstanceStepHeader({
           </button>
         </form>
       </div>
+      )}
     </div>
   );
 }

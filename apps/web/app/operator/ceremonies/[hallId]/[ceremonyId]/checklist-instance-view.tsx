@@ -4,7 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { readCache, writeCache } from "@/lib/operator/checklist-cache";
 import { StepFeedback } from "./step-feedback";
 import { isValidUuid } from "@/lib/uuid";
-import { isCeremonyDone } from "@/lib/ceremony-status";
+import {
+  asCeremonyStatus,
+  nextCeremonyStatus,
+  CEREMONY_STATUS_LABELS,
+} from "@/lib/ceremony-status";
 
 const POLL_INTERVAL_MS = 60_000;
 
@@ -46,6 +50,8 @@ export type OperatorCeremony = {
   contractConditions: Record<string, boolean>;
   groomName: string | null;
   brideName: string | null;
+  // 예식 진행 상태 — 오퍼레이터가 아래 예식 시작/종료 버튼으로 직접 변경한다.
+  status: string;
 };
 
 type ApiSuccessResponse = {
@@ -95,6 +101,8 @@ export function ChecklistInstanceView({
   const [collapsedSteps, setCollapsedSteps] = useState<Set<string>>(new Set());
   const [openDetailId, setOpenDetailId] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState(false);
+  const [statusPending, setStatusPending] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
   // 오프라인(연결 자체 실패)과 구분되는 온라인 상태의 서버 오류(코덱스 리뷰 1차 P2) —
   // 이 경우 캐시로 조용히 되돌아가지 않고 별도로 표시한다. 세션 만료(401)만 로그인으로
   // 리다이렉트하고, 나머지(404/500 등)는 마지막 화면을 유지한 채 오류만 알린다.
@@ -208,7 +216,49 @@ export function ChecklistInstanceView({
   }
 
   const ceremonyAt = new Date(ceremony.ceremonyAt);
-  const isDone = isCeremonyDone(ceremonyAt);
+  const ceremonyStatus = asCeremonyStatus(ceremony.status);
+  const nextStatus = nextCeremonyStatus(ceremonyStatus);
+
+  // prototype RunScreen.js 38~44행 — 예식 시작(upcoming→ongoing)/예식 종료(ongoing→done).
+  // 상태 변경은 온라인 전용(서버가 유일한 진실) — 실패는 즉시 드러낸다(§14 Error).
+  async function changeStatus(next: string) {
+    setStatusPending(true);
+    setStatusError(null);
+    // 코덱스 리뷰 P2: 이 POST보다 먼저 시작된 60초 폴링 GET이 나중에 도착하면 낡은
+    // 상태로 화면/캐시를 되돌린다 — 진행 중인 폴링 응답을 낡은 것으로 무효화한다.
+    latestRequestIdRef.current++;
+    try {
+      const res = await fetch(`/api/operator/ceremonies/${hallId}/${ceremonyId}/status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: next }),
+      });
+      if (res.status === 401) {
+        window.location.href = "/login";
+        return;
+      }
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as {
+          error?: { message?: string };
+        } | null;
+        setStatusError(body?.error?.message ?? "상태 변경에 실패했습니다 — 다시 시도해주세요.");
+        return;
+      }
+      // 코덱스 리뷰 P2: 동시에 다른 오퍼레이터가 상태를 더 진행시켰을 수 있다 —
+      // 요청 값(next)이 아니라 서버가 확정해 돌려준 상태를 반영/캐시한다.
+      const body = (await res.json().catch(() => null)) as { status?: string } | null;
+      const updated = { ...ceremony, status: body?.status ?? next };
+      // POST가 진행되는 동안 새로 시작된 폴링이 있을 수도 있다 — 반영 직전에 한 번 더
+      // 무효화해, 이 확정 상태가 어떤 폴링 응답에도 덮이지 않게 한다.
+      latestRequestIdRef.current++;
+      setCeremony(updated);
+      writeCache(ceremonyId, { ceremony: updated, items });
+    } catch {
+      setStatusError("연결에 실패했습니다 — 네트워크를 확인하고 다시 시도해주세요.");
+    } finally {
+      setStatusPending(false);
+    }
+  }
   const couple =
     ceremony.groomName && ceremony.brideName
       ? `${ceremony.groomName} · ${ceremony.brideName}`
@@ -255,22 +305,48 @@ export function ChecklistInstanceView({
             ))}
             <span
               className={
-                "run-header-card__status-badge" +
-                (isDone ? " run-header-card__status-badge--done" : "")
+                "run-header-card__status-badge run-header-card__status-badge--" + ceremonyStatus
               }
             >
-              {isDone ? "완료" : "예정"}
+              {CEREMONY_STATUS_LABELS[ceremonyStatus]}
             </span>
           </div>
         </div>
-        <div className="run-header-card__progress">
-          <div className="run-header-card__progress-label">체크 진행</div>
-          <div className="run-header-card__progress-count">
-            <span className="run-header-card__progress-done">{doneCount}</span>
-            <span className="run-header-card__progress-total"> / {items.length}</span>
+        <div className="run-header-card__side">
+          <div className="run-header-card__progress">
+            <div className="run-header-card__progress-label">체크 진행</div>
+            <div className="run-header-card__progress-count">
+              <span className="run-header-card__progress-done">{doneCount}</span>
+              <span className="run-header-card__progress-total"> / {items.length}</span>
+            </div>
           </div>
+          {ceremonyStatus === "upcoming" && (
+            <button
+              type="button"
+              className="run-header-card__status-btn run-header-card__status-btn--start"
+              onClick={() => nextStatus && changeStatus(nextStatus)}
+              disabled={statusPending}
+            >
+              {statusPending ? "변경 중..." : "예식 시작"}
+            </button>
+          )}
+          {ceremonyStatus === "ongoing" && (
+            <button
+              type="button"
+              className="run-header-card__status-btn run-header-card__status-btn--end"
+              onClick={() => nextStatus && changeStatus(nextStatus)}
+              disabled={statusPending}
+            >
+              {statusPending ? "변경 중..." : "예식 종료"}
+            </button>
+          )}
         </div>
       </div>
+      {statusError && (
+        <p className="run-screen__status-error" role="alert">
+          {statusError}
+        </p>
+      )}
 
       <div className="run-screen__section-title">
         체크리스트 <span>단계를 열어 항목별로 체크하세요</span>

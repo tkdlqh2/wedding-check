@@ -87,6 +87,13 @@ development_status:
 # Per-story git pipeline substage (see GIT PIPELINE STAGE legend above).
 # 번호가 매겨진 스토리가 아닌 개별 수정(fix/*)도 동일한 파이프라인으로 추적한다.
 git_pipeline:
+  fix-ai-vendor-openai:
+    stage: pr-open
+    branch: fix/ai-vendor-openai
+    pr_url: ""
+    notes: "git worktree(.claude/worktrees/fix-ai-vendor-openai)로 착수, main(a070004, Story 3.3 done 처리 직후) 기준 분기. 사용자 결정(2026-07-28): 실키 미보유였던 Anthropic(FR-9 구조화)+Voyage(FR-6/7 임베딩) 대신 사용자가 보유한 OPENAI_API_KEY 하나로 AI 전 기능을 돌린다. AD-1 포트 경계 내 교체 — ports.ts/lib/services/* 무수정, lib/ai/index.ts 조립 지점만 교체(기존 anthropic/voyage 어댑터는 롤백 대비 보존). 신규 lib/ai/adapters/openai.ts: OpenAILLMAdapter(chat completions, 구조화는 gpt-4.1-mini + strict json_schema + temperature 0 — gpt-5 계열은 reasoning 모델이라 temperature 미지원으로 NFR-1 결정성 요건에 부적합해 배제, 일반 생성/스트림은 gpt-4.1) + OpenAIEmbeddingAdapter(text-embedding-3-large, dimensions=1024 Matryoshka 축소로 variable_cases vector(1024) 스키마 무변경 — 기존 저장 임베딩 0건이라 벡터 공간 혼합 문제 없음). Voyage와 동일하게 SDK 대신 fetch(의존성 추가 없음), 3.2 코덱스 1~4라운드에서 확정된 임베딩 응답 검증 계약(차원/index 유일성/shape)은 embedding-response.ts 공용 모듈로 추출해 두 어댑터가 공유. refusal/finish_reason=length/빈 content를 어댑터에서 명확한 에러로 차단. OpenAI 임베딩은 대칭이라 EmbedOptions.inputType은 요청에 미반영(질의/문서가 같은 공간이라 검색 성립 — 의도된 설계, 주석/테스트 명시). .env.local.example과 ARCHITECTURE-SPINE.md 시크릿 목록을 OPENAI_API_KEY로 갱신. 검증: worktree 전용 격리 DB 컨테이너(포트 5437, pgvector, 0000~0021 전체 체인 적용), vitest 314건(신규 14건 — 임베딩 요청 조립/응답 방어 5, LLM 요청 조립/refusal/length/빈 content/HTTP/키 부재/SSE 청크 경계 9) 통과, tsc/lint/build 클린. 실제 OpenAI 키 호출 검증은 사용자가 .env.local에 키 투입 후 가능(구조화+질의 종단, SM-2 검수 세트 포함). 코덱스 리뷰 1라운드 클린."
+    last_updated: "07-28-2026 19:30"
+
   fix-admin-polish-and-operator-run-flow:
     stage: merged
     branch: fix/admin-polish-and-operator-run-flow

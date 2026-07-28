@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: "07-26-2026 16:19"
-last_updated: "07-28-2026 21:10"
+last_updated: "07-28-2026 21:20"
 project: wedding-check
 project_key: WEDCHK
 tracking_system: file-system
@@ -87,6 +87,14 @@ development_status:
 # Per-story git pipeline substage (see GIT PIPELINE STAGE legend above).
 # 번호가 매겨진 스토리가 아닌 개별 수정(fix/*)도 동일한 파이프라인으로 추적한다.
 git_pipeline:
+  fix-ceremony-instance-item-order-arrows:
+    stage: merged
+    branch: fix/ceremony-instance-item-order-arrows
+    pr_url: "https://github.com/tkdlqh2/wedding-check/pull/29"
+    merge_commit: "df50b00"
+    notes: "PR #28(fix-ai-vendor-openai) 병합 직후 대표 후속 지시(2026-07-28) — 예식 상세 단계 헤더의 ↑↓ 화살표(PR #27에서 구현)와 동일한 UX로 단계 카드 안 개별 체크 항목에도 순서 이동 화살표 추가. 데이터 계층 moveItemAdjacent(repo)는 checklist-item.ts::moveAdjacent(템플릿 편집기)와 동일한 CTE 스왑이되 탐색 범위를 같은 인스턴스·같은 단계(templateItemId/adHocGroupRootId) 안으로 좁히고 title IS NULL 단계 마커 행을 이웃 후보에서 제외. 서비스 moveInstanceItem은 편집 가능 예식 가드 후 이동, 이웃 없으면 조용히 무시, 경합으로 0행이면 사용자 오류로 번역. 커밋 2개로 분리(데이터/서비스 계층 → 액션/UI 계층, 단계 이동 PR과 동일 관례). 기존 CSS(.instance-item-card__actions .btn-secondary)가 템플릿과 동일 스타일이라 수정 불필요. tsc 클린, vitest 328건 통과, 코덱스 리뷰 1라운드 클린(회귀 없음). CI 그린 확인 후 gh pr merge --merge --delete-branch로 병합(fast-forward, main과 브랜치 베이스가 이미 일치)."
+    last_updated: "07-28-2026 21:20"
+
   fix-ai-vendor-openai:
     stage: merged
     branch: fix/ai-vendor-openai

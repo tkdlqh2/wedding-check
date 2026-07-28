@@ -136,6 +136,9 @@ export interface ClusterToStore extends BuiltCluster {
  * 확인을 별도 문장으로 두면 확인과 쓰기 사이에 또 TOCTOU가 생기므로, **같은 문장 안의
  * `owner` CTE**로 두고 upsert와 delete가 모두 이를 참조하게 한다. 소유권이 없으면
  * 0건을 쓰고 `owned: false`를 돌려준다.
+ *
+ * `owner`는 조회가 아니라 조건부 no-op UPDATE다 — 이유는 CTE 본문 주석 참고
+ * (코덱스 4차 P1: 같은 문장이라는 사실만으로는 문장 시작 이후의 락 인수를 막지 못한다).
  */
 export async function replaceAll(
   token: string,
@@ -153,8 +156,16 @@ export async function replaceAll(
 
   const result = await db.execute<{ owned: number; upserted: number; deleted: number }>(sql`
     with owner as (
-      select 1 from ${insightRecomputeState}
+      -- 순수 select가 아니라 **조건부 no-op UPDATE**여야 한다(코덱스 4차 P1).
+      -- READ COMMITTED에서 select는 문장 시작 스냅샷을 보므로, 그 이후에 커밋된
+      -- 락 인수(acquireLock)를 감지하지 못한 채 소유권을 참으로 판정할 수 있다.
+      -- UPDATE는 상태 행에 행 잠금을 잡아 acquireLock과 직렬화되고, 경합 시
+      -- **갱신된 최신 행 버전**으로 WHERE를 재평가하므로 토큰이 바뀌었으면 0행이 된다
+      -- (member.ts::demoteIfNotLastActiveAdmin이 FOR UPDATE로 얻는 것과 같은 성질).
+      update ${insightRecomputeState}
+      set run_token = run_token
       where id = ${SINGLETON_ID} and run_token = ${token}
+      returning 1 as owned
     ),
     input as (
       select * from json_to_recordset(${payload}::json) as x(

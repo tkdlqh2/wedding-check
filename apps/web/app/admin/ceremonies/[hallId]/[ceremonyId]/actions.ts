@@ -8,6 +8,7 @@ import {
   updateInstanceItem,
   renameInstanceStep,
   deleteInstanceStep,
+  moveInstanceStep,
   ChecklistInstanceValidationError,
 } from "@/lib/services/checklist-instance";
 import type { StepGroupKey } from "@/lib/db/repositories/checklist-instance";
@@ -145,6 +146,31 @@ export async function renameInstanceStepAction(
   }
   revalidatePath(`/admin/ceremonies/${hallId}/${ceremonyId}`);
   return {};
+}
+
+// 대표 지시(2026-07-28): 템플릿 편집기의 화살표 이동처럼 단계 순서를 한 칸씩 바꾼다.
+// 경합으로 순서 전제가 낡았으면 서비스가 검증 오류를 던진다 — void 액션이라 오류
+// 메시지 표시는 생략하고 화면 갱신으로 수렴시킨다(이동 버튼 UX는 템플릿 편집기와 동일).
+export async function moveInstanceStepAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const hallId = String(formData.get("hallId") ?? "");
+  const ceremonyId = String(formData.get("ceremonyId") ?? "");
+  const key = parseStepGroupKey(formData);
+  const direction = String(formData.get("direction") ?? "");
+  if (
+    !isValidUuid(hallId) ||
+    !isValidUuid(ceremonyId) ||
+    !key ||
+    (direction !== "up" && direction !== "down")
+  ) {
+    return;
+  }
+  try {
+    await moveInstanceStep(hallId, ceremonyId, key, direction);
+  } catch (err) {
+    if (!(err instanceof ChecklistInstanceValidationError)) throw err;
+  }
+  revalidatePath(`/admin/ceremonies/${hallId}/${ceremonyId}`);
 }
 
 // 프로토타입의 "단계 삭제" — 그 단계에 속한 이 예식의 항목 전체를 삭제한다.

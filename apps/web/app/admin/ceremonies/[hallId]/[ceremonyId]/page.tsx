@@ -152,6 +152,8 @@ export default async function CeremonyDetailPage({
                   stepName={first.stepName}
                   itemCount={visibleItems.length}
                   stepKey={stepKey}
+                  isFirst={index === 0}
+                  isLast={index === stepGroups.length - 1}
                   readOnly={readOnly}
                 />
                 {visibleItems.length === 0 ? (

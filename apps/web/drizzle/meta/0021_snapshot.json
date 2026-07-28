@@ -1,6 +1,6 @@
 {
-  "id": "115fd86c-cc2f-4341-8a5c-1603b2733152",
-  "prevId": "b6bdc9b5-cb5f-4260-8afb-44c7d1b357d8",
+  "id": "8c0ff4eb-ada5-4062-aaa5-4204eb6a4d7c",
+  "prevId": "115fd86c-cc2f-4341-8a5c-1603b2733152",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -169,6 +169,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'upcoming'"
         }
       },
       "indexes": {},

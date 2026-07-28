@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { db } from "../index";
 import { feedback } from "../schema";
 
@@ -43,6 +43,95 @@ export async function updateContent(id: string, content: string): Promise<Feedba
   return row;
 }
 
+export interface StructuredFields {
+  situation: string;
+  outcome: string;
+  rationale: string;
+  tags: string[];
+}
+
+// Story 3.2: 구조화 초안 저장(LLM 결과) 및 오퍼레이터의 필드 수정 저장에 공용으로 쓴다.
+// confirmed 행은 절대 덮어쓰지 않는다(AD-8) — WHERE status='draft'가 단일 UPDATE 문
+// 안에서 원자적으로 이를 보장한다(행이 없으면 0행 반환, 호출부가 "이미 확정됨"으로 해석).
+export async function updateStructuredFields(
+  id: string,
+  fields: StructuredFields,
+): Promise<Feedback | undefined> {
+  const [row] = await db
+    .update(feedback)
+    .set({ ...fields, updatedAt: new Date() })
+    .where(and(eq(feedback.id, id), eq(feedback.status, "draft")))
+    .returning();
+  return row;
+}
+
+interface FeedbackRow extends Record<string, unknown> {
+  id: string;
+  hall_id: string;
+  ceremony_id: string;
+  template_item_id: string | null;
+  step_name: string;
+  content: string;
+  status: string;
+  situation: string | null;
+  outcome: string | null;
+  rationale: string | null;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+function mapRow(row: FeedbackRow): Feedback {
+  return {
+    id: row.id,
+    hallId: row.hall_id,
+    ceremonyId: row.ceremony_id,
+    templateItemId: row.template_item_id,
+    stepName: row.step_name,
+    content: row.content,
+    status: row.status,
+    situation: row.situation,
+    outcome: row.outcome,
+    rationale: row.rationale,
+    tags: row.tags,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
+  };
+}
+
+// Story 3.2 AC 3 / AD-8: draft -> confirmed 전환과 variable_case 생성을 하나의 원자적
+// 단위로 묶는다. db.transaction()은 프로덕션 드라이버(neon-http)에서 throw하므로
+// (Story 1.3/2.1 선례) 여러 INSERT/UPDATE를 체이닝한 단일 CTE 문으로 원자성을 얻는다
+// (ceremonyRepo.create()와 동일 원리). confirmed CTE가 WHERE status='draft'로 0행이면
+// (이미 confirmed거나 존재하지 않으면) new_case도, 최종 SELECT도 0행 — "confirmed인데
+// variable_case가 없는" 반쪽 상태가 절대 만들어지지 않는다. 임베딩은 이 함수 호출 전에
+// 이미 계산돼 있어야 한다(외부 API 호출을 SQL 안에 넣을 수 없음 — 서비스 레이어 책임).
+export async function confirmAndCreateVariableCase(
+  id: string,
+  embedding: number[],
+): Promise<Feedback | undefined> {
+  const embeddingLiteral = JSON.stringify(embedding);
+  const result = await db.execute<FeedbackRow>(sql`
+    with confirmed as (
+      update feedback
+      set status = 'confirmed', updated_at = now()
+      where id = ${id} and status = 'draft'
+      returning *
+    ),
+    new_case as (
+      insert into variable_cases (hall_id, feedback_id, step_name, situation, outcome, rationale, tags, embedding)
+      select hall_id, id, step_name, situation, outcome, rationale, tags, ${embeddingLiteral}::vector
+      from confirmed
+      returning id
+    )
+    select confirmed.*
+    from confirmed
+    join new_case on true
+  `);
+  const row = result.rows[0];
+  return row ? mapRow(row) : undefined;
+}
+
 // Story 3.1 코덱스 리뷰 P1: "조회 → 없으면 생성" 두 단계로 나뉘어 있으면, 같은
 // 예식+단계에 동시에 최초 저장하는 두 요청이 둘 다 조회 시점에 미존재를 확인한 뒤
 // INSERT를 시도해 한쪽이 (ceremony_id, template_item_id) UNIQUE 위반으로 500이 될 수
@@ -72,7 +161,22 @@ export async function upsertDraft(input: {
       // 코덱스 리뷰 2차 P2: $onUpdate는 일반 db.update()에만 적용되고 onConflictDoUpdate의
       // 명시적 set에는 자동 반영되지 않는다 — updatedAt을 직접 넣지 않으면 재저장해도
       // 최초 생성 시각에 머물러 "언제 마지막으로 이어 썼는지"가 부정확해진다.
-      set: { content: input.content, updatedAt: new Date() },
+      //
+      // Story 3.2 코덱스 리뷰: 구조화 이후 원본 content가 실제로 바뀌어 재저장되면
+      // situation/outcome/rationale/tags는 더 이상 그 내용을 정확히 대변하지 않는다
+      // (AD-8 "근거는 신성하다") — content가 바뀐 경우에만 구조화 필드를 초기화해
+      // 재구조화를 강제한다. CASE 조건의 feedback.content는 이 UPDATE가 적용되기 전의
+      // 값이므로(단일 SQL 문 내에서 SET 절은 항상 이전 행 기준으로 평가됨) 안전하게
+      // "바뀌었는지"를 판정할 수 있다. 같은 내용으로 재저장(단순 재시도 등)하면 기존
+      // 구조화는 그대로 보존된다.
+      set: {
+        content: input.content,
+        updatedAt: new Date(),
+        situation: sql`case when ${feedback.content} = ${input.content} then ${feedback.situation} else null end`,
+        outcome: sql`case when ${feedback.content} = ${input.content} then ${feedback.outcome} else null end`,
+        rationale: sql`case when ${feedback.content} = ${input.content} then ${feedback.rationale} else null end`,
+        tags: sql`case when ${feedback.content} = ${input.content} then ${feedback.tags} else '[]'::jsonb end`,
+      },
       setWhere: eq(feedback.status, "draft"),
     })
     .returning();

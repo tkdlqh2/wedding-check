@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { resetDb, createTestHall, createTestTemplateItem } from "../helpers/db";
-import * as ceremonyRepo from "@/lib/db/repositories/ceremony";
-import * as feedbackRepo from "@/lib/db/repositories/feedback";
+import {
+  resetDb,
+  createTestHall,
+  createConfirmedVariableCase,
+} from "../helpers/db";
 import * as variableCaseRepo from "@/lib/db/repositories/variable-case";
 import { db } from "@/lib/db";
 import { variableCases } from "@/lib/db/schema";
@@ -26,42 +28,19 @@ function mixedVector(mainAxis: number, otherAxis: number, mainWeight: number): n
 
 type Hall = Awaited<ReturnType<typeof createTestHall>>;
 
-// variable_case는 confirmAndCreateVariableCase 단일 경로로만 생성된다(AD-8,
-// Story 3.2 결정) — 테스트도 그 경로를 그대로 쓴다(직접 INSERT 우회 금지).
-async function createConfirmedCase(
+// Story 4.1: 케이스 생성 헬퍼는 tests/helpers/db.ts로 옮겨 insight 테스트와 공유한다
+// (AD-8대로 confirmAndCreateVariableCase 단일 경로를 쓰는 것은 그대로). 여기서는
+// 기존 호출부의 hall 객체 시그니처만 유지하는 얇은 래퍼로 남긴다.
+const createConfirmedCase = (
   hall: Hall,
   embedding: number[],
-  fields: Partial<{ situation: string; rationale: string; outcome: string; stepName: string }> = {},
-) {
-  const step = await createTestTemplateItem(hall.id, {
-    stepName: fields.stepName ?? "신랑입장",
-    sortOrder: Math.floor(Math.random() * 1_000_000),
-  });
-  const { ceremonyId } = await ceremonyRepo.create(hall.id, {
-    ceremonyAt: new Date("2026-08-01T05:00:00.000Z"),
-    contractConditions: {},
-  });
-  const created = await feedbackRepo.create({
-    hallId: hall.id,
-    ceremonyId,
-    templateItemId: step.id,
-    stepName: fields.stepName ?? "신랑입장",
-    content: "원본 내용",
-  });
-  await feedbackRepo.updateStructuredFields(created.id, {
-    situation: fields.situation ?? "상황 설명",
-    outcome: fields.outcome ?? "well_handled",
-    rationale: fields.rationale ?? "사후 판단",
-    tags: ["태그1"],
-  });
-  const confirmed = await feedbackRepo.confirmAndCreateVariableCase(created.id, embedding);
-  if (!confirmed) throw new Error("테스트 셋업 실패: 확정되지 않음");
-  const [row] = await db
-    .select()
-    .from(variableCases)
-    .where(eq(variableCases.feedbackId, created.id));
-  return row;
-}
+  fields: Partial<{
+    situation: string;
+    rationale: string;
+    outcome: string;
+    stepName: string;
+  }> = {},
+) => createConfirmedVariableCase(hall.id, embedding, fields);
 
 describe("variableCaseRepo.searchBySimilarity", () => {
   beforeEach(async () => {
@@ -148,5 +127,115 @@ describe("variableCaseRepo.searchBySimilarity", () => {
     expect(result.tags).toEqual(["태그1"]);
     expect(result.hallName).toBe("그랜드홀");
     expect(result.createdAt).toBeInstanceOf(Date);
+  });
+});
+
+// ─── Story 4.1(FR-10) 클러스터링 입력 ────────────────────────────────────────
+
+describe("variableCaseRepo.listSimilarPairs", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("임계값 이상인 쌍만 반환한다", async () => {
+    const hall = await createTestHall();
+    const a = await createConfirmedCase(hall, unitVector(0));
+    // a와 유사도 0.95 — 임계값 위
+    const near = await createConfirmedCase(hall, mixedVector(0, 1, 0.95));
+    // a와 직교(유사도 0) — 임계값 아래
+    await createConfirmedCase(hall, unitVector(2));
+
+    const pairs = await variableCaseRepo.listSimilarPairs(0.9);
+
+    expect(pairs).toHaveLength(1);
+    expect([pairs[0].aId, pairs[0].bId].sort()).toEqual([a.id, near.id].sort());
+  });
+
+  // a.id < b.id 조건이 각 쌍을 정확히 한 번만 내려보내고 자기 자신과의 비교도 제거한다.
+  it("각 쌍은 한 번만 나오고 자기 자신과 짝지어지지 않는다", async () => {
+    const hall = await createTestHall();
+    await createConfirmedCase(hall, unitVector(0));
+    await createConfirmedCase(hall, unitVector(0));
+    await createConfirmedCase(hall, unitVector(0));
+
+    const pairs = await variableCaseRepo.listSimilarPairs(0.9);
+
+    // 동일 벡터 3건이면 서로 다른 쌍은 3개(3C2)뿐이어야 한다.
+    expect(pairs).toHaveLength(3);
+    for (const { aId, bId } of pairs) {
+      expect(aId).not.toBe(bId);
+      expect(aId < bId).toBe(true);
+    }
+  });
+
+  it("케이스가 1건뿐이면 빈 배열을 반환한다", async () => {
+    const hall = await createTestHall();
+    await createConfirmedCase(hall, unitVector(0));
+
+    expect(await variableCaseRepo.listSimilarPairs(0.5)).toEqual([]);
+  });
+
+  it("케이스가 없으면 빈 배열을 반환한다", async () => {
+    expect(await variableCaseRepo.listSimilarPairs(0.5)).toEqual([]);
+  });
+
+  // AD-6: 클러스터링도 검색과 동일하게 홀 무관 사업체 전체 범위다.
+  it("서로 다른 홀의 케이스도 짝지어진다 (AD-6)", async () => {
+    const hallA = await createTestHall({ name: "A홀" });
+    const hallB = await createTestHall({ name: "B홀" });
+    await createConfirmedCase(hallA, unitVector(0));
+    await createConfirmedCase(hallB, unitVector(0));
+
+    expect(await variableCaseRepo.listSimilarPairs(0.9)).toHaveLength(1);
+  });
+});
+
+describe("variableCaseRepo.listAllForClustering / listByIds / countCases", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("클러스터링 대상을 created_at ASC, id ASC로 반환한다 (NFR-1 관례)", async () => {
+    const hall = await createTestHall({ name: "그랜드홀" });
+    const first = await createConfirmedCase(hall, unitVector(0), { stepName: "주례사" });
+    const second = await createConfirmedCase(hall, unitVector(1));
+    await db.update(variableCases).set({ createdAt: new Date("2026-08-01T00:00:00.000Z") });
+
+    const rows = await variableCaseRepo.listAllForClustering();
+
+    expect(rows.map((r) => r.id)).toEqual([first.id, second.id].sort());
+    expect(rows[0].hallName).toBe("그랜드홀");
+    expect(rows.some((r) => r.stepName === "주례사")).toBe(true);
+  });
+
+  it("listByIds는 요청한 케이스만 돌려주고 없는 id는 조용히 건너뛴다", async () => {
+    const hall = await createTestHall();
+    const a = await createConfirmedCase(hall, unitVector(0), { situation: "축가 MR 지연" });
+    await createConfirmedCase(hall, unitVector(1));
+
+    const rows = await variableCaseRepo.listByIds([
+      a.id,
+      "00000000-0000-4000-8000-000000000000",
+    ]);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].situation).toBe("축가 MR 지연");
+  });
+
+  it("listByIds는 빈 배열 입력에 쿼리 없이 빈 배열을 반환한다", async () => {
+    expect(await variableCaseRepo.listByIds([])).toEqual([]);
+  });
+
+  it("countCases는 전체와 기간 필터를 모두 센다", async () => {
+    const hall = await createTestHall();
+    await createConfirmedCase(hall, unitVector(0));
+    const old = await createConfirmedCase(hall, unitVector(1));
+    await db
+      .update(variableCases)
+      .set({ createdAt: new Date("2020-01-01T00:00:00.000Z") })
+      .where(eq(variableCases.id, old.id));
+
+    expect(await variableCaseRepo.countCases()).toBe(2);
+    expect(await variableCaseRepo.countCases(new Date("2026-01-01T00:00:00.000Z"))).toBe(1);
   });
 });

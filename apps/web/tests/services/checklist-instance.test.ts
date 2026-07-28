@@ -13,6 +13,7 @@ import {
   addInstanceItem,
   removeInstanceItem,
   addAdHocInstanceItem,
+  addAdHocInstanceStep,
   updateInstanceItem,
   renameInstanceStep,
   deleteInstanceStep,
@@ -235,6 +236,93 @@ describe("addAdHocInstanceItem (Story 5.8) — '이 예식에만' 자유 서술 
     await expect(
       addAdHocInstanceItem(hall.id, ceremonyId, { title: "제목", description: null, stepName: "  " }),
     ).rejects.toThrow(ChecklistInstanceValidationError);
+  });
+});
+
+describe("addAdHocInstanceStep (2026-07-28 대표 지시) — 단계명만으로 새 단계 추가", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("title IS NULL 자리표시 행으로 새 단계가 만들어지고, 이후 groupRootId로 항목을 붙일 수 있다", async () => {
+    const hall = await createTestHall();
+    const { ceremonyId, instanceId } = await createCeremony(hall.id);
+
+    const marker = await addAdHocInstanceStep(hall.id, ceremonyId, "신부 어머니 축사");
+
+    expect(marker.stepName).toBe("신부 어머니 축사");
+    expect(marker.title).toBeNull();
+    expect(marker.templateItemId).toBeNull();
+    expect(marker.adHocGroupRootId).toBeTruthy();
+
+    const item = await addAdHocInstanceItem(hall.id, ceremonyId, {
+      title: "마이크 준비",
+      description: null,
+      stepName: "",
+      groupRootId: marker.adHocGroupRootId,
+    });
+    expect(item.stepName).toBe("신부 어머니 축사");
+    expect(item.adHocGroupRootId).toBe(marker.adHocGroupRootId);
+    expect(item.sortOrder).toBe(marker.sortOrder + 1);
+
+    const items = await instanceRepo.listItems(hall.id, instanceId);
+    expect(items).toHaveLength(2);
+  });
+
+  it("자리표시 행은 오퍼레이터 조회에서 제외된다(항목이 생기면 그 항목만 보인다)", async () => {
+    const hall = await createTestHall();
+    const { ceremonyId } = await createCeremony(hall.id);
+    const marker = await addAdHocInstanceStep(hall.id, ceremonyId, "빈 단계");
+    await addAdHocInstanceItem(hall.id, ceremonyId, {
+      title: "실제 항목",
+      description: null,
+      stepName: "",
+      groupRootId: marker.adHocGroupRootId,
+    });
+
+    const view = await getOperatorInstanceView(hall.id, ceremonyId);
+
+    expect(view.items).toHaveLength(1);
+    expect(view.items[0].title).toBe("실제 항목");
+  });
+
+  it("단계 이름이 비어있으면 거부된다", async () => {
+    const hall = await createTestHall();
+    const { ceremonyId } = await createCeremony(hall.id);
+
+    await expect(addAdHocInstanceStep(hall.id, ceremonyId, "  ")).rejects.toThrow(
+      ChecklistInstanceValidationError,
+    );
+  });
+
+  it("빈 단계도 이름 변경/삭제(groupRootId 키)가 동작한다", async () => {
+    const hall = await createTestHall();
+    const { ceremonyId, instanceId } = await createCeremony(hall.id);
+    const marker = await addAdHocInstanceStep(hall.id, ceremonyId, "임시 단계");
+    if (!marker.adHocGroupRootId) throw new Error("groupRootId가 없다");
+
+    await renameInstanceStep(
+      hall.id,
+      ceremonyId,
+      { groupRootId: marker.adHocGroupRootId },
+      "바뀐 단계",
+    );
+    let items = await instanceRepo.listItems(hall.id, instanceId);
+    expect(items[0].stepName).toBe("바뀐 단계");
+
+    await deleteInstanceStep(hall.id, ceremonyId, { groupRootId: marker.adHocGroupRootId });
+    items = await instanceRepo.listItems(hall.id, instanceId);
+    expect(items).toHaveLength(0);
+  });
+
+  it("예정이 아닌 예식에는 단계를 추가할 수 없다(원자적 가드)", async () => {
+    const hall = await createTestHall();
+    const { ceremonyId } = await createCeremony(hall.id);
+    await ceremonyRepo.updateStatus(hall.id, ceremonyId, "upcoming", "ongoing");
+
+    await expect(addAdHocInstanceStep(hall.id, ceremonyId, "늦은 단계")).rejects.toThrow(
+      ChecklistInstanceValidationError,
+    );
   });
 });
 

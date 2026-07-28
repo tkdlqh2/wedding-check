@@ -415,9 +415,81 @@
   border-radius: var(--radius-md);
 }
 
-/* Story 3.1 단계별 피드백 — 펼쳐진 단계 맨 아래. */
-.run-step__feedback {
-  padding: var(--space-xs) 18px var(--space-md);
+/* 시작 전/종료 후에는 체크 버튼이 잠긴다(대표 지시 2026-07-28) — 크기는 유지하고
+   시각적으로만 잠금을 표시한다(§14 Disabled: 기하학적 크기 유지). */
+.run-item__check--locked {
+  cursor: default;
+}
+
+.run-item__check--locked:not(.run-item__check--done) {
+  border-color: var(--color-border-light);
+  background: var(--color-surface-soft);
+}
+
+/* 프로토타입 RunScreen.js 156~189행 — 예식 종료 후 자동으로 나타나는 피드백 섹션. */
+.run-feedback {
+  margin-top: 36px;
+  border-top: 2px solid var(--color-border-light);
+  padding-top: 28px;
+}
+
+.run-feedback__title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.run-feedback__title span {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--color-text-muted);
+  margin-left: 6px;
+}
+
+.run-feedback__subtitle {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin: 6px 0 0;
+}
+
+.run-feedback__card {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-lg);
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.run-feedback__chips-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.run-feedback__chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.run-feedback__chip {
+  cursor: pointer;
+  border-radius: var(--radius-full);
+  padding: var(--space-sm) 14px;
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-mid);
+  color: var(--color-text-primary);
+}
+
+.run-feedback__chip--selected {
+  background: var(--color-brand-tint);
+  border-color: var(--color-brand);
 }
 
 .step-feedback__toggle {

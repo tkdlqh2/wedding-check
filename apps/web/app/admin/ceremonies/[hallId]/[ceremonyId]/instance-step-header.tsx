@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import {
   renameInstanceStepAction,
   deleteInstanceStepAction,
+  moveInstanceStepAction,
   type InstanceItemFormState,
 } from "./actions";
 
@@ -20,6 +21,8 @@ export function InstanceStepHeader({
   stepName,
   itemCount,
   stepKey,
+  isFirst,
+  isLast,
   readOnly,
 }: {
   hallId: string;
@@ -28,6 +31,9 @@ export function InstanceStepHeader({
   stepName: string;
   itemCount: number;
   stepKey: { templateItemId?: string | null; groupRootId?: string | null; itemId?: string | null };
+  // 대표 지시(2026-07-28): 템플릿 편집기처럼 화살표로 단계 순서를 바꾼다.
+  isFirst?: boolean;
+  isLast?: boolean;
   // 종료된 예식(2026-07-27 대표 지시) — 수정/단계 삭제 버튼을 숨긴다(서비스도 거부).
   readOnly?: boolean;
 }) {
@@ -89,6 +95,20 @@ export function InstanceStepHeader({
       <span className="instance-step-card__item-count">항목 {itemCount}개</span>
       {readOnly ? null : (
       <div className="instance-step-card__actions">
+        <form action={moveInstanceStepAction}>
+          {keyInputs}
+          <input type="hidden" name="direction" value="up" />
+          <button type="submit" className="btn-secondary" disabled={isFirst} aria-label="단계 위로 이동">
+            ↑
+          </button>
+        </form>
+        <form action={moveInstanceStepAction}>
+          {keyInputs}
+          <input type="hidden" name="direction" value="down" />
+          <button type="submit" className="btn-secondary" disabled={isLast} aria-label="단계 아래로 이동">
+            ↓
+          </button>
+        </form>
         <button type="button" className="btn-secondary" onClick={() => setEditing(true)}>
           수정
         </button>

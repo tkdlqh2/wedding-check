@@ -20,7 +20,7 @@ describe("waitForVideoUpdate", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const resultPromise = waitForVideoUpdate("hall-1", "item-1", undefined);
+    const resultPromise = waitForVideoUpdate("/api/templates/hall-1/items/item-1/video", undefined);
     await vi.runAllTimersAsync();
 
     expect(await resultPromise).toBe(true);
@@ -35,7 +35,7 @@ describe("waitForVideoUpdate", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const resultPromise = waitForVideoUpdate("hall-1", "item-1", undefined);
+    const resultPromise = waitForVideoUpdate("/api/templates/hall-1/items/item-1/video", undefined);
     await vi.runAllTimersAsync();
 
     expect(await resultPromise).toBe(false);
@@ -51,8 +51,7 @@ describe("waitForVideoUpdate", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const resultPromise = waitForVideoUpdate(
-      "hall-1",
-      "item-1",
+      "/api/templates/hall-1/items/item-1/video",
       "/api/local-videos/old.mp4",
     );
     await vi.runAllTimersAsync();
@@ -72,7 +71,7 @@ describe("waitForVideoUpdate", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const resultPromise = waitForVideoUpdate("hall-1", "item-1", undefined);
+    const resultPromise = waitForVideoUpdate("/api/templates/hall-1/items/item-1/video", undefined);
     await vi.runAllTimersAsync();
 
     expect(await resultPromise).toBe(true);

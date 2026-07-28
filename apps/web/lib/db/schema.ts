@@ -255,7 +255,14 @@ export const checklistInstanceItems = pgTable(
     // 생성될 때 새 uuid를 발급해 이후 항목들이 같은 값을 그대로 복사해 쓴다).
     adHocGroupRootId: uuid("ad_hoc_group_root_id"),
     stepName: text("step_name").notNull(),
-    title: text("title").notNull(),
+    // 대표 지시(2026-07-28): 예식 상세의 "단계 추가"는 템플릿처럼 단계명만으로 한다 —
+    // 항목이 없는 새 단계는 title IS NULL인 자리표시 행(단계 마커)으로 표현한다(0022).
+    // 오퍼레이터 화면/체크 집계에는 노출되지 않는다(서비스 레이어 필터).
+    title: text("title"),
+    // 대표 지시(2026-07-28): 예식 상세에서 올린 시연 영상은 이 예식에만 반영된다 —
+    // 홀 공용 demo_videos 대신 인스턴스 행에 직접 저장하고, 값이 있으면 템플릿
+    // 영상보다 우선한다(0023, withVideoUrls의 오버라이드 규칙).
+    videoUrl: text("video_url"),
     description: text("description"),
     sortOrder: integer("sort_order").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),

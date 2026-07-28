@@ -4,6 +4,7 @@ import * as hallRepo from "@/lib/db/repositories/hall";
 import { getCeremonyDetail, ChecklistInstanceValidationError } from "@/lib/services/checklist-instance";
 import { listCeremonyAssignees } from "@/lib/services/ceremony";
 import { listMembers } from "@/lib/services/member";
+import { isBlobStorageConfigured } from "@/lib/storage/video-storage";
 import { isValidUuid } from "@/lib/uuid";
 import { InstanceItemRow } from "./instance-item-row";
 import { InstanceItemForm } from "./instance-item-form";
@@ -71,6 +72,9 @@ export default async function CeremonyDetailPage({
     .map((m) => ({ id: m.id, name: m.name }));
   const stepGroups = groupItemsByStep(items);
   const status = asCeremonyStatus(ceremony.status);
+  // 토큰 값 자체는 클라이언트로 넘기지 않고 boolean 결과만 prop으로 전달한다(템플릿
+  // 편집기와 동일 — 예식 상세의 항목 수정 폼에서도 시연 영상 업로드를 지원한다).
+  const blobEnabled = isBlobStorageConfigured();
   // 대표 지시(2026-07-27): 예정이 아닌 예식(진행중·종료)은 전체 읽기 전용.
   const readOnly = status !== "upcoming";
 
@@ -133,6 +137,12 @@ export default async function CeremonyDetailPage({
               : first.adHocGroupRootId
                 ? { groupRootId: first.adHocGroupRootId }
                 : { itemId: first.id };
+            // title IS NULL 행은 "단계만 추가"의 자리표시 마커(0022) — 단계 카드의
+            // 존재/이름/키만 제공하고 항목 목록에는 노출하지 않는다.
+            const visibleItems = stepItems.filter(
+              (item): item is (typeof stepItems)[number] & { title: string } =>
+                item.title !== null,
+            );
             return (
               <div key={groupKey} className="instance-step-card">
                 <InstanceStepHeader
@@ -140,21 +150,30 @@ export default async function CeremonyDetailPage({
                   ceremonyId={ceremonyId}
                   index={index}
                   stepName={first.stepName}
-                  itemCount={stepItems.length}
+                  itemCount={visibleItems.length}
                   stepKey={stepKey}
+                  isFirst={index === 0}
+                  isLast={index === stepGroups.length - 1}
                   readOnly={readOnly}
                 />
-                <ul className="instance-item-list">
-                  {stepItems.map((item) => (
-                    <InstanceItemRow
-                      key={item.id}
-                      hallId={hallId}
-                      ceremonyId={ceremonyId}
-                      item={item}
-                      readOnly={readOnly}
-                    />
-                  ))}
-                </ul>
+                {visibleItems.length === 0 ? (
+                  <p className="instance-step-card__empty">
+                    아직 체크 항목이 없습니다{readOnly ? "." : " — 아래에서 추가하세요."}
+                  </p>
+                ) : (
+                  <ul className="instance-item-list">
+                    {visibleItems.map((item) => (
+                      <InstanceItemRow
+                        key={item.id}
+                        hallId={hallId}
+                        ceremonyId={ceremonyId}
+                        item={item}
+                        blobEnabled={blobEnabled}
+                        readOnly={readOnly}
+                      />
+                    ))}
+                  </ul>
+                )}
                 {/* 원본 템플릿 단계가 삭제된 orphan 항목(templateItemId/adHocGroupRootId
                     둘 다 null)은 "같은 단계에 추가"할 그룹 키가 없다 — 빠른 추가 폼을
                     숨긴다(항상 실패하는 폼을 노출하지 않음, Story 5.8 코덱스 리뷰 P2). */}

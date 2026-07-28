@@ -4,7 +4,7 @@ baseline_commit: d0e2a4f
 
 # Story 3.3: 자연어 상황 질의 (FR-6)
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 

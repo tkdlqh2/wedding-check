@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: "07-26-2026 16:19"
-last_updated: "07-28-2026 12:40"
+last_updated: "07-28-2026 13:10"
 project: wedding-check
 project_key: WEDCHK
 tracking_system: file-system
@@ -64,7 +64,7 @@ development_status:
   epic-3: in-progress
   3-1-natural-language-feedback: done
   3-2-feedback-structuring-confirmation: done
-  3-3-natural-language-query: review
+  3-3-natural-language-query: done
   3-4-evidence-based-response: backlog
   epic-3-retrospective: optional
 
@@ -87,6 +87,14 @@ development_status:
 # Per-story git pipeline substage (see GIT PIPELINE STAGE legend above).
 # 번호가 매겨진 스토리가 아닌 개별 수정(fix/*)도 동일한 파이프라인으로 추적한다.
 git_pipeline:
+  3-3-natural-language-query:
+    stage: merged
+    branch: story/3-3-natural-language-query
+    pr_url: "https://github.com/tkdlqh2/wedding-check/pull/26"
+    merge_commit: "022d4d2"
+    notes: "git worktree(.claude/worktrees/story-3-3-natural-language-query)로 착수, main(d0e2a4f, Story 3.2 병합 직후) 기준 분기. Epic 3(FR-6) 3번째 스토리 — 3.2가 구축한 임베딩 인프라(variable_cases pgvector, Voyage 어댑터) 위에 질의 파이프라인을 얹음. 스키마/마이그레이션 변경 없음. 핵심 설계 결정 2건([ASSUMPTION]으로 스토리 파일 기록): (1) LLM 생성 미사용 — epics의 3.3/3.4 AC와 프로토타입 응답 카드 어디에도 생성 텍스트가 없고, 검색-원문표시만으로 NFR-1(결정성)/NFR-2(p95 5초)/SM-2(무관 사례 0%)가 구조적으로 보장됨. generateStream은 미사용으로 유지. (2) EmbeddingPort.embed에 선택적 inputType 추가(스파인 AD-1 하위호환 확장) — 문서는 'document'(3.2 경로 불변), 질의는 'query'로 임베딩하는 Voyage 공식 비대칭 검색. 구현: variable-case 검색 리포지토리(읽기 전용 신설 — 쓰기 함수 금지로 3.2의 생성 경로 단일화 결정 존중, drizzle cosineDistance + halls JOIN 표시용 hallName, AD-6 홀 필터 없음, NFR-1 tie-break distance/created_at DESC/id ASC, ANN 인덱스 없이 정확 검색), lib/services/query.ts(빈 질의/500자 검증, 상위 3건 — 3.4 AC 정합), POST /api/query(requireSessionOr401, 에러 봉투, AD-10 query_failed 구조화 로그), 질의 패널(prototype RunScreen.js 106~154행 문자 그대로 — 120px 고정폭 버튼+스피너 AC 3, pendingRef 더블클릭/Enter 재진입 차단, 매칭 카드 120ms ease-enter+reduced-motion), AD-5 오프라인 시 버튼 비활성+배너 문구. 3.4 경계(발생 홀 태그 표시, 관련 사례 없음 #2B82E0 정식 카드, 유사도 임계값, 재시도 문구)는 스토리 파일 경계 표로 명시하고 침범하지 않음 — 빈 결과는 뮤트 톤 플레인 텍스트 임시 표시. 코덱스 리뷰 4라운드(1~3차 P2 각 1건, 4차 클린): 대기 중 이전 질의 매칭 카드 노출(matches 즉시 초기화), 대기 중 입력 변경 시 도착 응답이 새 입력의 결과처럼 노출, 같은 계열로 실패 문구도 동일 — 2~3차는 처음에 submittedText 결합(질의-결과 짝 렌더링)으로 고쳤으나 사용자 지침('요청 순번 추적/응답 무효화 같은 장치 없이 in-flight 동안 입력창 disabled로 단순 차단')에 따라 입력창 잠금으로 교체 후 4차 클린. 병합 직전 병행 세션의 PR #25(오퍼레이터 셸/예식 상태 저장 필드, 마이그레이션 0021)가 먼저 main에 병합돼 PR이 CONFLICTING — origin/main 머지로 해소(sprint-status last_updated만 수기, checklist-instance-view.tsx/css는 자동 병합으로 QueryPanel과 예식 시작/종료 버튼 공존, 실서버 렌더링 확인), 격리 DB에 0021 단독 적용. 검증: 이 worktree 전용 격리 DB 컨테이너(포트 5436, pgvector) 사용(공유 5434 비접촉), vitest 최종 301건(신규 29건 — repo 6/service 8/component 13/voyage 2) 통과, tsc/lint/build 클린, 실서버(포트 3013) 로그인+HTTP 종단 검증(401/400 빈질의·500자/502 임베딩 키 없음+query_failed 로그/실행 화면 SSR 질의 패널). 실제 Voyage 임베딩의 의미 유사도는 실키 미보유로 로컬 실증 불가(3.2와 동일 한계) — 프로덕션 키 투입 후 SM-2 검수 세트로 검증 필요. CI 그린 확인 후 gh pr merge --merge --delete-branch로 병합."
+    last_updated: "07-28-2026 13:10"
+
   fix-operator-shell-and-done-lock:
     stage: merged
     branch: fix/operator-shell-and-done-lock

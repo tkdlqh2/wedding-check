@@ -10,9 +10,12 @@ const initialState: HallFormState = {};
 export function HallForm({
   hall,
   onSuccess,
+  onCancel,
 }: {
   hall?: { id: string; name: string };
   onSuccess?: () => void;
+  // 대표 피드백(2026-07-28): 수정 모드에서 취소와 수정 저장은 같은 줄에 놓는다.
+  onCancel?: () => void;
 }) {
   const action = hall ? updateHallAction : createHallAction;
   const [state, formAction, isPending] = useActionState(action, initialState);
@@ -40,6 +43,11 @@ export function HallForm({
           className={state.error ? "input input--error" : "input"}
           aria-invalid={Boolean(state.error)}
         />
+        {hall && onCancel && (
+          <button type="button" className="btn-secondary" onClick={onCancel}>
+            취소
+          </button>
+        )}
         <button type="submit" className="btn-primary" disabled={isPending}>
           {isPending ? "저장 중..." : hall ? "수정 저장" : "등록하기"}
         </button>

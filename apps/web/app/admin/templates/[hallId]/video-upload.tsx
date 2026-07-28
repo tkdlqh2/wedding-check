@@ -60,6 +60,9 @@ export function VideoUpload({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // 대표 피드백(2026-07-28): 브라우저 기본 파일 입력은 숨기고 "파일 선택" 버튼 +
+  // 선택된 파일명 표시로 대체한다 — 선택 상태를 보여주기 위해 파일명을 상태로 든다.
+  const [fileName, setFileName] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -91,6 +94,7 @@ export function VideoUpload({
           clientPayload: JSON.stringify({ fileSize: file.size }),
         });
         if (inputRef.current) inputRef.current.value = "";
+        setFileName(null);
         // onUploadCompleted 웹훅은 이 응답과 별도(비동기)로 도착해 DB 행을 만든다 —
         // 실제로 반영될 때까지 상태 확인 API를 폴링한다(로컬은 웹훅 자체가 오지
         // 않아 항상 타임아웃함, Dev Notes 참고 — 이 경우 안내 문구로 솔직하게 알림).
@@ -114,6 +118,7 @@ export function VideoUpload({
           throw new Error(body.error?.message ?? "업로드에 실패했습니다");
         }
         if (inputRef.current) inputRef.current.value = "";
+        setFileName(null);
         router.refresh();
       }
     } catch (err) {
@@ -125,10 +130,34 @@ export function VideoUpload({
 
   return (
     <form className="video-upload" onSubmit={handleSubmit}>
-      <input ref={inputRef} type="file" accept="video/mp4" disabled={uploading} />
-      <button type="submit" className="btn-secondary" disabled={uploading}>
-        {uploading ? "업로드 중..." : "업로드"}
-      </button>
+      <div className="video-upload__row">
+        {/* 기본 파일 입력은 시각적으로 숨기되(label 연결로 접근성 유지) 버튼과 파일명
+            표시로 대체한다 — 업로드 버튼은 줄 오른쪽 끝(대표 피드백 2026-07-28). */}
+        <label className="video-upload__file">
+          <input
+            ref={inputRef}
+            type="file"
+            accept="video/mp4"
+            disabled={uploading}
+            className="video-upload__input"
+            onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)}
+          />
+          <span className="video-upload__file-btn" aria-hidden>
+            파일 선택
+          </span>
+          <span
+            className={
+              "video-upload__file-name" +
+              (fileName ? "" : " video-upload__file-name--empty")
+            }
+          >
+            {fileName ?? "mp4 영상 (500MB 이하)"}
+          </span>
+        </label>
+        <button type="submit" className="btn-primary video-upload__submit" disabled={uploading}>
+          {uploading ? "업로드 중..." : "업로드"}
+        </button>
+      </div>
       {error && <p className="field-error">{error}</p>}
       {notice && !error && <p className="video-upload__notice">{notice}</p>}
     </form>

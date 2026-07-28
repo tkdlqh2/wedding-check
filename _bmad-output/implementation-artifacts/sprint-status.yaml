@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: "07-26-2026 16:19"
-last_updated: "07-29-2026 01:05"
+last_updated: "07-29-2026 18:35"
 project: wedding-check
 project_key: WEDCHK
 tracking_system: file-system
@@ -68,9 +68,9 @@ development_status:
   3-4-evidence-based-response: done
   epic-3-retrospective: optional
 
-  epic-4: in-progress
+  epic-4: done
   4-1-pattern-clustering: done
-  4-2-insight-admin-only: backlog
+  4-2-insight-admin-only: done
   epic-4-retrospective: optional
 
   epic-5: in-progress
@@ -87,6 +87,14 @@ development_status:
 # Per-story git pipeline substage (see GIT PIPELINE STAGE legend above).
 # 번호가 매겨진 스토리가 아닌 개별 수정(fix/*)도 동일한 파이프라인으로 추적한다.
 git_pipeline:
+  4-2-insight-admin-only:
+    stage: merged
+    branch: story/4-2-insight-admin-only
+    pr_url: "https://github.com/tkdlqh2/wedding-check/pull/33"
+    merge_commit: "9b5c63d"
+    notes: "git worktree(.claude/worktrees/story-4-2-insight-admin-only)로 착수, main(68fad71) 기준 분기. Epic 4 마지막 스토리(FR-11) — 마이그레이션·스키마 변경 없음. **착수하며 전제가 뒤집혔다**: 4.1이 '인가는 app/admin/layout.tsx가 이미 강제하니 4.2는 오퍼레이터 차단만 다룬다'고 넘겼는데, 그 방식이 Next.js 공식 문서(node_modules/next/dist/docs/01-app/02-guides/authentication.md §Layouts and auth checks)가 명시적으로 경고하는 패턴이었다 — Partial Rendering 때문에 레이아웃 검사는 클라이언트 사이드 내비게이션에서 재실행되지 않고, 같은 문서가 'return null in a layout'류 패턴도 not recommended로 못 박는다. **재현 경로가 실재한다**: 관리자가 /admin/* 탭을 열어 둔 상태에서 다른 관리자가 회원 관리 화면(Story 5.7, 이미 있는 기능)으로 그를 오퍼레이터로 강등 → 내비의 '인사이트' 클릭 시 soft navigation이라 레이아웃은 실행되지 않고 페이지 RSC 페이로드만 옴 → 페이지에 가드가 없어 오퍼레이터에게 인사이트가 렌더됨. **설계 결정 6건**: (D-1) requireAdminPage() 신설 후 /admin/** 페이지 **7곳 전부**에 적용 — FR-11이 요구하는 건 인사이트 한 화면이지만 같은 구멍이 7곳에 동일하고 Story 1.1 AC('관리자 전용 라우트 차단')는 인사이트만 가리키지 않는다(메모리 fix-defect-class-not-instance). 레이아웃 가드는 제거하지 않고 첫 진입(hard navigation)을 가장 싸게 막는 바깥 그물로 유지 — 두 겹이 서로를 대체하는 게 아니라 서로 다른 진입 경로를 막는다. (D-2) 인가를 서비스(DAL)가 아니라 페이지에 둔다 — Next 문서는 DAL 검증을 권하지만 이 코드베이스의 확립된 관례는 '가드는 진입점, 서비스는 순수'(Story 1.2 코덱스 P1이 requireAdminSession을 만든 이유)이고, 서비스가 headers()에 의존하면 요청 컨텍스트 밖(테스트·cron 배치)에서 호출할 수 없다. 문서가 경고한 실질(레이아웃 하나에만 의존하지 말 것)은 페이지별 가드로 충족. (D-3) forbidden()(403 전용 API) 미사용 — 아직 experimental이고 experimental.authInterrupts 플래그를 요구한다. 라이브 예식 파일럿에서 실험적 런타임 플래그를 켜는 대가가 403 화면의 값어치보다 크다. (D-4) 실패 분기를 나눔 — 세션 없음 /login, admin 아님 /operator. 기존에는 둘 다 /login이라 로그인한 오퍼레이터에게 로그인 폼을 다시 띄웠는데 사실과 다르고 §10 운영 에러 톤에도 어긋난다. (D-5) 세션 조회를 React.cache로 감싸 요청당 1회 — 가드가 2겹이 되며 생긴 중복 DB 왕복 제거, 요청 스코프라 검사 자체는 매 요청 수행(캐시가 가드를 약화시키지 않음). (D-6) `—`는 배치 산출값에만 — 누적/최근 확정 피드백은 variable_cases를 그 자리에서 세는 값이라 집계 여부와 무관하게 항상 참이고, 아는 숫자를 —로 가리면 UX-DR17이 막으려는 혼동을 반대 방향으로 만든다. 미집계 판정에 '저장 클러스터 0개'를 함께 보는 이유는 4.1의 releaseLockBestEffort가 삼키는 경로(쓰기 성공 + 해제 실패)에서 클러스터는 있는데 lastCompletedAt이 빈 조합이 나오고, 그때 —를 띄우면 클러스터가 N개 깔린 화면에서 카운트만 —인 자기모순이 되기 때문. **곁들여 고친 것**: members/page.tsx가 세션 조회와 회원 목록 조회를 Promise.all로 함께 돌려 권한 확인 전에 목록 쿼리가 이미 나가고 있었다 → 확인 후 읽기로 순차화. **검증**: D-1의 강등 시나리오를 주장으로 두지 않고 실서버에서 재현 — 관리자 세션으로 200(RSC 페이로드에 인사이트 실제 렌더) → **쿠키 그대로** 둔 채 role을 operator로 강등 → 같은 쿠키 재요청 시 일반 GET 307 /operator, RSC 요청은 페이로드에 NEXT_REDIRECT;replace;/operator;307;을 담고 인사이트 문자열 0회(누적 확정 피드백/insights-page/관리자 전용 · 읽기 전용 전부 0), 리다이렉트 스택 프레임에 requireAdminPage가 찍혀 차단 주체까지 확인. 그 외 오퍼레이터 세션으로 /admin 하위 5개 경로 전부 307 /operator, 미로그인 307 /login, 관리자는 전부 정상. AC 3은 집계 전 SSR에서 —(+placeholder 클래스)이고 '0개'가 응답 전체에 0회 등장, 배치 실행 후 0개로 전환되고 placeholder 클래스 사라짐 — 테스트도 '—가 있는지'가 아니라 '0개가 화면에 없는지'까지 본다(둘을 함께 렌더해도 통과하는 테스트는 이 AC를 못 지킨다). 격리 DB(포트 5439, pgvector) 0000~0024 전체 체인, 앱 포트 3016, vitest 458건(435 → 458, 신규 23건), tsc/lint/build 클린. **코덱스 1차 클린(P1/P2 없음)** — React.cache의 요청 스코프(unstable_cache와 달리 요청·사용자 간 영속이 아님), 가드 누락 표면(Route Handler·Server Action·generateMetadata 포함해 없음), redirect() 삼킴 경로 없음, hasAggregated의 세 상태 조합 모순 없음을 각각 근거와 함께 확인. **남은 판단 항목**: 차단된 오퍼레이터는 설명 없이 자기 홈으로 되돌아간다(오퍼레이터 내비에 인사이트 링크가 없어 이 경로는 URL 직접 입력 또는 강등 후 남은 탭뿐이라 v1에서는 이 처리로 판단, 설명이 필요해지면 forbidden() 안정화 후 403 화면으로). app/operator/layout.tsx에는 역할 검사가 없어 관리자는 오퍼레이터 화면에 들어갈 수 있다 — AD-3/FR-11이 요구하는 방향이 아니고 대표가 오퍼레이터 화면을 확인하는 것을 막을 이유도 없어 의도된 비대칭으로 남김."
+    last_updated: "07-29-2026 18:35"
+
   4-1-pattern-clustering:
     stage: merged
     branch: story/4-1-pattern-clustering

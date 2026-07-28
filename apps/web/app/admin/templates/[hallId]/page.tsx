@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { requireAdminPage } from "@/lib/auth-guard";
 import * as hallRepo from "@/lib/db/repositories/hall";
 import { listTemplateItems } from "@/lib/services/template";
 import { listChecklistItemsByTemplateItems } from "@/lib/services/checklist-item";
@@ -14,6 +15,9 @@ export default async function TemplatePage({
 }: {
   params: Promise<{ hallId: string }>;
 }) {
+  // 레이아웃 가드만으로는 soft navigation을 막지 못한다(lib/auth-guard.ts 주석, AD-3).
+  await requireAdminPage();
+
   const { hallId } = await params;
   // hallId는 uuid 컬럼과 직접 비교되므로, 형식이 아예 아니면 쿼리를 보내기 전에 걸러야
   // "invalid input syntax for type uuid" DB 에러가 500으로 새는 것을 막을 수 있다

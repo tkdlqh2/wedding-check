@@ -1,3 +1,4 @@
+import { requireAdminPage } from "@/lib/auth-guard";
 import { listActiveHalls } from "@/lib/services/hall";
 import {
   listCeremoniesForDate,
@@ -59,6 +60,9 @@ export default async function CeremoniesPage({
 }: {
   searchParams: Promise<{ date?: string; year?: string; month?: string; page?: string }>;
 }) {
+  // 레이아웃 가드만으로는 soft navigation을 막지 못한다(lib/auth-guard.ts 주석, AD-3).
+  await requireAdminPage();
+
   const params = await searchParams;
   const selectedDate = parseDateParam(params.date);
   // 코덱스 리뷰(P2): year/month와 date가 서로 다른 달을 가리키는 URL(예: 정상적인

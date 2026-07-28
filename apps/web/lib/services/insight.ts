@@ -94,9 +94,15 @@ export interface InsightItem {
 
 export interface InsightsView {
   items: InsightItem[];
-  /** AC 2 — 갱신 중이면 화면이 스켈레톤만 덧붙이고 기존 목록은 그대로 둔다. */
+  /** Story 4.1 AC 2 — 갱신 중이면 화면이 스켈레톤만 덧붙이고 기존 목록은 그대로 둔다. */
   isRecomputing: boolean;
   lastCompletedAt: Date | null;
+  /**
+   * Story 4.2 AC 3(UX-DR17, §14 Skeleton) — 배치가 한 번이라도 끝났는가.
+   * false면 화면은 클러스터 수를 `0`이 아니라 `—`로 표시한다: 아직 세어본 적이 없는 것과
+   * 세어봤더니 0건인 것은 관리자에게 전혀 다른 사실이다.
+   */
+  hasAggregated: boolean;
   totalCases: number;
   recentCases: number;
 }
@@ -335,10 +341,17 @@ export async function getInsights(): Promise<InsightsView> {
     state.runningSince !== null &&
     (state.lockExpiresAt === null || state.lockExpiresAt.getTime() > Date.now());
 
+  // Story 4.2 AC 3. 클러스터가 실제로 있으면 `lastCompletedAt`이 비어 있어도 "집계됨"으로
+  // 본다 — 배치가 쓰기에 성공한 뒤 락 해제만 실패하면(releaseLockBestEffort가 삼키는
+  // 경로) 그 조합이 실제로 나올 수 있고, 그때 `—`를 띄우면 **아래에 클러스터 목록이 N개
+  // 깔린 화면에서 카운트만 `—`인 자기모순**이 된다.
+  const hasAggregated = state.lastCompletedAt !== null || clusters.length > 0;
+
   return {
     items,
     isRecomputing,
     lastCompletedAt: state.lastCompletedAt,
+    hasAggregated,
     totalCases,
     recentCases,
   };

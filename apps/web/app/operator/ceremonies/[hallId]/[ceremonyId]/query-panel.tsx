@@ -104,7 +104,10 @@ export function QueryPanel({ isOffline }: { isOffline: boolean }) {
         </button>
       </div>
 
-      {state === "error" ? (
+      {/* 코덱스 리뷰 3차 P2: 오류 피드백도 성공 결과와 동일하게 제출 텍스트와
+          결합한다 — 대기 중 입력을 B로 바꾼 뒤 A 요청이 실패하면, 결합 없이
+          state만 보고 렌더링할 경우 제출한 적 없는 B가 실패한 것처럼 보인다. */}
+      {state === "error" && text === submittedText ? (
         <p className="run-query__error" role="status">
           질의에 실패했습니다 — 다시 시도해주세요.
         </p>

@@ -285,6 +285,39 @@ describe("QueryPanel (AC 1, 3)", () => {
     expect(screen.queryByText("주례자가 예고 없이 순서를 바꿈")).not.toBeInTheDocument();
   });
 
+  // 코덱스 리뷰 3차 P2: 오류 피드백도 성공 결과처럼 제출 텍스트와 결합되어야 한다 —
+  // 대기 중 입력을 바꾼 뒤 이전 요청이 실패하면, 제출한 적 없는 새 입력이 실패한
+  // 것처럼 보이면 안 된다.
+  it("대기 중 입력을 바꾸면 이전 질의의 실패가 새 입력의 실패처럼 노출되지 않는다", async () => {
+    let rejectFetch: (reason?: unknown) => void = () => {};
+    const fetchMock = vi.fn().mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          rejectFetch = reject;
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<QueryPanel isOffline={false} />);
+    const input = screen.getByPlaceholderText("지금 상황을 그대로 적어보세요");
+    fireEvent.change(input, { target: { value: "질의 A" } });
+    fireEvent.click(screen.getByRole("button", { name: "질의하기" }));
+
+    fireEvent.change(input, { target: { value: "전혀 다른 질의 B" } });
+    await act(async () => {
+      rejectFetch(new Error("network down"));
+    });
+
+    // 입력 B 아래에 A의 실패 문구가 보이면 안 된다.
+    expect(
+      screen.queryByText("질의에 실패했습니다 — 다시 시도해주세요."),
+    ).not.toBeInTheDocument();
+
+    // 입력을 제출했던 A로 되돌리면 실패 문구가 정확한 짝으로 다시 보인다.
+    fireEvent.change(input, { target: { value: "질의 A" } });
+    expect(screen.getByText("질의에 실패했습니다 — 다시 시도해주세요.")).toBeInTheDocument();
+  });
+
   it("오류 후 재질의에 성공하면 오류 문구가 사라지고 결과가 표시된다", async () => {
     const fetchMock = vi
       .fn()

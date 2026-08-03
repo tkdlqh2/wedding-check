@@ -256,10 +256,33 @@ describe("StepFeedback (AC 1, 2, 3)", () => {
       }),
     );
 
-    // 같은 내용으로 두 번 보내지 않는다(pagehide + visibilitychange 중복 방지).
+    // 중복 전송은 막지 않는다 — 같은 내용 upsert 한 번 더가 전부이고, 그걸 아끼려던
+    // "이미 보낸 원문" 표시가 오히려 유실 경로를 둘 만들었다(되돌린 글 억제,
+    // keepalive 실패 후 재시도 억제). 재시도 가능성이 중복 절약보다 값지다.
     const callsAfterFirst = fetchMock.mock.calls.length;
     window.dispatchEvent(new Event("pagehide"));
-    expect(fetchMock.mock.calls.length).toBe(callsAfterFirst);
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(callsAfterFirst);
+  });
+
+  // 위 결정의 실질: keepalive가 실패해도(페이지가 bfcache로 살아남는 등) 다음
+  // 이탈에서 다시 시도된다.
+  it("이탈 저장이 실패해도 다음 이탈에서 다시 시도한다", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ feedback: null }) }) // GET
+      .mockRejectedValue(new Error("네트워크 실패"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<StepFeedback {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "피드백 남기기" }));
+    const textarea = await screen.findByPlaceholderText("있었던 일을 그대로 적으세요");
+    fireEvent.change(textarea, { target: { value: "쓰다 만 글" } });
+
+    window.dispatchEvent(new Event("pagehide"));
+    const callsAfterFailedFlush = fetchMock.mock.calls.length;
+
+    window.dispatchEvent(new Event("pagehide"));
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(callsAfterFailedFlush);
   });
 
   // 코덱스 P1: 앱 내 이동은 pagehide도 visibilitychange도 발생시키지 않는다.

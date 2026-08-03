@@ -121,14 +121,34 @@ describe("StepFeedback — 구조화/확정 (Story 3.2 AC 1, 2, 3, 4)", () => {
     vi.restoreAllMocks();
   });
 
-  it("draft 저장 후에만 '구조화하기' 버튼이 나타나고, 성공하면 4개 필드가 채워진다", async () => {
+  // 대표 지적(2026-08-03) 회귀 테스트. 이전에는 구조화 섹션 전체가
+  // status === "draft" 게이트 안에 있어서, **저장 이력이 없는 단계에서는 버튼이
+  // 아예 렌더되지 않았다** — 저장을 먼저 눌러야 한다는 안내도 없어서 "특정 단계만
+  // 구조화가 된다"처럼 보였다. 저장 여부와 무관하게 보여야 한다.
+  it("저장한 적 없는 단계에서도 '구조화하기' 버튼이 보인다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ feedback: null }) }),
+    );
+
+    render(<StepFeedback {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "피드백 남기기" }));
+    const textarea = await screen.findByPlaceholderText("있었던 일을 그대로 적으세요");
+
+    // 내용이 없으면 구조화할 것도 없으므로 비활성 — 하지만 **존재는 한다**.
+    expect(screen.getByRole("button", { name: "구조화하기" })).toBeDisabled();
+    fireEvent.change(textarea, { target: { value: "내용" } });
+    expect(screen.getByRole("button", { name: "구조화하기" })).not.toBeDisabled();
+  });
+
+  it("'구조화하기'가 저장을 먼저 하고 구조화한다 — 저장 없이도 한 번에 (AC 1)", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ feedback: null }) }) // GET (펼침)
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ feedback: { content: "내용", status: "draft" } }),
-      }) // POST 저장
+      }) // POST 저장(구조화 버튼이 스스로 수행)
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -149,22 +169,92 @@ describe("StepFeedback — 구조화/확정 (Story 3.2 AC 1, 2, 3, 4)", () => {
     const textarea = await screen.findByPlaceholderText("있었던 일을 그대로 적으세요");
     fireEvent.change(textarea, { target: { value: "내용" } });
 
-    expect(screen.queryByRole("button", { name: "구조화하기" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "저장" }));
-    await screen.findByRole("button", { name: "구조화하기" });
-
+    // "저장"을 거치지 않고 바로 구조화한다.
     fireEvent.click(screen.getByRole("button", { name: "구조화하기" }));
 
     expect(await screen.findByDisplayValue("구조화된 상황 설명")).toBeInTheDocument();
     expect(screen.getByDisplayValue("구조화된 사후 판단")).toBeInTheDocument();
     expect(screen.getByDisplayValue("태그1, 태그2")).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenLastCalledWith(
+
+    // 저장(POST) → 구조화(POST /structure) 순서로 정확히 두 번.
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `/api/feedback/${props.hallId}/${props.ceremonyId}`,
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ templateItemId: props.templateItemId, content: "내용" }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
       `/api/feedback/${props.hallId}/${props.ceremonyId}/structure`,
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ templateItemId: props.templateItemId }),
       }),
     );
+  });
+
+  // 구조화 입력은 **DB에 저장된 content**다. 저장 뒤 글을 고치고 구조화하면
+  // 예전 글이 구조화되던 함정을 선행 저장이 함께 없앤다.
+  it("저장 후 글을 고쳐도 화면에 보이는 내용이 구조화된다", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ feedback: { content: "예전 글", status: "draft" } }),
+      }) // GET (펼침 — 이미 저장된 draft)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ feedback: { content: "고친 글", status: "draft" } }),
+      }) // POST 저장
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          feedback: {
+            content: "고친 글",
+            status: "draft",
+            situation: "상황",
+            outcome: "well_handled",
+            rationale: "판단",
+            tags: ["태그"],
+          },
+        }),
+      }); // POST /structure
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<StepFeedback {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "피드백 남기기" }));
+    const textarea = await screen.findByDisplayValue("예전 글");
+    fireEvent.change(textarea, { target: { value: "고친 글" } });
+    fireEvent.click(screen.getByRole("button", { name: "구조화하기" }));
+
+    await screen.findByDisplayValue("상황");
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `/api/feedback/${props.hallId}/${props.ceremonyId}`,
+      expect.objectContaining({
+        body: JSON.stringify({ templateItemId: props.templateItemId, content: "고친 글" }),
+      }),
+    );
+  });
+
+  it("선행 저장이 실패하면 구조화를 시도하지 않고 오류를 알린다", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ feedback: null }) }) // GET
+      .mockResolvedValueOnce({ ok: false, status: 500 }); // POST 저장 실패
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<StepFeedback {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "피드백 남기기" }));
+    const textarea = await screen.findByPlaceholderText("있었던 일을 그대로 적으세요");
+    fireEvent.change(textarea, { target: { value: "내용" } });
+    fireEvent.click(screen.getByRole("button", { name: "구조화하기" }));
+
+    expect(await screen.findByText(/구조화하지 못했습니다/)).toBeInTheDocument();
+    // GET + 저장 시도까지 2번뿐 — /structure는 호출되지 않았다.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("필드를 수정하면 확정 버튼이 비활성화되고, '필드 저장' 후 다시 활성화된다", async () => {

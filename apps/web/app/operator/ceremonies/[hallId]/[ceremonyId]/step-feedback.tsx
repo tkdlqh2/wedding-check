@@ -149,6 +149,28 @@ export function StepFeedback({
   async function handleStructure() {
     setStructureState("structuring");
     try {
+      // 구조화는 **서버에 저장된 content**를 읽는다(lib/services/feedback.ts —
+      // 화면의 textarea 값이 아니라 DB의 행이 입력이다). 그래서 저장을 먼저 하지
+      // 않으면 두 가지가 깨진다:
+      //   - 한 번도 저장한 적 없는 단계 → 구조화할 행 자체가 없다(이 결함의 원인)
+      //   - 저장 뒤 글을 고친 단계 → 화면에 보이는 글이 아니라 **예전 글**이 구조화된다
+      // 저장을 별도 액션으로 남겨 두되(임시저장은 그 자체로 필요하다 — 선임이
+      // 나중에 이어 쓴다), 구조화 버튼은 스스로 필요한 선행 저장을 한다.
+      const saved = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateItemId, content }),
+      });
+      if (!saved.ok) {
+        setStructureState("error");
+        return;
+      }
+      // 저장 응답을 반영해 둔다 — 이어지는 구조화가 실패해도 화면이 "저장은 됐다"는
+      // 사실을 정확히 보여준다(서버가 content 변경으로 기존 구조화 필드를
+      // 무효화했다면 그 무효화까지 반영된다 — handleSave와 같은 이유).
+      const savedData: { feedback: FeedbackDto } = await saved.json();
+      applyFeedback(savedData.feedback);
+
       const res = await fetch(`${apiUrl}/structure`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -289,17 +311,28 @@ export function StepFeedback({
                 ) : null}
               </div>
 
-              {status === "draft" ? (
-                <div className="step-feedback__structure-section">
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={handleStructure}
-                    disabled={structureState === "structuring" || fieldsDirty}
-                    title={fieldsDirty ? "필드 저장 후 다시 구조화할 수 있습니다" : undefined}
-                  >
-                    {structureState === "structuring" ? "구조화 중…" : "구조화하기"}
-                  </button>
+              {/* 대표 지적(2026-08-03): 이 섹션이 status === "draft" 게이트 안에
+                  있었다. 아직 한 번도 저장하지 않은 단계는 status가 null이라
+                  구조화하기 버튼이 **아예 렌더되지 않았고**, 저장을 먼저 눌러야
+                  나타난다는 사실이 화면 어디에도 안내되지 않았다. 실제로 저장 이력이
+                  있던 단계 하나에서만 버튼이 보여 "첫 단계만 된다"처럼 보였다.
+                  이제 확정 전에는 항상 노출하고, 저장 선행 요구는 버튼이 스스로
+                  처리한다(handleStructure가 저장 후 구조화). */}
+              <div className="step-feedback__structure-section">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={handleStructure}
+                  disabled={
+                    structureState === "structuring" ||
+                    saveState === "saving" ||
+                    fieldsDirty ||
+                    content.trim().length === 0
+                  }
+                  title={fieldsDirty ? "필드 저장 후 다시 구조화할 수 있습니다" : undefined}
+                >
+                  {structureState === "structuring" ? "구조화 중…" : "구조화하기"}
+                </button>
                   {structureState === "error" ? (
                     <span className="step-feedback__error" role="status">
                       구조화하지 못했습니다 — 다시 시도해주세요.
@@ -405,8 +438,7 @@ export function StepFeedback({
                       </div>
                     </div>
                   ) : null}
-                </div>
-              ) : null}
+              </div>
             </>
           )}
         </div>

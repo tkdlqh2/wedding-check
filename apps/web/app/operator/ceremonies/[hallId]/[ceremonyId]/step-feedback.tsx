@@ -60,6 +60,9 @@ export function StepFeedback({
   // 보내는" 것을 막는 유일한 기준이며, 상태가 아니라 ref인 이유는 blur 핸들러가
   // 리렌더를 기다리지 않고 그 자리에서 판단해야 하기 때문이다.
   const savedContentRef = useRef("");
+  // 화면의 현재 원문. 응답 핸들러의 클로저에 잡힌 content는 요청 시점 값이라,
+  // "응답이 오는 사이에 사용자가 더 썼는지"를 판단하려면 최신 값을 봐야 한다.
+  const contentRef = useRef("");
   // 진행 중인 임시저장. 자동 저장(blur)과 구조화하기(click)가 겹칠 때 두 번째
   // 호출자가 새 요청을 만들지 않고 여기에 합류한다(saveDraft 주석 참고).
   const savingRef = useRef<Promise<boolean> | null>(null);
@@ -75,15 +78,38 @@ export function StepFeedback({
   const confirmed = status === "confirmed";
   const hasStructuredDraft = situation.trim().length > 0 || outcome !== "" || rationale.trim().length > 0;
 
-  function applyFeedback(data: FeedbackDto | null) {
+  // 원문(content)을 제외한 나머지를 서버 응답으로 맞춘다. 구조화 필드는 서버가
+  // content 변경을 감지해 무효화(null)했을 수 있으므로 **항상** 반영해야 한다.
+  function applyServerFields(data: FeedbackDto | null) {
     savedContentRef.current = data?.content ?? "";
-    setContent(data?.content ?? "");
     setStatus(data?.status ?? null);
     setSituation(data?.situation ?? "");
     setOutcome((data?.outcome as Outcome) ?? "");
     setRationale(data?.rationale ?? "");
     setTagsText((data?.tags ?? []).join(", "));
     setFieldsDirty(false);
+  }
+
+  function applyFeedback(data: FeedbackDto | null) {
+    applyServerFields(data);
+    setContent(data?.content ?? "");
+    contentRef.current = data?.content ?? "";
+  }
+
+  /**
+   * 저장/구조화 응답 반영. **응답이 오는 사이에 더 쓴 글은 지키고**, 나머지만 맞춘다.
+   *
+   * 코덱스 P1: 자동 저장이 날아간 뒤 사용자가 입력창을 다시 눌러 이어 쓰는 동안
+   * 응답이 도착하면, 무조건 `setContent(서버 값)`을 하는 코드는 **방금 쓴 글을
+   * 조용히 지운다.** 느린 네트워크에서 언제든 재현되는 데이터 유실이다.
+   * 제출한 원문과 지금 화면의 원문이 같을 때만 서버 값으로 맞춘다.
+   */
+  function applyResponsePreservingEdits(data: FeedbackDto | null, submitted: string) {
+    applyServerFields(data);
+    if (contentRef.current === submitted) {
+      setContent(data?.content ?? "");
+      contentRef.current = data?.content ?? "";
+    }
   }
 
   async function loadFeedback() {
@@ -126,6 +152,7 @@ export function StepFeedback({
 
   function handleContentChange(value: string) {
     setContent(value);
+    contentRef.current = value;
     if (saveState === "saved") setSaveState("idle");
   }
 
@@ -158,13 +185,17 @@ export function StepFeedback({
   async function saveDraft(): Promise<boolean> {
     if (savingRef.current) return savingRef.current;
 
+    // 무엇을 보냈는지 고정해 둔다 — 응답을 반영할 때 "그 사이 사용자가 더 썼는지"의
+    // 기준이 된다.
+    const submitted = content;
+
     const pending = (async () => {
       setSaveState("saving");
       try {
         const res = await fetch(apiUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ templateItemId, content }),
+          body: JSON.stringify({ templateItemId, content: submitted }),
         });
         if (!res.ok) {
           setSaveState("error");
@@ -174,9 +205,9 @@ export function StepFeedback({
         // 코덱스 리뷰 2라운드: status만 갱신하고 situation/outcome/rationale/tagsText를
         // 그대로 두면, 서버가 content 변경을 감지해 구조화 필드를 무효화(null)했어도
         // 화면은 낡은 값을 계속 보여준다 — 이 상태에서 "필드 저장"을 누르면 그 낡은
-        // 값을 새 content 위에 그대로 덮어써 AD-8 위반이 재발한다. applyFeedback으로
-        // 서버 응답(무효화됐다면 null, 아니면 보존된 값)을 그대로 반영한다.
-        applyFeedback(data.feedback);
+        // 값을 새 content 위에 그대로 덮어써 AD-8 위반이 재발한다. 그래서 구조화
+        // 필드는 항상 반영하되, 원문만 "그 사이 더 쓴 글"을 지킨다(코덱스 P1).
+        applyResponsePreservingEdits(data.feedback, submitted);
         setSaveState("saved");
         return true;
       } catch {
@@ -195,6 +226,7 @@ export function StepFeedback({
 
   async function handleStructure() {
     setStructureState("structuring");
+    const submitted = content;
     try {
       // 구조화는 **서버에 저장된 content**를 읽는다(lib/services/feedback.ts —
       // 화면의 textarea 값이 아니라 DB의 행이 입력이다). 그래서 저장을 먼저 하지
@@ -217,7 +249,9 @@ export function StepFeedback({
         return;
       }
       const data: { feedback: FeedbackDto } = await res.json();
-      applyFeedback(data.feedback);
+      // 구조화 왕복(LLM 호출)은 저장보다 훨씬 길다 — 그 사이 이어 쓴 글을 지우지
+      // 않는다(저장 응답과 같은 이유). 구조화 결과 4필드는 그대로 반영된다.
+      applyResponsePreservingEdits(data.feedback, submitted);
       setStructureState("idle");
     } catch {
       setStructureState("error");

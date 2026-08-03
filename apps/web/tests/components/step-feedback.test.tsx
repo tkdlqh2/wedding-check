@@ -133,6 +133,66 @@ describe("StepFeedback (AC 1, 2, 3)", () => {
     expect(screen.queryByText(/저장하지 못했습니다/)).not.toBeInTheDocument();
   });
 
+  // 코덱스 P1: 자동 저장 응답이 무조건 setContent(서버 값)을 하면, 요청이 도는
+  // 사이에 이어 쓴 글이 조용히 사라진다. 느린 네트워크에서 언제든 재현되는 유실이다.
+  it("자동 저장 응답이 그 사이 이어 쓴 글을 덮어쓰지 않는다", async () => {
+    let resolveSave: (value: unknown) => void = () => {};
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ feedback: null }) }) // GET
+      .mockReturnValueOnce(new Promise((resolve) => (resolveSave = resolve))); // POST 저장(지연)
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<StepFeedback {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "피드백 남기기" }));
+    const textarea = (await screen.findByPlaceholderText(
+      "있었던 일을 그대로 적으세요",
+    )) as HTMLTextAreaElement;
+
+    fireEvent.change(textarea, { target: { value: "처음 쓴 글" } });
+    fireEvent.blur(textarea); // 저장 요청이 날아간다(아직 응답 없음)
+
+    // 응답을 기다리는 사이 다시 눌러 이어 쓴다.
+    fireEvent.change(textarea, { target: { value: "처음 쓴 글 그리고 이어 쓴 글" } });
+
+    // 뒤늦게 "처음 쓴 글"에 대한 저장 응답이 도착한다.
+    resolveSave({
+      ok: true,
+      json: async () => ({
+        feedback: { content: "처음 쓴 글", status: "draft", tags: [] },
+      }),
+    });
+
+    await screen.findByText("임시저장됨");
+    expect(textarea.value).toBe("처음 쓴 글 그리고 이어 쓴 글");
+  });
+
+  it("이어 쓴 글이 없으면 저장 응답의 원문을 그대로 반영한다", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ feedback: null }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          // 서버가 trim한 값을 돌려주는 경우 — 화면도 그 값으로 맞춰야 한다.
+          feedback: { content: "쓴 글", status: "draft", tags: [] },
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<StepFeedback {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "피드백 남기기" }));
+    const textarea = (await screen.findByPlaceholderText(
+      "있었던 일을 그대로 적으세요",
+    )) as HTMLTextAreaElement;
+
+    fireEvent.change(textarea, { target: { value: "  쓴 글  " } });
+    fireEvent.blur(textarea);
+
+    await screen.findByText("임시저장됨");
+    expect(textarea.value).toBe("쓴 글");
+  });
+
   it("자동 저장이 실패하면 즉시 오류 문구를 표시한다(조용한 실패 금지)", async () => {
     const fetchMock = vi
       .fn()

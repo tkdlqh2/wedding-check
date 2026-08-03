@@ -293,10 +293,10 @@ iCHEF가 대만/싱가포르/말레이시아 시장에 로케일별 네이티브
 **Forbidden phrases.** 오퍼레이터를 낮춰보는 기술 용어("시너지 플랫폼 활용"), 실수에 대한 가벼운 "앗!"류 표현, 근거 없는 과장("혁신적인 AI"), 추상적인 엔터프라이즈 화법, 예식 중 사용자를 탓하는 어떤 표현, 실행 화면에서의 과한 느낌표 마케팅 카피, 관련 사례가 없을 때 그럴듯하게 지어내는 답변.
 
 **Voice samples.**
-- `문제는 하나가 아니라 둘입니다 — 조작법은 영상으로, 변수 상황은 쌓인 경험으로.` — 이 시스템의 핵심 가치 제안 <!-- source: 제안서-웨딩홀 스캔 인수인계 시스템.md §핵심 진단, 2026-07-23 -->
+- `문제는 하나가 아니라 둘입니다 — 조작법은 영상으로, 변수 상황은 쌓인 경험으로.` — 이 시스템의 핵심 가치 제안 <!-- source: 2026-07-23 현장 인터뷰(비공개 기록) -->
 - `지금 이런 상황인데 어떡해요?` — 신입이 실행 중 입력하는 질의의 실제 예시 <!-- source: PRD §2.3 UJ-1, 2026-07-23 -->
 - `관련 사례 없음 — 선임에게 연락하세요.` — 근거 없는 답변을 만들지 않는다는 안전장치의 실제 표현 <!-- source: PRD §4.3 FR-6, §6 Safety, 2026-07-23 -->
-- `있었던 일을 그대로 말해주세요.` — 피드백 입력을 폼이 아닌 자연어로 유도하는 톤 (원문서: "선임 본인도 변수 상황을 정형화해서 기억 못 함") <!-- source: 제안서 §2 ④, PRD §4.4, 2026-07-23 -->
+- `있었던 일을 그대로 말해주세요.` — 피드백 입력을 폼이 아닌 자연어로 유도하는 톤 (원문서: "선임 본인도 변수 상황을 정형화해서 기억 못 함") <!-- source: 2026-07-23 현장 인터뷰(비공개 기록), PRD §4.4 -->
 
 ## 11. Brand Narrative
 
@@ -386,7 +386,7 @@ no delta_set overrides were requested at bootstrap time.
 
 Project facts (§11 Brand Narrative, §12 Principles, §13 Personas, Voice samples in §10): sourced directly from
 this project's own documents, not fabricated —
-- 제안서-웨딩홀 스캔 인수인계 시스템.md (2026-07-23 인터뷰 진단서)
+- 2026-07-23 현장 인터뷰 기록 (비공개 — 저장소에 포함하지 않음)
 - _bmad-output/planning-artifacts/prds/prd-wedding-check-2026-07-23/prd.md (2026-07-23, status: final)
 
 Assumptions carried from PRD §12 Assumptions Index still apply and are not restated here — see prd.md.
@@ -397,6 +397,6 @@ Personas (§13) are fictional composites built from PRD §2.3 UJ personas, not i
 ---
 
 **Bootstrapped from:** ichef (`.claude/data/references/ichef/DESIGN.md`, verified 2026-05-19)
-**Project sources:** 제안서-웨딩홀 스캔 인수인계 시스템.md · prd.md (both 2026-07-23)
+**Project sources:** prd.md (2026-07-23)
 **Mode:** inspired (no live reference-capture; tokens carried over from iCHEF's canonical DESIGN.md)
 **Open items:** 프로젝트/서비스명 확정 필요 (working title) · PRD §11 Open Questions 참고

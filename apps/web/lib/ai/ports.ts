@@ -34,3 +34,23 @@ export interface EmbedOptions {
 export interface EmbeddingPort {
   embed(texts: string[], options?: EmbedOptions): Promise<number[][]>;
 }
+
+// Story 6.1(FR-19): 음성 → 텍스트. LLMPort/EmbeddingPort와 같은 이유로 포트를
+// 둔다(AD-1, NFR-6) — lib/services/*는 벤더 엔드포인트도 멀티파트 형식도 모른다.
+export interface TranscribeInput {
+  /** 브라우저가 녹음한 오디오. 컨테이너/코덱은 기기마다 다르다(아래 mimeType). */
+  audio: ArrayBuffer;
+  /**
+   * 녹음 시 실제로 쓰인 MIME 타입. iOS Safari는 `audio/mp4`, Chrome/Firefox는
+   * `audio/webm;codecs=opus`를 낸다 — 벤더가 컨테이너를 형식 이름으로 판별하므로
+   * 클라이언트가 관측한 값을 그대로 전달해야 한다(추측해서 붙이면 안 된다).
+   */
+  mimeType: string;
+  /** BCP-47 언어 코드. 생략 시 벤더 자동 판별. */
+  language?: string;
+}
+
+export interface TranscriptionPort {
+  /** 전사된 텍스트. 인식된 말이 없으면 빈 문자열일 수 있다(호출자가 판단). */
+  transcribe(input: TranscribeInput): Promise<string>;
+}

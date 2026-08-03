@@ -73,7 +73,7 @@ development_status:
   4-2-insight-admin-only: done
   epic-4-retrospective: optional
 
-  epic-5: in-progress
+  epic-5: done
   5-1-admin-nav-links: done
   5-2-ceremony-calendar-pagination: done
   5-3-ceremony-couple-names: done
@@ -83,6 +83,10 @@ development_status:
   5-7-member-management-polish: done
   5-8-ceremony-screens-polish: done
   epic-5-retrospective: optional
+
+  epic-6: in-progress
+  6-1-query-voice-input: in-progress
+  epic-6-retrospective: optional
 
 # Per-story git pipeline substage (see GIT PIPELINE STAGE legend above).
 # 번호가 매겨진 스토리가 아닌 개별 수정(fix/*)도 동일한 파이프라인으로 추적한다.

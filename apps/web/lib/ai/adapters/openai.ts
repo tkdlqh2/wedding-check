@@ -4,6 +4,8 @@ import type {
   GenerateInput,
   GenerateResult,
   LLMPort,
+  TranscribeInput,
+  TranscriptionPort,
 } from "../ports";
 import { EXPECTED_DIMENSIONS, parseEmbeddingsResponse } from "./embedding-response";
 
@@ -15,6 +17,10 @@ const GENERATE_MODEL = "gpt-4.1";
 // temperature 미지원)이 아닌 gpt-4.1-mini를 쓴다(claude-haiku-4-5 대응 등급).
 const STRUCTURE_MODEL = "gpt-4.1-mini";
 const EMBEDDING_MODEL = "text-embedding-3-large";
+// Story 6.1(FR-19): 음성 전사. 이 화면에서 말하는 건 "주례자가 순서를 갑자기
+// 바꿨어요" 수준의 한 문장이라 최상위 모델이 필요하지 않고, 실행 화면에서는 지연이
+// 곧 사용성이다(UX-DR19) — 더 빠르고 싼 mini 등급을 쓴다.
+const TRANSCRIBE_MODEL = "gpt-4o-mini-transcribe";
 
 function requireApiKey(): string {
   const key = process.env.OPENAI_API_KEY;
@@ -160,5 +166,66 @@ export class OpenAIEmbeddingAdapter implements EmbeddingPort {
     }
 
     return parseEmbeddingsResponse(await res.json(), texts.length, "OpenAI");
+  }
+}
+
+// OpenAI 전사 API는 **파일명 확장자로 컨테이너를 판별한다** — MIME 타입만 맞고
+// 확장자가 없거나 엉뚱하면 지원 형식인데도 400이 떨어진다. 그래서 브라우저가 관측한
+// MIME을 벤더가 아는 확장자로 옮기는 표가 필요하다(벤더 고유 관심사 → 어댑터 소유).
+//
+// MediaRecorder가 실제로 내는 값: iOS/macOS Safari `audio/mp4`,
+// Chrome/Edge `audio/webm;codecs=opus`, Firefox `audio/ogg;codecs=opus`.
+// `;codecs=...` 파라미터는 벗겨내고 베이스 타입만 본다.
+const TRANSCRIBE_EXTENSIONS: Record<string, string> = {
+  "audio/webm": "webm",
+  "audio/ogg": "ogg",
+  "audio/mp4": "mp4",
+  "audio/mpeg": "mp3",
+  "audio/mp3": "mp3",
+  "audio/wav": "wav",
+  "audio/x-wav": "wav",
+  "audio/flac": "flac",
+};
+
+export function baseMimeType(mimeType: string): string {
+  return mimeType.split(";")[0].trim().toLowerCase();
+}
+
+export class OpenAITranscriptionAdapter implements TranscriptionPort {
+  async transcribe(input: TranscribeInput): Promise<string> {
+    const base = baseMimeType(input.mimeType);
+    const extension = TRANSCRIBE_EXTENSIONS[base];
+    if (!extension) {
+      throw new Error(`지원하지 않는 오디오 형식입니다: ${base}`);
+    }
+
+    const form = new FormData();
+    form.append("file", new Blob([input.audio], { type: base }), `audio.${extension}`);
+    form.append("model", TRANSCRIBE_MODEL);
+    if (input.language) {
+      form.append("language", input.language);
+    }
+
+    // Content-Type을 직접 지정하지 않는다 — fetch가 FormData의 multipart 경계를
+    // 스스로 붙여야 하고, 여기서 덮어쓰면 경계가 빠져 벤더가 본문을 못 읽는다.
+    const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${requireApiKey()}` },
+      body: form,
+    });
+
+    if (!res.ok) {
+      throw new Error(`OpenAI 전사 API 실패: ${res.status} ${await res.text()}`);
+    }
+
+    // 다른 어댑터와 같은 이유로 응답 셰이프를 검증한다(Story 3.2 코덱스 1~4차):
+    // 2xx인데 기대 형태가 아니면 조용히 빈 문자열로 흘러가 "말한 내용이 사라진"
+    // 것처럼 보인다 — 원인이 드러나지 않는 실패가 예식 중에는 최악이다.
+    const body: unknown = await res.json().catch(() => null);
+    const text = (body as { text?: unknown } | null)?.text;
+    if (typeof text !== "string") {
+      throw new Error("OpenAI 전사 응답에 text가 없습니다");
+    }
+    return text;
   }
 }

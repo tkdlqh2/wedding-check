@@ -15,3 +15,6 @@ next-env.d.ts
 # misc
 .DS_Store
 Thumbs.db
+
+# 제안서·견적 등 고객 대외 문서 (저장소에 두지 않음)
+제안서*

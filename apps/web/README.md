@@ -1,36 +1,30 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 웨딩체크 — apps/web
 
-## Getting Started
+웨딩홀 스캔 오퍼레이터 인수인계 시스템. Next.js 16 App Router + Drizzle + Neon(pgvector).
 
-First, run the development server:
+## 빠른 시작
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm ci
+cp .env.local.example .env.local   # 값 채우기
+npm run dev                        # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+로컬 DB 준비, 마이그레이션, 계정 발급, 배포, 장애 대응은 **[운영 문서](../../docs/operations.md)** 를 본다.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 스크립트
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| 명령 | 용도 |
+|---|---|
+| `npm run dev` / `build` / `start` | 개발 / 빌드 / 프로덕션 실행 |
+| `npm test` | 전체 테스트(DB 통합 테스트 포함 — `.env.test` 필요) |
+| `npm run lint` | ESLint |
+| `npm run seed` | 최초 관리자·오퍼레이터 계정 발급(1회) |
+| `npm run db:test:migrate` | 테스트 DB에 마이그레이션 적용 |
 
-## Learn More
+## 문서
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [운영 문서](../../docs/operations.md) — 배포·환경변수·크론·장애 대응
+- [DESIGN.md](../../DESIGN.md) — 브랜드/UI 규칙 (UI 작업 전 필독)
+- `_bmad-output/planning-artifacts/` — PRD, 아키텍처, 에픽
+- `_bmad-output/implementation-artifacts/deferred-work.md` — 알려진 한계

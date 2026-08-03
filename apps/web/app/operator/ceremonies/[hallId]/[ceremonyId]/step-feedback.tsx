@@ -63,9 +63,6 @@ export function StepFeedback({
   // 화면의 최신 원문. **이탈 시 저장 전용**이다 — window 이벤트 리스너는 등록 시점
   // 클로저에 갇히므로 state를 그대로 읽으면 낡은 값을 보낸다.
   const contentRef = useRef("");
-  // 이탈 저장으로 이미 보낸 원문. pagehide와 visibilitychange가 함께 발생해도
-  // 같은 내용을 두 번 보내지 않는다.
-  const lastFlushedRef = useRef("");
   // 진행 중인 임시저장. 자동 저장(blur)과 구조화하기(click)가 겹칠 때 두 번째
   // 호출자가 새 요청을 만들지 않고 여기에 합류한다(saveDraft 주석 참고).
   const savingRef = useRef<Promise<boolean> | null>(null);
@@ -84,10 +81,6 @@ export function StepFeedback({
   function applyFeedback(data: FeedbackDto | null) {
     savedContentRef.current = data?.content ?? "";
     contentRef.current = data?.content ?? "";
-    // 중복 방지 표시를 "확정된 저장" 시점으로 되돌린다(코덱스 P2). 리셋하지 않으면
-    // 표시가 영구히 남아, 한 번 흘려보낸 글로 되돌아갔을 때 마지막 전송이 건너뛰어져
-    // 서버에 그 사이의 다른 내용이 남는다(A 전송 → B 저장 → 다시 A → 이탈).
-    lastFlushedRef.current = data?.content ?? "";
     setContent(data?.content ?? "");
     setStatus(data?.status ?? null);
     setSituation(data?.situation ?? "");
@@ -141,18 +134,22 @@ export function StepFeedback({
     if (saveState === "saved") setSaveState("idle");
   }
 
-  // 이탈 시 초안 유실 방지(코덱스 P2). 저장 버튼을 없애고 blur 하나에만 기대면,
-  // 탭을 닫거나 새로고침하는 경로에서는 blur가 보장되지 않고 — 발생하더라도 일반
-  // fetch는 문서 종료 중 취소된다. keepalive 요청은 문서가 사라져도 완료된다.
-  // 응답은 받지 않는다(받을 화면이 없다) — 실패하면 그냥 저장되지 않으며, 그건
-  // 버튼이 있던 시절에도 마찬가지였다.
+  // 이탈 시 초안 유실 방지. 저장 버튼을 없애고 blur 하나에만 기대면, 탭을 닫거나
+  // 새로고침하는 경로에서는 blur가 보장되지 않고 — 발생하더라도 일반 fetch는 문서
+  // 종료 중 취소된다. keepalive 요청은 문서가 사라져도 완료된다. 응답은 받지
+  // 않는다(받을 화면이 없다).
+  //
+  // **중복 전송을 막지 않는다.** 한때 "이미 보낸 원문" 표시로 pagehide와
+  // visibilitychange의 중복을 걸렀는데, 그 표시 하나가 결함을 둘 만들었다 —
+  // 보낸 글로 되돌아갔을 때 마지막 전송이 막히고, keepalive가 실패한 뒤 페이지가
+  // 살아남으면(bfcache 복귀 등) 재시도까지 막혔다. 중복이 실제로 끼치는 해는
+  // "같은 내용 upsert 요청 한 번 더"가 전부다. 그걸 아끼려고 유실 위험을 지는 건
+  // 남는 장사가 아니다(사용자 지침 2026-08-03: 예외가 쌓이면 전제를 바꿀 것).
   useEffect(() => {
     const flush = () => {
       const latest = contentRef.current;
       if (latest === savedContentRef.current) return;
-      if (latest === lastFlushedRef.current) return;
       if (latest.trim().length === 0) return;
-      lastFlushedRef.current = latest;
       void fetch(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

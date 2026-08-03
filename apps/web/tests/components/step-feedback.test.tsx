@@ -231,6 +231,53 @@ describe("StepFeedback (AC 1, 2, 3)", () => {
     expect(textarea.value).toBe("쓴 글");
   });
 
+  // 코덱스 P2: 저장 버튼을 없애고 blur 하나에만 기대면 탭 닫기·새로고침에서
+  // 초안이 유실된다(blur가 보장되지 않고, 일반 fetch는 문서 종료 중 취소된다).
+  it("페이지를 떠날 때 저장되지 않은 초안을 keepalive로 보낸다", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ feedback: null }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<StepFeedback {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "피드백 남기기" }));
+    const textarea = await screen.findByPlaceholderText("있었던 일을 그대로 적으세요");
+    // blur 없이 — 쓰던 도중 탭을 닫는 상황.
+    fireEvent.change(textarea, { target: { value: "쓰다 만 글" } });
+
+    window.dispatchEvent(new Event("pagehide"));
+
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      `/api/feedback/${props.hallId}/${props.ceremonyId}`,
+      expect.objectContaining({
+        method: "POST",
+        keepalive: true,
+        body: JSON.stringify({ templateItemId: props.templateItemId, content: "쓰다 만 글" }),
+      }),
+    );
+
+    // 같은 내용으로 두 번 보내지 않는다(pagehide + visibilitychange 중복 방지).
+    const callsAfterFirst = fetchMock.mock.calls.length;
+    window.dispatchEvent(new Event("pagehide"));
+    expect(fetchMock.mock.calls.length).toBe(callsAfterFirst);
+  });
+
+  it("이미 저장된 내용이면 이탈 시 다시 보내지 않는다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ feedback: { content: "기존 내용", status: "draft", tags: [] } }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<StepFeedback {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "피드백 남기기" }));
+    await screen.findByDisplayValue("기존 내용");
+
+    const callsAfterLoad = fetchMock.mock.calls.length;
+    window.dispatchEvent(new Event("pagehide"));
+    expect(fetchMock.mock.calls.length).toBe(callsAfterLoad);
+  });
+
   it("자동 저장이 실패하면 즉시 오류 문구를 표시한다(조용한 실패 금지)", async () => {
     const fetchMock = vi
       .fn()

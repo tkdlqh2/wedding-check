@@ -273,10 +273,51 @@ export function VoiceInputButton({
     streamRef.current = stream;
     chunksRef.current = [];
 
-    let recorder: MediaRecorder;
+    // 이 녹음 세션이 오류로 끝났는지. 코덱스 리뷰 P2: MediaRecorder는 오류가 나도
+    // error 이후에 dataavailable·stop을 **이어서** 발생시킬 수 있다. 플래그가 없으면
+    // onstop이 빈 Blob을 그대로 업로드해 쓸모없는 요청 + 두 번째 실패 알림이 뜬다.
+    // 세션마다 새로 만드는 클로저 변수라 다음 녹음에 영향을 주지 않는다.
+    let errored = false;
+
     try {
       const mimeType = pickMimeType();
-      recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) chunksRef.current.push(event.data);
+      };
+      recorder.onstop = () => {
+        // 기기가 실제로 고른 컨테이너를 쓴다 — 우리가 요청한 값과 다를 수 있고,
+        // 서버는 이 값으로 형식을 판별한다.
+        const type = recorder.mimeType || chunksRef.current[0]?.type || "";
+        const blob = new Blob(chunksRef.current, { type });
+        chunksRef.current = [];
+        releaseStream();
+        // onerror가 이미 알렸다 — 여기서 또 업로드하거나 알리지 않는다.
+        if (errored) return;
+        // 녹음된 바이트가 하나도 없으면(버튼을 스치듯 누른 경우 등) 왕복을 아낀다.
+        // 서버도 같은 판정을 하지만, 예식 중에는 1~3초가 그대로 손해다.
+        if (blob.size === 0) {
+          if (activeRef.current) setPhase("idle");
+          onFailure(RECORDING_FAILURE);
+          return;
+        }
+        void upload(blob);
+      };
+      recorder.onerror = () => {
+        errored = true;
+        pressedRef.current = false;
+        chunksRef.current = [];
+        releaseStream();
+        if (activeRef.current) setPhase("idle");
+        onFailure(RECORDING_FAILURE);
+      };
+
+      recorderRef.current = recorder;
+      // 코덱스 리뷰 P2: start()도 try 안에 있어야 한다. 생성은 됐는데 start()가
+      // 동기적으로 throw하는 기기(비활성 트랙 등)에서는 이 async 함수의 rejection이
+      // 처리되지 않고, 마이크가 열린 채 pressedRef가 남고 UI가 arming에 고정된다.
+      recorder.start();
     } catch {
       pressedRef.current = false;
       releaseStream();
@@ -285,28 +326,6 @@ export function VoiceInputButton({
       return;
     }
 
-    recorder.ondataavailable = (event) => {
-      if (event.data.size > 0) chunksRef.current.push(event.data);
-    };
-    recorder.onstop = () => {
-      // 기기가 실제로 고른 컨테이너를 쓴다 — 우리가 요청한 값과 다를 수 있고,
-      // 서버는 이 값으로 형식을 판별한다.
-      const type = recorder.mimeType || chunksRef.current[0]?.type || "";
-      const blob = new Blob(chunksRef.current, { type });
-      chunksRef.current = [];
-      releaseStream();
-      void upload(blob);
-    };
-    recorder.onerror = () => {
-      pressedRef.current = false;
-      chunksRef.current = [];
-      releaseStream();
-      if (activeRef.current) setPhase("idle");
-      onFailure(RECORDING_FAILURE);
-    };
-
-    recorderRef.current = recorder;
-    recorder.start();
     if (activeRef.current) setPhase("recording");
 
     timerRef.current = setTimeout(() => {
@@ -331,8 +350,13 @@ export function VoiceInputButton({
       onPointerDown={(e) => {
         if (blocked || busy) return;
         // 버튼 밖에서 손을 떼도 pointerup이 이 요소로 오게 한다 — 캡처가 없으면
-        // 손가락이 조금만 밀려도 녹음이 끝나지 않는다.
-        e.currentTarget.setPointerCapture(e.pointerId);
+        // 손가락이 조금만 밀려도 녹음이 끝나지 않는다. 캡처 실패(InvalidPointerId
+        // 등)는 녹음을 막을 이유가 아니다 — 손이 밀렸을 때만 아쉬울 뿐이다.
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {
+          /* 캡처 없이 진행 */
+        }
         void start();
       }}
       onPointerUp={stop}

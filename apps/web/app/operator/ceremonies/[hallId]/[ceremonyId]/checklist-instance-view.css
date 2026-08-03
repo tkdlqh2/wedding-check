@@ -518,11 +518,6 @@
   flex-wrap: wrap;
 }
 
-.step-feedback__save-btn {
-  min-width: 96px;
-  min-height: 44px;
-}
-
 .step-feedback__saved-hint {
   color: var(--color-warning);
   font-size: 14px;

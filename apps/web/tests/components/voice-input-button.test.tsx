@@ -279,6 +279,55 @@ describe("VoiceInputButton (Story 6.1)", () => {
     expect(screen.getByRole("link", { name: "로그인하러 가기" })).toBeInTheDocument();
   });
 
+  // 코덱스 3차 P2: busy를 업로드 단계에서만 켰더니 권한 대기·녹음 중에는 부모가
+  // idle로 알고 있었다 — 그 사이 타자로 질의를 제출하면 뒤늦게 도착한 인식 결과가
+  // 이미 제출한 입력을 덮어쓴다.
+  it("권한 대기 중부터 질의 입력과 제출이 잠긴다 (AC 5)", async () => {
+    getUserMediaMock.mockReturnValue(new Promise(() => {})); // 권한 대화상자 대기
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<QueryPanel isOffline={false} />);
+    const input = screen.getByPlaceholderText(INPUT_PLACEHOLDER);
+    fireEvent.change(input, { target: { value: "타자로 쓰던 질의" } });
+    expect(screen.getByRole("button", { name: "질의하기" })).toBeEnabled();
+
+    fireEvent.pointerDown(screen.getByRole("button", { name: VOICE_LABEL }));
+
+    expect(input).toBeDisabled();
+    expect(screen.getByRole("button", { name: "질의하기" })).toBeDisabled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("녹음 중에도 질의 입력과 제출이 잠긴 상태를 유지한다 (AC 5)", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+
+    render(<QueryPanel isOffline={false} />);
+    const input = screen.getByPlaceholderText(INPUT_PLACEHOLDER);
+    fireEvent.change(input, { target: { value: "타자로 쓰던 질의" } });
+    fireEvent.pointerDown(screen.getByRole("button", { name: VOICE_LABEL }));
+    await waitFor(() => expect(recorderInstances).toHaveLength(1));
+
+    expect(input).toBeDisabled();
+    expect(screen.getByRole("button", { name: "질의하기" })).toBeDisabled();
+  });
+
+  it("음성 입력이 실패로 끝나면 질의 입력 잠금이 풀린다", async () => {
+    const denied = new Error("denied");
+    denied.name = "NotAllowedError";
+    getUserMediaMock.mockRejectedValue(denied);
+
+    render(<QueryPanel isOffline={false} />);
+    const input = screen.getByPlaceholderText(INPUT_PLACEHOLDER);
+    fireEvent.change(input, { target: { value: "타자로 쓰던 질의" } });
+    fireEvent.pointerDown(screen.getByRole("button", { name: VOICE_LABEL }));
+
+    await screen.findByText("마이크 사용이 차단되어 있습니다");
+    // 실패 경로에서도 잠금이 남지 않는다 — 남으면 타자 경로까지 죽는다(AC 3).
+    await waitFor(() => expect(input).toBeEnabled());
+    expect(screen.getByRole("button", { name: "질의하기" })).toBeEnabled();
+  });
+
   // AC 5: 전사 중 중복 요청 방지.
   it("전사 중에는 음성 버튼과 질의 입력이 잠긴다 (AC 5)", async () => {
     let resolveFetch: (value: unknown) => void = () => {};

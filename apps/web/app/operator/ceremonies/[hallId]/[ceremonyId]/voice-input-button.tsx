@@ -161,6 +161,23 @@ export function VoiceInputButton({
   const [phase, setPhase] = useState<Phase>("idle");
   const supported = useVoiceInputSupported();
 
+  /**
+   * 단계 전환의 **유일한 통로**. 부모에게 알리는 busy 신호를 여기서 함께 낸다.
+   *
+   * 코덱스 3차 P2: busy를 업로드 단계에서만 켰더니 권한 대기·녹음 중에는 부모가
+   * idle로 알고 있었다 — 그 사이 타자로 질의를 제출하면 질의 요청과 전사 요청이
+   * 동시에 돌고, 뒤늦게 도착한 인식 결과가 **이미 제출한 입력을 덮어쓴다**(3.3이
+   * in-flight 입력 잠금으로 닫았던 것과 같은 계열). 전환 지점이 10곳이라 각자
+   * 켜고 끄면 언젠가 한 곳을 빠뜨린다 — 통로를 하나로 만들어 구조적으로 막는다.
+   */
+  const changePhase = useCallback(
+    (next: Phase) => {
+      setPhase(next);
+      onBusyChange(next !== "idle");
+    },
+    [onBusyChange],
+  );
+
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -194,8 +211,7 @@ export function VoiceInputButton({
   const upload = useCallback(
     async (blob: Blob) => {
       if (!activeRef.current) return;
-      setPhase("uploading");
-      onBusyChange(true);
+      changePhase("uploading");
       try {
         const form = new FormData();
         // 파일명은 서버가 쓰지 않는다(형식 판별은 Blob.type) — 멀티파트 파트를
@@ -219,11 +235,12 @@ export function VoiceInputButton({
         // fetch 자체가 throw하는 경우만 실제 연결 실패다(query-panel과 동일 판별).
         onFailure(OFFLINE_FAILURE);
       } finally {
-        if (activeRef.current) setPhase("idle");
-        onBusyChange(false);
+        // changePhase가 busy 해제까지 함께 낸다 — 별도 onBusyChange 호출을 두지
+        // 않는 것이 요점이다(신호가 두 통로로 나가면 한쪽만 갱신되는 상태가 생긴다).
+        if (activeRef.current) changePhase("idle");
       }
     },
-    [onBusyChange, onFailure, onResult],
+    [changePhase, onFailure, onResult],
   );
 
   const stop = useCallback(() => {
@@ -238,9 +255,9 @@ export function VoiceInputButton({
     // 아직 녹음이 시작되지 않았다(권한 대화상자 대기 중 손을 뗀 경우 등) —
     // start() 쪽이 pressedRef를 보고 스스로 정리한다.
     if (!recorder) {
-      setPhase("idle");
+      changePhase("idle");
     }
-  }, []);
+  }, [changePhase]);
 
   const start = useCallback(async () => {
     if (pressedRef.current || phase !== "idle") return;
@@ -258,14 +275,14 @@ export function VoiceInputButton({
 
     pressedRef.current = true;
     // AC 2: 누른 즉시(0ms) 상태가 바뀐다 — getUserMedia 응답을 기다리지 않는다.
-    setPhase("arming");
+    changePhase("arming");
 
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (err) {
       pressedRef.current = false;
-      if (activeRef.current) setPhase("idle");
+      if (activeRef.current) changePhase("idle");
       onFailure(toGetUserMediaFailure(err));
       return;
     }
@@ -274,7 +291,7 @@ export function VoiceInputButton({
     // 즉시 닫고 아무것도 녹음하지 않는다.
     if (!pressedRef.current || !activeRef.current) {
       stream.getTracks().forEach((track) => track.stop());
-      if (activeRef.current) setPhase("idle");
+      if (activeRef.current) changePhase("idle");
       return;
     }
 
@@ -306,7 +323,7 @@ export function VoiceInputButton({
         // 녹음된 바이트가 하나도 없으면(버튼을 스치듯 누른 경우 등) 왕복을 아낀다.
         // 서버도 같은 판정을 하지만, 예식 중에는 1~3초가 그대로 손해다.
         if (blob.size === 0) {
-          if (activeRef.current) setPhase("idle");
+          if (activeRef.current) changePhase("idle");
           onFailure(RECORDING_FAILURE);
           return;
         }
@@ -317,7 +334,7 @@ export function VoiceInputButton({
         pressedRef.current = false;
         chunksRef.current = [];
         releaseStream();
-        if (activeRef.current) setPhase("idle");
+        if (activeRef.current) changePhase("idle");
         onFailure(RECORDING_FAILURE);
       };
 
@@ -329,17 +346,17 @@ export function VoiceInputButton({
     } catch {
       pressedRef.current = false;
       releaseStream();
-      if (activeRef.current) setPhase("idle");
+      if (activeRef.current) changePhase("idle");
       onFailure(RECORDING_FAILURE);
       return;
     }
 
-    if (activeRef.current) setPhase("recording");
+    if (activeRef.current) changePhase("recording");
 
     timerRef.current = setTimeout(() => {
       if (recorderRef.current?.state === "recording") stop();
     }, MAX_RECORDING_MS);
-  }, [isOffline, onFailure, phase, releaseStream, stop, upload]);
+  }, [changePhase, isOffline, onFailure, phase, releaseStream, stop, upload]);
 
   const busy = phase === "uploading";
   const active = phase === "arming" || phase === "recording";

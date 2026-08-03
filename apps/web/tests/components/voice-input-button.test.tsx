@@ -43,6 +43,12 @@ class MockMediaRecorder {
     });
     this.onstop?.();
   }
+
+  /** 아무것도 녹음되지 않은 채 끝난 경우(버튼을 스치듯 누름). */
+  emitEmptyStop() {
+    this.state = "inactive";
+    this.onstop?.();
+  }
 }
 
 function makeStream() {
@@ -314,6 +320,68 @@ describe("VoiceInputButton (Story 6.1)", () => {
 
     await waitFor(() => expect(tracks[0].stop).toHaveBeenCalled());
     expect(recorderInstances).toHaveLength(0);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  // 코덱스 리뷰 P2: MediaRecorder는 오류가 나도 error 이후 dataavailable·stop을
+  // 이어서 발생시킬 수 있다. 플래그가 없으면 onstop이 빈 Blob을 업로드해 쓸모없는
+  // 요청 + 두 번째 실패 알림이 뜬다.
+  it("녹음 오류 후 stop이 이어져도 업로드하지 않고 한 번만 알린다", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<QueryPanel isOffline={false} />);
+    const button = screen.getByRole("button", { name: VOICE_LABEL });
+    fireEvent.pointerDown(button);
+    await waitFor(() => expect(recorderInstances).toHaveLength(1));
+
+    const recorder = recorderInstances[0];
+    recorder.onerror?.();
+    // 실제 기기가 하듯 error 뒤에 데이터와 stop이 이어진다.
+    recorder.stop();
+
+    expect(await screen.findByText("녹음에 실패했습니다")).toBeInTheDocument();
+    await waitFor(() => expect(tracks[0].stop).toHaveBeenCalled());
+    expect(fetchMock).not.toHaveBeenCalled();
+    // 오류 카드는 하나뿐 — 같은 실패를 두 번 알리지 않는다.
+    expect(screen.getAllByText("녹음에 실패했습니다")).toHaveLength(1);
+  });
+
+  // 코덱스 리뷰 P2: 생성은 됐는데 start()가 동기 throw하는 기기가 있다. 처리하지
+  // 않으면 마이크가 열린 채 UI가 "녹음 중"에 고정된다.
+  it("MediaRecorder.start()가 실패하면 마이크를 닫고 실패를 알린다", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const startSpy = vi
+      .spyOn(MockMediaRecorder.prototype, "start")
+      .mockImplementation(() => {
+        throw new Error("InvalidStateError");
+      });
+
+    render(<QueryPanel isOffline={false} />);
+    const button = screen.getByRole("button", { name: VOICE_LABEL });
+    fireEvent.pointerDown(button);
+
+    expect(await screen.findByText("녹음에 실패했습니다")).toBeInTheDocument();
+    await waitFor(() => expect(tracks[0].stop).toHaveBeenCalled());
+    expect(fetchMock).not.toHaveBeenCalled();
+    // arming에 고정되지 않고 다시 누를 수 있는 상태로 돌아온다.
+    expect(screen.getByRole("button", { name: VOICE_LABEL })).toBeEnabled();
+    startSpy.mockRestore();
+  });
+
+  it("녹음된 바이트가 없으면 업로드하지 않고 실패를 알린다", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<QueryPanel isOffline={false} />);
+    const button = screen.getByRole("button", { name: VOICE_LABEL });
+    fireEvent.pointerDown(button);
+    await waitFor(() => expect(recorderInstances).toHaveLength(1));
+    // 버튼을 스치듯 눌러 아무것도 녹음되지 않은 경우.
+    recorderInstances[0].emitEmptyStop();
+
+    expect(await screen.findByText("녹음에 실패했습니다")).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

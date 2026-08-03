@@ -684,6 +684,64 @@
   background: var(--color-brand);
 }
 
+/* Story 6.1(FR-19) push-to-talk 버튼. AC 2: ≥44px 탭 타깃(DESIGN.md §5) —
+   예식 중 오탭은 되돌릴 수 없다. 폭도 고정해 상태가 바뀌어도(아이콘 ↔ 스피너)
+   레이아웃이 흔들리지 않는다(UX-DR18). */
+.run-query__voice {
+  flex: none;
+  width: 52px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-mid);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  /* 길게 누르기가 스크롤·텍스트 선택·iOS 콜아웃으로 새지 않게 한다 —
+     push-to-talk에서는 이게 기능 요건이다. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.run-query__voice:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+}
+
+/* AC 2: 누른 즉시(0ms) 상태가 드러난다 — transition을 걸지 않는 것이 의도다
+   (UX-DR19: 실행 화면에서 탭과 피드백 사이에 애니메이션이 끼어들지 않는다).
+   선택 상태 표현은 체크리스트 타일과 동일한 틴트+브랜드 보더(UX-DR4). */
+.run-query__voice--recording {
+  background: var(--color-brand-tint);
+  border-color: var(--color-brand);
+  color: var(--color-brand);
+}
+
+.run-query__voice--busy {
+  background: var(--color-brand);
+  border-color: var(--color-brand);
+}
+
+/* DESIGN.md §14 Disabled: 흐린 채움, 기하학적 크기 유지. */
+.run-query__voice:disabled:not(.run-query__voice--busy) {
+  color: var(--color-text-disabled);
+  border-color: var(--color-border-light);
+  cursor: not-allowed;
+}
+
+.run-query__voice-icon {
+  display: flex;
+}
+
+/* 음성 입력 미지원 안내 — 실패가 아니라 기기 사실의 고지다. 에러 색(#E0353B)을
+   쓰지 않고 헬퍼 문구와 같은 뮤트 톤을 유지하되 굵기로만 구분한다(DESIGN.md §14). */
+.run-query__voice-unsupported {
+  font-weight: 600;
+}
+
 .run-query__spinner {
   width: 18px;
   height: 18px;

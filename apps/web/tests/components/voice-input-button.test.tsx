@@ -179,11 +179,24 @@ describe("VoiceInputButton (Story 6.1)", () => {
     expect(await screen.findByText("마이크를 찾을 수 없습니다")).toBeInTheDocument();
   });
 
-  it("녹음을 지원하지 않는 기기에서는 버튼이 비활성화된다 (AC 3)", () => {
-    vi.stubGlobal("MediaRecorder", undefined);
+  // 코덱스 2차 P2 / AC 3: 이전에는 버튼을 비활성으로만 뒀는데, 비활성 버튼은
+  // 눌리지 않으므로 "이 기기에서는 쓸 수 없다"는 안내가 영영 도달하지 않았다.
+  it.each([
+    ["MediaRecorder 없음", () => vi.stubGlobal("MediaRecorder", undefined)],
+    [
+      "getUserMedia 없음(비보안 컨텍스트)",
+      () => vi.stubGlobal("navigator", { ...window.navigator, mediaDevices: undefined }),
+    ],
+  ])("녹음을 지원하지 않으면(%s) 이유와 대안을 즉시 안내한다 (AC 3)", (_label, disable) => {
+    disable();
 
     render(<QueryPanel isOffline={false} />);
-    expect(screen.getByRole("button", { name: VOICE_LABEL })).toBeDisabled();
+
+    expect(
+      screen.getByText("이 기기에서는 음성 입력을 쓸 수 없습니다 — 타자로 입력해주세요."),
+    ).toBeInTheDocument();
+    // 눌리지 않는 버튼을 남겨두지 않는다.
+    expect(screen.queryByRole("button", { name: VOICE_LABEL })).not.toBeInTheDocument();
     // 질의 자체는 막히지 않는다.
     fireEvent.change(screen.getByPlaceholderText(INPUT_PLACEHOLDER), {
       target: { value: "타자로 입력" },

@@ -58,6 +58,18 @@ const subscribeNever = () => () => {};
 // 직후 비활성으로 확정된다.
 const supportedOnServer = () => true;
 
+/**
+ * 이 기기에서 음성 입력을 쓸 수 있는지.
+ *
+ * 부모(QueryPanel)도 알아야 한다 — 코덱스 2차 P2: 버튼을 비활성으로만 두면
+ * 지원하지 않는 기기의 사용자는 **아무 설명도 받지 못한다**(비활성 버튼은 눌리지
+ * 않으므로 start()의 안내가 영영 도달하지 않는다). AC 3이 요구하는 건 "무엇이
+ * 막혔고 무엇을 하면 되는지"이므로, 부모가 이 값을 보고 안내를 직접 띄운다.
+ */
+export function useVoiceInputSupported(): boolean {
+  return useSyncExternalStore(subscribeNever, isRecordingSupported, supportedOnServer);
+}
+
 const UNSUPPORTED_FAILURE: VoiceInputFailure = {
   title: "이 기기에서는 음성 입력을 쓸 수 없습니다",
   description: "타자로 입력해주세요. 질의 기능은 그대로 사용할 수 있습니다.",
@@ -147,11 +159,7 @@ export function VoiceInputButton({
   onBusyChange,
 }: VoiceInputButtonProps) {
   const [phase, setPhase] = useState<Phase>("idle");
-  const supported = useSyncExternalStore(
-    subscribeNever,
-    isRecordingSupported,
-    supportedOnServer,
-  );
+  const supported = useVoiceInputSupported();
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);

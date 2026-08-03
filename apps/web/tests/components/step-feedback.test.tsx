@@ -133,9 +133,11 @@ describe("StepFeedback (AC 1, 2, 3)", () => {
     expect(screen.queryByText(/저장하지 못했습니다/)).not.toBeInTheDocument();
   });
 
-  // 코덱스 P1: 자동 저장 응답이 무조건 setContent(서버 값)을 하면, 요청이 도는
-  // 사이에 이어 쓴 글이 조용히 사라진다. 느린 네트워크에서 언제든 재현되는 유실이다.
-  it("자동 저장 응답이 그 사이 이어 쓴 글을 덮어쓰지 않는다", async () => {
+  // 사용자 지침(2026-08-03) — 응답 버전 추적 대신 **요청 중 입력 잠금**으로 계열
+  // 전체를 없앤다(3.3 질의창과 같은 방식). 이게 막는 것: (a) 저장 응답이 그 사이
+  // 이어 쓴 글을 덮어쓰는 유실, (b) 저장 중 글을 고치고 구조화를 눌러 예전 글이
+  // 구조화되는 어긋남. 둘 다 "요청 중에는 못 쓴다"는 전제 하나로 사라진다.
+  it("저장 요청이 도는 동안에는 입력창이 잠긴다", async () => {
     let resolveSave: (value: unknown) => void = () => {};
     const fetchMock = vi
       .fn()
@@ -149,25 +151,61 @@ describe("StepFeedback (AC 1, 2, 3)", () => {
       "있었던 일을 그대로 적으세요",
     )) as HTMLTextAreaElement;
 
-    fireEvent.change(textarea, { target: { value: "처음 쓴 글" } });
-    fireEvent.blur(textarea); // 저장 요청이 날아간다(아직 응답 없음)
+    fireEvent.change(textarea, { target: { value: "쓴 글" } });
+    fireEvent.blur(textarea);
 
-    // 응답을 기다리는 사이 다시 눌러 이어 쓴다.
-    fireEvent.change(textarea, { target: { value: "처음 쓴 글 그리고 이어 쓴 글" } });
+    await waitFor(() => expect(textarea).toBeDisabled());
 
-    // 뒤늦게 "처음 쓴 글"에 대한 저장 응답이 도착한다.
     resolveSave({
       ok: true,
+      json: async () => ({ feedback: { content: "쓴 글", status: "draft", tags: [] } }),
+    });
+
+    // 끝나면 다시 쓸 수 있다.
+    await waitFor(() => expect(textarea).toBeEnabled());
+    expect(textarea.value).toBe("쓴 글");
+  });
+
+  it("구조화가 도는 동안에도 입력창이 잠긴다", async () => {
+    let resolveStructure: (value: unknown) => void = () => {};
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ feedback: null }) }) // GET
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ feedback: { content: "쓴 글", status: "draft", tags: [] } }),
+      }) // POST 저장
+      .mockReturnValueOnce(new Promise((resolve) => (resolveStructure = resolve))); // /structure(지연)
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<StepFeedback {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "피드백 남기기" }));
+    const textarea = (await screen.findByPlaceholderText(
+      "있었던 일을 그대로 적으세요",
+    )) as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "쓴 글" } });
+    fireEvent.click(screen.getByRole("button", { name: "구조화하기" }));
+
+    await waitFor(() => expect(textarea).toBeDisabled());
+
+    resolveStructure({
+      ok: true,
       json: async () => ({
-        feedback: { content: "처음 쓴 글", status: "draft", tags: [] },
+        feedback: {
+          content: "쓴 글",
+          status: "draft",
+          situation: "상황",
+          outcome: "well_handled",
+          rationale: "판단",
+          tags: ["태그"],
+        },
       }),
     });
 
-    await screen.findByText("임시저장됨");
-    expect(textarea.value).toBe("처음 쓴 글 그리고 이어 쓴 글");
+    await waitFor(() => expect(textarea).toBeEnabled());
   });
 
-  it("이어 쓴 글이 없으면 저장 응답의 원문을 그대로 반영한다", async () => {
+  it("저장 응답의 원문을 그대로 반영한다", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ feedback: null }) })

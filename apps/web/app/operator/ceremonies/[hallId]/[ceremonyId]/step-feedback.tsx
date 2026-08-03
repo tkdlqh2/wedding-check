@@ -84,6 +84,10 @@ export function StepFeedback({
   function applyFeedback(data: FeedbackDto | null) {
     savedContentRef.current = data?.content ?? "";
     contentRef.current = data?.content ?? "";
+    // 중복 방지 표시를 "확정된 저장" 시점으로 되돌린다(코덱스 P2). 리셋하지 않으면
+    // 표시가 영구히 남아, 한 번 흘려보낸 글로 되돌아갔을 때 마지막 전송이 건너뛰어져
+    // 서버에 그 사이의 다른 내용이 남는다(A 전송 → B 저장 → 다시 A → 이탈).
+    lastFlushedRef.current = data?.content ?? "";
     setContent(data?.content ?? "");
     setStatus(data?.status ?? null);
     setSituation(data?.situation ?? "");
@@ -166,6 +170,10 @@ export function StepFeedback({
     return () => {
       window.removeEventListener("pagehide", flush);
       document.removeEventListener("visibilitychange", onVisibility);
+      // 앱 내 이동(Next.js 클라이언트 내비게이션)은 pagehide도 visibilitychange도
+      // 발생시키지 않고, 포커스된 textarea가 사라진다고 blur가 보장되지도 않는다
+      // (코덱스 P1). 언마운트가 세 번째 이탈 경로다 — 여기서도 흘려보낸다.
+      flush();
     };
   }, [apiUrl, templateItemId]);
 

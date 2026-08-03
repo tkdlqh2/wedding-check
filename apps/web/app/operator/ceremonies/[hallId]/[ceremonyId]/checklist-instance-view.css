@@ -741,6 +741,12 @@
   display: flex;
 }
 
+/* 음성 입력 미지원 안내 — 실패가 아니라 기기 사실의 고지다. 에러 색(#E0353B)을
+   쓰지 않고 헬퍼 문구와 같은 뮤트 톤을 유지하되 굵기로만 구분한다(DESIGN.md §14). */
+.run-query__voice-unsupported {
+  font-weight: 600;
+}
+
 .run-query__spinner {
   width: 18px;
   height: 18px;

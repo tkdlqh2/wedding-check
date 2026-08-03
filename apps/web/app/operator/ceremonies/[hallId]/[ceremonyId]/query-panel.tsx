@@ -2,7 +2,11 @@
 
 import { useCallback, useRef, useState } from "react";
 
-import { VoiceInputButton, type VoiceInputFailure } from "./voice-input-button";
+import {
+  useVoiceInputSupported,
+  VoiceInputButton,
+  type VoiceInputFailure,
+} from "./voice-input-button";
 
 // 서버(lib/services/query.ts::QueryMatch)의 JSON 직렬화 형태 — 필드명 동일 유지
 // (Story 2.3 코덱스 리뷰 4차 P1 교훈: 서버·클라이언트 필드명 불일치 금지).
@@ -142,6 +146,7 @@ export function QueryPanel({ isOffline }: { isOffline: boolean }) {
   // 인식 결과가 도착해 입력창을 채우는 사이에 타자가 섞이면 어느 쪽이 제출되는지
   // 모호해진다(3.3이 in-flight 입력 잠금으로 해결한 것과 같은 계열의 문제).
   const [voiceBusy, setVoiceBusy] = useState(false);
+  const voiceSupported = useVoiceInputSupported();
 
   const disabled = loading || voiceBusy || isOffline || text.trim().length === 0;
 
@@ -204,9 +209,20 @@ export function QueryPanel({ isOffline }: { isOffline: boolean }) {
     <section className="run-query" aria-label="자연어 상황 질의">
       <h2 className="run-query__title">지금 이런 상황인데 어떡하죠?</h2>
       <p className="run-query__helper" id="run-query-voice-help">
-        상황을 그대로 적으면 과거 유사 사례를 근거와 함께 찾아드립니다. 손이 바쁘면 마이크
-        버튼을 <strong>누르고 있는 동안</strong> 말하세요 — 인식된 문장은 입력창에 채워지고,
-        확인 후 직접 질의하시면 됩니다.
+        상황을 그대로 적으면 과거 유사 사례를 근거와 함께 찾아드립니다.{" "}
+        {voiceSupported ? (
+          <>
+            손이 바쁘면 마이크 버튼을 <strong>누르고 있는 동안</strong> 말하세요 — 인식된
+            문장은 입력창에 채워지고, 확인 후 직접 질의하시면 됩니다.
+          </>
+        ) : (
+          // 코덱스 2차 P2 / AC 3: 비활성 버튼은 눌리지 않으므로 안내가 도달하지
+          // 못한다. 지원하지 않는 기기에서는 여기서 바로 이유와 대안을 말한다 —
+          // 질의 기능 자체는 멀쩡하다는 사실이 핵심이다(탓하지 않는 톤, §10).
+          <span className="run-query__voice-unsupported">
+            이 기기에서는 음성 입력을 쓸 수 없습니다 — 타자로 입력해주세요.
+          </span>
+        )}
       </p>
       <div className="run-query__form">
         {/* 사용자 지침(2026-07-28) + 코덱스 리뷰 2~3차 P2: 요청이 in-flight인 동안
@@ -232,13 +248,17 @@ export function QueryPanel({ isOffline }: { isOffline: boolean }) {
           }}
           disabled={loading || voiceBusy}
         />
-        <VoiceInputButton
-          disabled={loading || isOffline}
-          isOffline={isOffline}
-          onResult={handleVoiceResult}
-          onFailure={handleVoiceFailure}
-          onBusyChange={setVoiceBusy}
-        />
+        {/* 지원하지 않는 기기에서는 눌리지 않는 버튼을 남겨두지 않는다 — 위 안내가
+            이유와 대안을 이미 말한다. */}
+        {voiceSupported ? (
+          <VoiceInputButton
+            disabled={loading || isOffline}
+            isOffline={isOffline}
+            onResult={handleVoiceResult}
+            onFailure={handleVoiceFailure}
+            onBusyChange={setVoiceBusy}
+          />
+        ) : null}
         <button
           type="button"
           className={"run-query__submit" + (loading ? " run-query__submit--loading" : "")}

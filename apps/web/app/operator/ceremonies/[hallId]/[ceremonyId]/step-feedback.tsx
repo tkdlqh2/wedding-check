@@ -56,6 +56,16 @@ export function StepFeedback({
   // 임베딩 API가 불필요하게 두 번 호출됨) — ref는 동기적으로 즉시 갱신되므로
   // React 상태 업데이트를 기다리지 않고 재진입을 막는다.
   const confirmingRef = useRef(false);
+  // 서버에 저장돼 있는 것으로 아는 원문. 자동 저장이 "바뀐 게 없는데도 요청을
+  // 보내는" 것을 막는 유일한 기준이며, 상태가 아니라 ref인 이유는 blur 핸들러가
+  // 리렌더를 기다리지 않고 그 자리에서 판단해야 하기 때문이다.
+  const savedContentRef = useRef("");
+  // 화면의 최신 원문. **이탈 시 저장 전용**이다 — window 이벤트 리스너는 등록 시점
+  // 클로저에 갇히므로 state를 그대로 읽으면 낡은 값을 보낸다.
+  const contentRef = useRef("");
+  // 진행 중인 임시저장. 자동 저장(blur)과 구조화하기(click)가 겹칠 때 두 번째
+  // 호출자가 새 요청을 만들지 않고 여기에 합류한다(saveDraft 주석 참고).
+  const savingRef = useRef<Promise<boolean> | null>(null);
 
   const [content, setContent] = useState("");
   const [status, setStatus] = useState<string | null>(null);
@@ -69,6 +79,8 @@ export function StepFeedback({
   const hasStructuredDraft = situation.trim().length > 0 || outcome !== "" || rationale.trim().length > 0;
 
   function applyFeedback(data: FeedbackDto | null) {
+    savedContentRef.current = data?.content ?? "";
+    contentRef.current = data?.content ?? "";
     setContent(data?.content ?? "");
     setStatus(data?.status ?? null);
     setSituation(data?.situation ?? "");
@@ -118,37 +130,134 @@ export function StepFeedback({
 
   function handleContentChange(value: string) {
     setContent(value);
+    contentRef.current = value;
     if (saveState === "saved") setSaveState("idle");
   }
 
-  async function handleSave() {
-    setSaveState("saving");
-    try {
-      const res = await fetch(apiUrl, {
+  // 이탈 시 초안 유실 방지. 저장 버튼을 없애고 blur 하나에만 기대면, 탭을 닫거나
+  // 새로고침하는 경로에서는 blur가 보장되지 않고 — 발생하더라도 일반 fetch는 문서
+  // 종료 중 취소된다. keepalive 요청은 문서가 사라져도 완료된다. 응답은 받지
+  // 않는다(받을 화면이 없다).
+  //
+  // **중복 전송을 막지 않는다.** 한때 "이미 보낸 원문" 표시로 pagehide와
+  // visibilitychange의 중복을 걸렀는데, 그 표시 하나가 결함을 둘 만들었다 —
+  // 보낸 글로 되돌아갔을 때 마지막 전송이 막히고, keepalive가 실패한 뒤 페이지가
+  // 살아남으면(bfcache 복귀 등) 재시도까지 막혔다. 중복이 실제로 끼치는 해는
+  // "같은 내용 upsert 요청 한 번 더"가 전부다. 그걸 아끼려고 유실 위험을 지는 건
+  // 남는 장사가 아니다(사용자 지침 2026-08-03: 예외가 쌓이면 전제를 바꿀 것).
+  useEffect(() => {
+    const flush = () => {
+      const latest = contentRef.current;
+      if (latest === savedContentRef.current) return;
+      if (latest.trim().length === 0) return;
+      void fetch(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ templateItemId, content }),
-      });
-      if (!res.ok) {
+        body: JSON.stringify({ templateItemId, content: latest }),
+        keepalive: true,
+      }).catch(() => {});
+    };
+    // pagehide는 bfcache 포함 이탈을, visibilitychange(hidden)는 모바일에서 앱이
+    // 백그라운드로 내려가는 경우를 잡는다 — 둘 다 필요하고, 중복은 위 가드가 막는다.
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
+      // 앱 내 이동(Next.js 클라이언트 내비게이션)은 pagehide도 visibilitychange도
+      // 발생시키지 않고, 포커스된 textarea가 사라진다고 blur가 보장되지도 않는다
+      // (코덱스 P1). 언마운트가 세 번째 이탈 경로다 — 여기서도 흘려보낸다.
+      flush();
+    };
+  }, [apiUrl, templateItemId]);
+
+  /**
+   * 입력에서 포커스가 빠질 때의 조용한 임시저장(저장 버튼 대체).
+   *
+   * 세 경우에 아무것도 하지 않는다:
+   *  - 이미 저장 중 — 같은 내용으로 두 번 보내지 않는다
+   *  - 서버에 있는 원문과 같음 — 펼치기만 하고 지나가는 경우가 대부분이다
+   *  - 비어 있음 — 서버가 빈 내용을 400으로 막는데(saveDraftFeedback), 손대지도
+   *    않은 빈 칸에서 포커스가 빠졌다고 오류를 띄우는 건 사용자를 탓하는 것이다
+   *    (DESIGN.md §10). 기존 초안을 통째로 지운 뒤 나가면 서버에는 이전 원문이
+   *    남는데, v1에 피드백 삭제 경로가 없으므로 그게 덜 나쁜 쪽이다.
+   */
+  async function handleAutosave() {
+    if (content === savedContentRef.current) return;
+    if (content.trim().length === 0) return;
+    await saveDraft();
+  }
+
+  /**
+   * 원문 임시저장. **동시 호출은 새 요청을 만들지 않고 진행 중인 것에 합류한다.**
+   *
+   * 이게 필요한 이유는 자동 저장과 "구조화하기"가 같은 순간에 겹치기 때문이다 —
+   * 입력창에 글을 쓰고 구조화하기를 누르면 브라우저는 click 전에 blur를 먼저
+   * 보낸다. 두 저장이 각자 요청을 보내면 응답 순서가 뒤집힐 수 있고, 늦게 도착한
+   * 저장 응답의 applyFeedback이 **먼저 도착한 구조화 결과를 덮어쓴다**(구조화 전
+   * 상태로 되돌아감). 하나의 promise를 공유하면 그 경합 자체가 없어진다.
+   *
+   * 합류가 **안전한 이유**는 요청이 도는 동안 입력창이 잠기기 때문이다 — blur와
+   * click 사이에 원문이 바뀔 수 없으므로, 진행 중인 저장이 보낸 내용과 지금
+   * 화면의 내용은 항상 같다(사용자 지침 2026-08-03: "요청 중에는 글을 못 쓰게").
+   */
+  async function saveDraft(): Promise<boolean> {
+    if (savingRef.current) return savingRef.current;
+
+    const submitted = content;
+
+    const pending = (async () => {
+      setSaveState("saving");
+      try {
+        const res = await fetch(apiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ templateItemId, content: submitted }),
+        });
+        if (!res.ok) {
+          setSaveState("error");
+          return false;
+        }
+        const data: { feedback: FeedbackDto } = await res.json();
+        // 코덱스 리뷰 2라운드: status만 갱신하고 situation/outcome/rationale/tagsText를
+        // 그대로 두면, 서버가 content 변경을 감지해 구조화 필드를 무효화(null)했어도
+        // 화면은 낡은 값을 계속 보여준다 — 이 상태에서 "필드 저장"을 누르면 그 낡은
+        // 값을 새 content 위에 그대로 덮어써 AD-8 위반이 재발한다. 그래서 구조화
+        // 필드는 항상 반영한다.
+        applyFeedback(data.feedback);
+        setSaveState("saved");
+        return true;
+      } catch {
         setSaveState("error");
-        return;
+        return false;
       }
-      const data: { feedback: FeedbackDto } = await res.json();
-      // 코덱스 리뷰 2라운드: status만 갱신하고 situation/outcome/rationale/tagsText를
-      // 그대로 두면, 서버가 content 변경을 감지해 구조화 필드를 무효화(null)했어도
-      // 화면은 낡은 값을 계속 보여준다 — 이 상태에서 "필드 저장"을 누르면 그 낡은
-      // 값을 새 content 위에 그대로 덮어써 AD-8 위반이 재발한다. applyFeedback으로
-      // 서버 응답(무효화됐다면 null, 아니면 보존된 값)을 그대로 반영한다.
-      applyFeedback(data.feedback);
-      setSaveState("saved");
-    } catch {
-      setSaveState("error");
+    })();
+
+    savingRef.current = pending;
+    try {
+      return await pending;
+    } finally {
+      savingRef.current = null;
     }
   }
 
   async function handleStructure() {
     setStructureState("structuring");
     try {
+      // 구조화는 **서버에 저장된 content**를 읽는다(lib/services/feedback.ts —
+      // 화면의 textarea 값이 아니라 DB의 행이 입력이다). 그래서 저장을 먼저 하지
+      // 않으면 두 가지가 깨진다:
+      //   - 한 번도 저장한 적 없는 단계 → 구조화할 행 자체가 없다
+      //   - 저장 뒤 글을 고친 단계 → 화면에 보이는 글이 아니라 **예전 글**이 구조화된다
+      // blur 자동 저장이 이미 돌고 있으면 saveDraft가 거기에 합류한다(중복 요청 없음).
+      if (!(await saveDraft())) {
+        setStructureState("error");
+        return;
+      }
+
       const res = await fetch(`${apiUrl}/structure`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -260,46 +369,81 @@ export function StepFeedback({
             </div>
           ) : (
             <>
+              {/* 대표 지시(2026-08-03): "저장 버튼 자체가 필요 없다" — 버튼은
+                  없앴지만 임시저장 자체는 남긴다(FR-8 "미완료 시 임시 저장되어 이어
+                  쓸 수 있음", DESIGN.md §13 김도윤 — "지금 당장은 생각이 잘 안 난다"며
+                  나중에 이어 쓴다). 입력에서 포커스가 빠질 때 조용히 저장한다.
+                  타이핑 중(디바운스)이 아니라 포커스 아웃 시점인 이유: 예식 후 화면이라
+                  글이 길고, 매 타자마다 요청을 보내면 서버가 content 변경을 감지해
+                  구조화 필드를 반복 무효화한다(AD-8 경로). */}
               <textarea
                 className="input step-feedback__textarea"
                 rows={4}
                 placeholder="있었던 일을 그대로 적으세요"
                 value={content}
                 onChange={(e) => handleContentChange(e.target.value)}
-                disabled={fetchState === "loading"}
+                onBlur={handleAutosave}
+                // 사용자 지침(2026-08-03): 요청이 도는 동안에는 글을 못 쓰게 한다.
+                // 3.3 질의창이 확립한 방식 그대로다 — 응답 버전 추적이나 무효화
+                // 장치 없이 단순 차단으로 계열 전체를 없앤다. 이게 막는 것:
+                //   - 저장 응답이 그 사이 이어 쓴 글을 덮어쓰는 유실
+                //   - 저장 중 글을 고치고 구조화를 눌러 예전 글이 구조화되는 어긋남
+                // 저장은 blur에서 시작하므로 잠기는 순간 이미 포커스가 없다 —
+                // 타자가 도중에 끊기지 않는다.
+                disabled={
+                  fetchState === "loading" ||
+                  saveState === "saving" ||
+                  structureState === "structuring"
+                }
               />
-              <div className="step-feedback__actions">
+              {saveState !== "idle" ? (
+                <div className="step-feedback__actions">
+                  {/* DESIGN.md §10: 성공은 조용한 확인 — 저장됐다는 사실만 알린다.
+                      실패는 반대로 반드시 드러낸다(자동 저장이라 더 그렇다 — 사용자가
+                      버튼을 누르지 않았으므로 실패를 알아챌 다른 단서가 없다). */}
+                  {saveState === "saving" ? (
+                    <span className="step-feedback__saved-hint" role="status">
+                      저장 중…
+                    </span>
+                  ) : null}
+                  {saveState === "saved" ? (
+                    <span className="step-feedback__saved-hint" role="status">
+                      임시저장됨
+                    </span>
+                  ) : null}
+                  {saveState === "error" ? (
+                    <span className="step-feedback__error" role="status">
+                      저장하지 못했습니다 — 내용을 고치면 다시 저장합니다.
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {/* 대표 지적(2026-08-03): 이 섹션이 status === "draft" 게이트 안에
+                  있었다. 아직 한 번도 저장하지 않은 단계는 status가 null이라
+                  구조화하기 버튼이 **아예 렌더되지 않았고**, 저장을 먼저 눌러야
+                  나타난다는 사실이 화면 어디에도 안내되지 않았다. 실제로 저장 이력이
+                  있던 단계 하나에서만 버튼이 보여 "첫 단계만 된다"처럼 보였다.
+                  이제 확정 전에는 항상 노출하고, 저장 선행 요구는 버튼이 스스로
+                  처리한다(handleStructure가 저장 후 구조화). */}
+              <div className="step-feedback__structure-section">
                 <button
                   type="button"
-                  className="btn-primary step-feedback__save-btn"
-                  onClick={handleSave}
-                  disabled={saveState === "saving" || content.trim().length === 0}
+                  className="btn-secondary"
+                  onClick={handleStructure}
+                  // saveState === "saving"을 넣지 않는다: blur 자동 저장이 click보다
+                  // 먼저 발생하므로, 저장 중이라고 여기서 막으면 방금 글을 쓴 사용자의
+                  // 첫 클릭이 그대로 무시된다. 중복 저장은 saveDraft가 promise 공유로
+                  // 이미 막는다.
+                  disabled={
+                    structureState === "structuring" ||
+                    fieldsDirty ||
+                    content.trim().length === 0
+                  }
+                  title={fieldsDirty ? "필드 저장 후 다시 구조화할 수 있습니다" : undefined}
                 >
-                  {saveState === "saving" ? "저장 중…" : "저장"}
+                  {structureState === "structuring" ? "구조화 중…" : "구조화하기"}
                 </button>
-                {saveState === "saved" ? (
-                  <span className="step-feedback__saved-hint" role="status">
-                    임시저장됨
-                  </span>
-                ) : null}
-                {saveState === "error" ? (
-                  <span className="step-feedback__error" role="status">
-                    저장하지 못했습니다 — 다시 시도해주세요.
-                  </span>
-                ) : null}
-              </div>
-
-              {status === "draft" ? (
-                <div className="step-feedback__structure-section">
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={handleStructure}
-                    disabled={structureState === "structuring" || fieldsDirty}
-                    title={fieldsDirty ? "필드 저장 후 다시 구조화할 수 있습니다" : undefined}
-                  >
-                    {structureState === "structuring" ? "구조화 중…" : "구조화하기"}
-                  </button>
                   {structureState === "error" ? (
                     <span className="step-feedback__error" role="status">
                       구조화하지 못했습니다 — 다시 시도해주세요.
@@ -405,8 +549,7 @@ export function StepFeedback({
                       </div>
                     </div>
                   ) : null}
-                </div>
-              ) : null}
+              </div>
             </>
           )}
         </div>

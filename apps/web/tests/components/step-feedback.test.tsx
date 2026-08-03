@@ -262,6 +262,68 @@ describe("StepFeedback (AC 1, 2, 3)", () => {
     expect(fetchMock.mock.calls.length).toBe(callsAfterFirst);
   });
 
+  // 코덱스 P1: 앱 내 이동은 pagehide도 visibilitychange도 발생시키지 않는다.
+  it("언마운트(앱 내 이동) 시에도 저장되지 않은 초안을 보낸다", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ feedback: null }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { unmount } = render(<StepFeedback {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "피드백 남기기" }));
+    const textarea = await screen.findByPlaceholderText("있었던 일을 그대로 적으세요");
+    fireEvent.change(textarea, { target: { value: "쓰다 만 글" } });
+
+    unmount();
+
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      `/api/feedback/${props.hallId}/${props.ceremonyId}`,
+      expect.objectContaining({
+        method: "POST",
+        keepalive: true,
+        body: JSON.stringify({ templateItemId: props.templateItemId, content: "쓰다 만 글" }),
+      }),
+    );
+  });
+
+  // 코덱스 P2: 중복 방지 표시를 리셋하지 않으면, 한 번 흘려보낸 글로 되돌아갔을 때
+  // 마지막 전송이 건너뛰어져 서버에 그 사이의 다른 내용이 남는다.
+  it("흘려보낸 뒤 다른 내용을 저장했다면, 원래 글로 되돌아가도 다시 보낸다", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ feedback: null }) }) // GET
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({ feedback: { content: "B", status: "draft", tags: [] } }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<StepFeedback {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "피드백 남기기" }));
+    const textarea = await screen.findByPlaceholderText("있었던 일을 그대로 적으세요");
+
+    // A를 쓰고 백그라운드로 → keepalive로 A 전송
+    fireEvent.change(textarea, { target: { value: "A" } });
+    window.dispatchEvent(new Event("pagehide"));
+
+    // 돌아와서 B로 고치고 blur → B가 저장된다(서버 = B)
+    fireEvent.change(textarea, { target: { value: "B" } });
+    fireEvent.blur(textarea);
+    await screen.findByText("임시저장됨");
+
+    // 다시 A로 되돌리고 blur 없이 이탈
+    fireEvent.change(textarea, { target: { value: "A" } });
+    window.dispatchEvent(new Event("pagehide"));
+
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      `/api/feedback/${props.hallId}/${props.ceremonyId}`,
+      expect.objectContaining({
+        keepalive: true,
+        body: JSON.stringify({ templateItemId: props.templateItemId, content: "A" }),
+      }),
+    );
+  });
+
   it("이미 저장된 내용이면 이탈 시 다시 보내지 않는다", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

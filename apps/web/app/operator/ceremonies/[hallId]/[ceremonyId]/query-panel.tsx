@@ -1,6 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+
+import { VoiceInputButton, type VoiceInputFailure } from "./voice-input-button";
 
 // 서버(lib/services/query.ts::QueryMatch)의 JSON 직렬화 형태 — 필드명 동일 유지
 // (Story 2.3 코덱스 리뷰 4차 P1 교훈: 서버·클라이언트 필드명 불일치 금지).
@@ -19,7 +21,9 @@ export interface QueryMatchDto {
 // Story 3.4(AC 4, UX-DR14, DESIGN.md §14): 실패는 종류마다 "무엇이 실패했고 무엇을
 // 하면 되는지"가 다르다 — 한 문구로 뭉개면 예식 중 오퍼레이터가 다음 행동을 고를 수
 // 없다. session은 재시도가 아니라 로그인이 필요해 액션 자체가 다르다.
-type QueryErrorKind = "offline" | "session" | "invalid" | "server";
+// Story 6.1: "voice"는 음성 입력 자체가 실패한 경우다 — 재시도 액션이 버튼(다시
+// 눌러서 말하기)이라 오류 카드에 별도 액션을 두지 않는다.
+type QueryErrorKind = "offline" | "session" | "invalid" | "server" | "voice";
 
 interface QueryError {
   kind: QueryErrorKind;
@@ -134,8 +138,12 @@ export function QueryPanel({ isOffline }: { isOffline: boolean }) {
   // AC 3(3.3): disabled 리렌더 전의 더블클릭/Enter 재진입을 동기적으로 차단한다
   // (step-feedback.tsx의 confirmingRef와 동일한 이유 — 임베딩 API 중복 호출 방지).
   const pendingRef = useRef(false);
+  // Story 6.1: 녹음/전사가 진행 중인 동안 — 질의 제출과 입력창을 함께 잠근다.
+  // 인식 결과가 도착해 입력창을 채우는 사이에 타자가 섞이면 어느 쪽이 제출되는지
+  // 모호해진다(3.3이 in-flight 입력 잠금으로 해결한 것과 같은 계열의 문제).
+  const [voiceBusy, setVoiceBusy] = useState(false);
 
-  const disabled = loading || isOffline || text.trim().length === 0;
+  const disabled = loading || voiceBusy || isOffline || text.trim().length === 0;
 
   async function runQuery() {
     if (pendingRef.current || isOffline) return;
@@ -176,12 +184,29 @@ export function QueryPanel({ isOffline }: { isOffline: boolean }) {
     }
   }
 
+  // Story 6.1 AC 1(D-3): 인식 결과는 입력창에 **채우기만** 한다 — 자동 제출하지
+  // 않는다. 오인식된 질의는 "관련 사례 없음"으로 돌아오고, 그러면 신입은 실제로
+  // 사례가 없다고 믿는다(안전장치가 거짓 신호를 내는 것 — §12-4 "근거는 신성하다").
+  const handleVoiceResult = useCallback((recognized: string) => {
+    setText(recognized);
+    setError(null);
+  }, []);
+
+  const handleVoiceFailure = useCallback((failure: VoiceInputFailure) => {
+    setError({
+      kind: failure.needsLogin ? "session" : "voice",
+      title: failure.title,
+      description: failure.description,
+    });
+  }, []);
+
   return (
     <section className="run-query" aria-label="자연어 상황 질의">
       <h2 className="run-query__title">지금 이런 상황인데 어떡하죠?</h2>
-      <p className="run-query__helper">
-        상황을 그대로 적으면 과거 유사 사례를 근거와 함께 찾아드립니다. 예: &quot;주례자가
-        순서를 갑자기 바꿨어요&quot;
+      <p className="run-query__helper" id="run-query-voice-help">
+        상황을 그대로 적으면 과거 유사 사례를 근거와 함께 찾아드립니다. 손이 바쁘면 마이크
+        버튼을 <strong>누르고 있는 동안</strong> 말하세요 — 인식된 문장은 입력창에 채워지고,
+        확인 후 직접 질의하시면 됩니다.
       </p>
       <div className="run-query__form">
         {/* 사용자 지침(2026-07-28) + 코덱스 리뷰 2~3차 P2: 요청이 in-flight인 동안
@@ -203,9 +228,16 @@ export function QueryPanel({ isOffline }: { isOffline: boolean }) {
             setError(null);
           }}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !loading) runQuery();
+            if (e.key === "Enter" && !loading && !voiceBusy) runQuery();
           }}
-          disabled={loading}
+          disabled={loading || voiceBusy}
+        />
+        <VoiceInputButton
+          disabled={loading || isOffline}
+          isOffline={isOffline}
+          onResult={handleVoiceResult}
+          onFailure={handleVoiceFailure}
+          onBusyChange={setVoiceBusy}
         />
         <button
           type="button"
@@ -224,10 +256,17 @@ export function QueryPanel({ isOffline }: { isOffline: boolean }) {
       {error !== null ? (
         // UX-DR14/DESIGN.md §14: 조용한 토스트가 아니라 인라인 카드로 상시 노출한다.
         <div className="run-query__error" role="alert">
-          <span className="run-query__error-badge">질의 실패</span>
+          <span className="run-query__error-badge">
+            {error.kind === "voice" ? "음성 입력 실패" : "질의 실패"}
+          </span>
           <p className="run-query__error-title">{error.title}</p>
           <p className="run-query__error-description">{error.description}</p>
-          {error.kind === "session" ? (
+          {error.kind === "voice" ? (
+            // 액션 버튼을 두지 않는다 — 이 실패의 재시도는 바로 위 마이크 버튼을
+            // 다시 누르는 것이고, "다시 시도"가 질의를 실행하면 무엇을 재시도하는지
+            // 어긋난다(3.4가 오류 카드 액션을 종류별로 나눈 것과 같은 이유).
+            null
+          ) : error.kind === "session" ? (
             <a className="btn-secondary run-query__error-action" href="/login">
               로그인하러 가기
             </a>
